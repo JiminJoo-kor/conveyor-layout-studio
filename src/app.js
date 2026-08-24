@@ -1,0 +1,75 @@
+import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
+import { defaultParams, SimulationEngine, validateParams } from './engine.js';
+import { LayoutRenderer } from './renderer.js';
+import { LayoutEditor } from './editor.js';
+
+const $ = id => document.getElementById(id);
+let layout = cloneLayout(defaultLayout), engine = new SimulationEngine(layout, defaultParams);
+let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, frame = null, last = 0;
+let selectedEquipment = null;
+const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment);
+
+const inputKeys = ['injectA','injectB','injectC','conv2Speed','conv1Speed','pickTime','placeTime','station15Time','station16Time','forklift17Time','forklift211Time','simDuration'];
+function readParams() {
+  return { useA:$('useA').checked, useB:$('useB').checked, ...Object.fromEntries(inputKeys.map(key=>[key,Number($(key).value)])) };
+}
+function resetEngine() {
+  const params=readParams(), check=validateParams(params);
+  $('validation').textContent=check.errors.join(' ');
+  if(!check.valid) return false;
+  engine=new SimulationEngine(layout,params); renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
+}
+function editorChanged(rebuild) {
+  if (rebuild) renderer.setLayout(layout);
+  renderer.draw(engine.state);
+}
+function selectEquipment(item) {
+  selectedEquipment=item;
+  for(const id of ['propName','propX','propY']) $(id).disabled=!item;
+  $('deleteEquipment').disabled=!item||!item.id.includes('-custom-');
+  $('propName').value=item?.name||'';$('propX').value=item?.x??'';$('propY').value=item?.y??'';
+}
+function updateDashboard() {
+  const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
+  $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
+  $('robotUtil').textContent=(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
+  $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
+  $('moved').textContent=k.movedItems; $('completed').textContent=engine.state.completedProducts.length;
+}
+function loop(now) {
+  if(!running) return; if(!last) last=now;
+  const simDt=Math.min((now-last)/1000*Number($('playback').value),2); last=now;
+  const steps=Math.max(1,Math.ceil(simDt/.05)); for(let i=0;i<steps;i++) engine.step(simDt/steps);
+  renderer.draw(engine.state); updateDashboard();
+  if(engine.state.t>=engine.params.simDuration){running=false;$('runBtn').textContent='완료';renderEvents();return;}
+  frame=requestAnimationFrame(loop);
+}
+function toggleRun() {
+  if(engine.state.t===0&&!resetEngine()) return;
+  running=!running; $('runBtn').textContent=running?'일시정지':'재개'; last=0;
+  if(running) frame=requestAnimationFrame(loop); else {cancelAnimationFrame(frame);renderEvents();}
+}
+function renderEvents() {
+  const rows=engine.state.events.slice(-12).reverse();
+  $('eventRows').innerHTML=rows.length?rows.map(e=>`<tr><td>${format(e.t)}</td><td>${eventLabel(e.type)}</td><td>${e.equipmentId||e.kind||''}</td><td>#${e.trayId||e.productId||'-'}</td></tr>`).join(''):'<tr><td colspan="4">아직 이벤트가 없습니다.</td></tr>';
+}
+function eventLabel(type){return ({'source-injected':'소스 투입','product-injected':'C 투입','robot-pick-start':'PICK 시작','robot-place-complete':'PLACE 완료','equipment-start':'설비 작업 시작','equipment-complete':'설비 작업 완료'})[type]||type;}
+function format(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
+function download(name,text,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
+
+$('runBtn').addEventListener('click',toggleRun);
+$('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(frame);resetEngine();$('runBtn').textContent='시뮬레이션 시작';});
+$('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify(layout,null,2)));
+$('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hidden;$('editorTools').hidden=!active;editor.setEnabled(active);$('editorToggle').textContent=active?'편집 종료':'편집 모드';});
+$('drawingFile').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;const dataUrl=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(file);});layout.background={name:file.name,dataUrl};await renderer.setBackground(dataUrl);renderer.draw(engine.state);event.target.value='';});
+document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener('click',()=>editor.add(button.dataset.add)));
+$('resetView').addEventListener('click',()=>editor.resetView());
+$('deleteEquipment').addEventListener('click',()=>selectedEquipment&&editor.remove(selectedEquipment.id));
+for(const id of ['propName','propX','propY']) $(id).addEventListener('change',()=>{if(!selectedEquipment)return;selectedEquipment.name=$('propName').value||selectedEquipment.name;selectedEquipment.x=Number($('propX').value);selectedEquipment.y=Number($('propY').value);renderer.draw(engine.state);});
+$('layoutFile').addEventListener('change',async event=>{
+  const file=event.target.files[0]; if(!file)return;
+  try {const candidate=JSON.parse(await file.text()), check=validateLayout(candidate);if(!check.valid)throw new Error(check.errors.join(' '));layout=candidate;renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);resetEngine();$('layoutName').textContent=layout.name;selectEquipment(null);}
+  catch(error){$('validation').textContent='레이아웃 불러오기 실패: '+error.message;} finally{event.target.value='';}
+});
+inputKeys.forEach(key=>$(key).value=defaultParams[key]); $('useA').checked=defaultParams.useA;$('useB').checked=defaultParams.useB;
+$('layoutName').textContent=layout.name;renderer.draw(engine.state);updateDashboard();renderEvents();

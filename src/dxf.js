@@ -98,24 +98,31 @@ export function createCanvasTransform(document,width=1200,height=430,padding=40)
 const architecturalLayerTerms=['WALL','WAL','COLUMN','COL','DOOR','WINDOW','FLOOR','CEILING','GRID','AXIS','DIM','TEXT','TEX','TXT','HATCH','건축','벽','외벽','내벽','기둥','문','창호','치수','천장'];
 const logisticsLayerTerms=['CONV','CONVEYOR','CV','ROLLER','BELT','RACK','STACK','STK','CRANE','SHUTTLE','AMR','AGV','ASRS','MHE','SORT','LIFT','ROBOT','물류','컨베이어','랙','크레인','셔틀'];
 function hasLogisticsIdentity(entity){const haystack=`${entity.layer||''} ${entity.blockName||''} ${entity.instancePath||''}`.toUpperCase();return logisticsLayerTerms.some(term=>haystack.includes(term));}
+export function isProcessLabel(entity){return ['TEXT','MTEXT'].includes(entity.entityType)&&/(도어|화이날|트림|입고|출고|스테커|스태커|DOOR|FINAL|TRIM|INBOUND|OUTBOUND|ASRS)/i.test(entity.text||'');}
+export function isArchitecturalDxfEntity(entity){
+  const haystack=`${entity.layer||''} ${entity.blockName||''}`.toUpperCase();
+  return architecturalLayerTerms.some(term=>haystack.includes(term))||['HATCH','DIMENSION'].includes(entity.entityType)||(['TEXT','MTEXT'].includes(entity.entityType)&&!isProcessLabel(entity));
+}
 export function isLogisticsDxfEntity(entity){
   const haystack=`${entity.layer||''} ${entity.blockName||''} ${entity.instancePath||''}`.toUpperCase();
   if(hasLogisticsIdentity(entity))return true;
-  if(architecturalLayerTerms.some(term=>haystack.includes(term))||['HATCH','DIMENSION','TEXT','MTEXT'].includes(entity.entityType))return false;
+  if(isProcessLabel(entity))return true;
+  if(isArchitecturalDxfEntity(entity))return false;
   // 펼쳐진 익명/건축 블록은 물류 키워드가 확인될 때만 표시한다.
   if(entity.instancePath)return false;
   return true;
 }
 
-export function transformDxfGeometry(document,transform,rootIndexes=null){
+export function transformDxfGeometry(document,transform,rootIndexes=null,includeProcessContext=false){
   const point=p=>({x:p.x*transform.scale+transform.offsetX,y:-p.y*transform.scale+transform.offsetY});
   const allowed=rootIndexes?new Set(rootIndexes):null;
-  return (document.expandedEntities||document.entities||[]).filter(entity=>isLogisticsDxfEntity(entity)&&(!allowed||allowed.has(entity.rootIndex))).flatMap(entity=>{
+  return (document.expandedEntities||document.entities||[]).filter(entity=>(isLogisticsDxfEntity(entity)||(includeProcessContext&&!isArchitecturalDxfEntity(entity)))&&(!allowed||allowed.has(entity.rootIndex))).flatMap(entity=>{
     const common={type:entity.entityType,layer:entity.layer||'0'};
     if(entity.entityType==='LINE')return [{...common,start:point(entity.start),end:point(entity.end)}];
     if(['LWPOLYLINE','POLYLINE'].includes(entity.entityType)&&entity.vertices?.length)return [{...common,vertices:entity.vertices.map(point),closed:entity.closed}];
     if(entity.entityType==='CIRCLE')return [{...common,center:point(entity.center),radius:entity.radius*transform.scale}];
     if(entity.entityType==='ARC')return [{...common,center:point(entity.center),radius:entity.radius*transform.scale,startAngle:-(entity.endAngle||0)*Math.PI/180,endAngle:-(entity.startAngle||0)*Math.PI/180}];
+    if(['TEXT','MTEXT'].includes(entity.entityType)&&isProcessLabel(entity))return [{...common,center:point(entity.center),text:entity.text,height:Math.max(10,(entity.height||12)*transform.scale)}];
     return [];
   });
 }

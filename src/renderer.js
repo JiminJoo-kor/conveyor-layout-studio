@@ -42,6 +42,7 @@ export class LayoutRenderer {
     for (let x = 0; x < width; x += grid) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,height); c.stroke(); }
     for (let y = 0; y < height; y += grid) { c.beginPath(); c.moveTo(0,y); c.lineTo(width,y); c.stroke(); }
     this.drawDxfGeometry();
+    if(this.layout.displayMode==='cad')this.drawCadSchematic();
     const lines = this.layout.equipment.filter(item=>isNodeConveyor(item)&&this.isVisible(item));
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     if(this.layout.displayMode!=='cad')this.drawConnections();
@@ -58,8 +59,17 @@ export class LayoutRenderer {
       else if(shape.type==='LWPOLYLINE'||shape.type==='POLYLINE'){shape.vertices.forEach((p,index)=>index?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));if(shape.closed)c.closePath();}
       else if(shape.type==='CIRCLE'){c.arc(shape.center.x,shape.center.y,shape.radius,0,Math.PI*2);}
       else if(shape.type==='ARC'){c.arc(shape.center.x,shape.center.y,shape.radius,shape.startAngle,shape.endAngle);}
+      else if(['TEXT','MTEXT'].includes(shape.type)){c.fillStyle='#77eaff';c.font=`${Math.min(22,shape.height||11)}px monospace`;c.fillText(shape.text,shape.center.x,shape.center.y);continue;}
       c.stroke();
     }c.restore();
+  }
+
+  drawCadSchematic(){
+    const c=this.ctx,schematic=this.layout.cadSchematic;if(!schematic)return;const nodeMap=new Map(this.layout.equipment.filter(item=>item.source?.origin==='dxf').map(item=>[item.id,item]));
+    c.save();
+    for(const lane of schematic.lanes||[]){const nodes=lane.nodes.map(node=>nodeMap.get(node.id)||node).filter(Boolean);if(nodes.length<2)continue;const minX=Math.min(...nodes.map(n=>n.x)),maxX=Math.max(...nodes.map(n=>n.x)),y=nodes.reduce((sum,n)=>sum+n.y,0)/nodes.length;c.strokeStyle='rgba(23,51,74,.9)';c.lineWidth=8;c.beginPath();c.moveTo(minX,y);c.lineTo(maxX,y);c.stroke();c.fillStyle=COLORS.text;c.font='11px monospace';c.fillText(lane.name,minX,y-18);}
+    for(const edge of schematic.edges||[]){const from=nodeMap.get(edge.from),to=nodeMap.get(edge.to);if(!from||!to)continue;c.strokeStyle=edge.kind==='transfer'?'rgba(255,113,57,.55)':'rgba(0,212,255,.38)';c.lineWidth=edge.kind==='transfer'?2:5;c.setLineDash(edge.kind==='transfer'?[6,5]:[]);c.beginPath();c.moveTo(from.x,from.y);c.lineTo(to.x,to.y);c.stroke();}
+    c.setLineDash([]);c.restore();
   }
 
   drawLine(line, slots) {
@@ -100,7 +110,7 @@ export class LayoutRenderer {
         const pos=this.nodePositions.get(item.nodeId); if(!pos) continue;
         const busy=Boolean(state.locks[item.id]); c.fillStyle=busy?COLORS.pink:COLORS.text; c.font='10px monospace'; c.fillText(item.type==='station'?'WORK':'FORK',pos.x+18,pos.y+76);
       } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
-        const long=item.type==='conveyor',w=long?Math.max(24,Math.min(500,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
+        const long=['conveyor','processLine'].includes(item.type),w=long?Math.max(24,Math.min(500,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
         c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=state.locks[item.id]?COLORS.pink:'#17334a';c.strokeStyle=item.id===this.selectedId?COLORS.yellow:COLORS.cyan;c.lineWidth=item.id===this.selectedId?2:1;
         c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);if(long){c.setLineDash([8,5]);c.beginPath();c.moveTo(-w/2+5,0);c.lineTo(w/2-5,0);c.stroke();c.setLineDash([]);}c.restore();
         c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);
@@ -109,10 +119,10 @@ export class LayoutRenderer {
   }
 
   drawCadFlow(state){
-    const c=this.ctx,conveyors=this.layout.equipment.filter(item=>item.type==='conveyor'&&item.source?.origin==='dxf');
+    const c=this.ctx,conveyors=this.layout.equipment.filter(item=>['conveyor','processLine'].includes(item.type)&&item.source?.origin==='dxf');
     c.save();c.strokeStyle='rgba(0,255,136,.42)';c.lineWidth=2;c.setLineDash([7,6]);
     conveyors.forEach((item,index)=>{const next=conveyors.slice(index+1).sort((a,b)=>Math.hypot(item.x-a.x,item.y-a.y)-Math.hypot(item.x-b.x,item.y-b.y))[0];if(!next)return;const distance=Math.hypot(item.x-next.x,item.y-next.y);if(distance<360){c.beginPath();c.moveTo(item.x,item.y);c.lineTo(next.x,next.y);c.stroke();}});c.setLineDash([]);c.restore();
-    conveyors.forEach((item,index)=>{const length=Math.max(48,item.length||item.width||80),speed=Math.max(.2,item.parameters?.speed||.5),progress=((state.t*speed*32+index*29)%length)-length/2;
+    conveyors.forEach((item,index)=>{const length=Math.max(48,item.length||item.width||160),speed=Math.max(.2,item.parameters?.speed||item.parameters?.lineSpeed/20||.5),progress=((state.t*speed*32+index*29)%length)-length/2;
       c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=COLORS.yellow;c.strokeStyle='#fff2a8';c.lineWidth=1;c.fillRect(progress-7,-7,14,14);c.strokeRect(progress-7,-7,14,14);c.restore();
     });
   }

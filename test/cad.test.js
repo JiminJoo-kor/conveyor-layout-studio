@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLayoutCandidates, classifyCadEntity, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
+import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, detectProcessRegion, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { isNodeConveyor } from '../src/renderer.js';
 
@@ -69,4 +69,15 @@ test('건축 배경은 제외하고 물류설비 레이어는 유지한다',()=>
 test('여러 도면이 섞이면 컨베이어가 많은 주요 물류 군집을 선택한다',()=>{
   const items=[{type:'amr',x:0,y:0},{type:'amr',x:1000,y:0},{type:'conveyor',x:100000,y:0},{type:'conveyor',x:101000,y:0},{type:'conveyor',x:102000,y:0}];
   const cluster=selectPrimaryLayoutCluster(items);assert.equal(cluster.length,3);assert.ok(cluster.every(item=>item.type==='conveyor'));
+});
+
+test('도어·화이날·트림 라벨로 전체 공정 영역을 선택한다',()=>{
+  const document={entities:['도어 라인','화이날 라인','트림 라인'].map((text,index)=>({entityType:'TEXT',text,center:{x:150000+index*10000,y:30000+index*10000}}))};
+  const region=detectProcessRegion(document);assert.ok(region.minX<100000);assert.ok(region.maxX>240000);assert.ok(region.maxY>70000);
+  assert.equal(classifyCadEntity({entityType:'TEXT',text:'화이날 라인'}).type,'processLine');
+});
+
+test('임의 설비 배치를 가로 공정 라인과 이송 연결로 변환한다',()=>{
+  const items=[{id:'a',type:'source',x:10,y:100},{id:'b',type:'conveyor',x:100,y:105},{id:'c',type:'sink',x:200,y:95},{id:'r',type:'robot',x:110,y:220}];
+  const schematic=buildSchematicLayout(items);assert.equal(schematic.lanes[0].nodes.length,3);assert.ok(schematic.edges.some(edge=>edge.from==='a'&&edge.to==='b'));
 });

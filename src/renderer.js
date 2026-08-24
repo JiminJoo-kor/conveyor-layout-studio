@@ -1,0 +1,90 @@
+const COLORS = { bg:'#071019', panel:'#0c1824', line:'#17334a', cyan:'#00d4ff', green:'#00ff88', yellow:'#ffd166', orange:'#ff7139', pink:'#ff4d9d', text:'#9fc5dd' };
+
+export class LayoutRenderer {
+  constructor(canvas, layout) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.view = { zoom: 1, x: 0, y: 0 };
+    this.backgroundImage = null;
+    this.selectedId = null;
+    this.setLayout(layout);
+  }
+
+  setView(view) { this.view = { ...this.view, ...view }; }
+  setSelected(id) { this.selectedId = id; }
+  async setBackground(source) {
+    if (!source) { this.backgroundImage = null; return; }
+    const image = new Image();
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = source; });
+    this.backgroundImage = image;
+  }
+
+  setLayout(layout) {
+    this.layout = layout;
+    this.canvas.width = layout.canvas.width;
+    this.canvas.height = layout.canvas.height;
+    this.nodePositions = new Map();
+    for (const line of layout.equipment.filter(item => item.type === 'conveyor')) {
+      line.nodes.forEach((node, index) => this.nodePositions.set(node.id, { x: line.x + index * 88, y: line.y, lineId: line.id, index }));
+    }
+  }
+
+  draw(state) {
+    const c = this.ctx, { width, height, grid } = this.layout.canvas;
+    c.fillStyle = COLORS.bg; c.fillRect(0, 0, width, height);
+    c.save(); c.translate(this.view.x, this.view.y); c.scale(this.view.zoom, this.view.zoom);
+    if (this.backgroundImage) { c.globalAlpha=.32; c.drawImage(this.backgroundImage,0,0,width,height); c.globalAlpha=1; }
+    c.strokeStyle = 'rgba(70,120,150,.08)'; c.lineWidth = 1;
+    for (let x = 0; x < width; x += grid) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,height); c.stroke(); }
+    for (let y = 0; y < height; y += grid) { c.beginPath(); c.moveTo(0,y); c.lineTo(width,y); c.stroke(); }
+    const lines = this.layout.equipment.filter(item => item.type === 'conveyor');
+    lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
+    this.drawConnections();
+    this.drawEquipment(state);
+    c.restore();
+  }
+
+  drawLine(line, slots) {
+    const c = this.ctx, nodeW = 78, nodeH = 58;
+    c.font = '12px monospace'; c.fillStyle = COLORS.text; c.fillText(line.name, line.x, line.y - 24);
+    c.strokeStyle = COLORS.line; c.lineWidth = 7;
+    c.beginPath(); c.moveTo(line.x + nodeW/2, line.y + nodeH/2); c.lineTo(line.x + (line.nodes.length-1)*88 + nodeW/2, line.y + nodeH/2); c.stroke();
+    line.nodes.forEach((node, index) => {
+      const x=line.x+index*88, y=line.y, important=node.role!=='buffer';
+      c.fillStyle = important ? '#10283a' : COLORS.panel; c.strokeStyle = important ? COLORS.cyan : COLORS.line; c.lineWidth=1;
+      c.fillRect(x,y,nodeW,nodeH); c.strokeRect(x,y,nodeW,nodeH);
+      c.fillStyle=important?COLORS.cyan:COLORS.text; c.font='11px monospace'; c.fillText(node.label,x+8,y+15);
+      if(slots[index]) this.drawTray(slots[index],x+10,y+23,nodeW-20,nodeH-29);
+    });
+  }
+
+  drawTray(tray,x,y,w,h) {
+    const c=this.ctx; c.fillStyle=tray.kind==='C'?'#103c30':'#4b3a0d'; c.strokeStyle=tray.kind==='C'?COLORS.green:COLORS.yellow;
+    c.fillRect(x,y,w,h); c.strokeRect(x,y,w,h); c.fillStyle=tray.kind==='C'?COLORS.green:COLORS.yellow; c.font='bold 11px monospace';
+    c.fillText(`${tray.kind}#${tray.id}`,x+4,y+12); c.fillStyle=COLORS.orange; c.fillText(`${tray.items}/${tray.capacity}`,x+w-29,y+12);
+  }
+
+  drawConnections() {
+    const c=this.ctx, robot=this.layout.equipment.find(item=>item.type==='robot');
+    const pick=this.nodePositions.get(robot.pickNode), place=this.nodePositions.get(robot.placeNode);
+    if(!pick||!place) return;
+    c.strokeStyle='rgba(0,212,255,.45)'; c.setLineDash([5,5]); c.beginPath(); c.moveTo(pick.x+39,pick.y+58); c.lineTo(robot.x,robot.y); c.lineTo(place.x+39,place.y); c.stroke(); c.setLineDash([]);
+  }
+
+  drawEquipment(state) {
+    const c=this.ctx;
+    for(const item of this.layout.equipment.filter(x=>x.type!=='conveyor')) {
+      if(item.type==='robot') {
+        c.beginPath(); c.arc(item.x,item.y,27,0,Math.PI*2); c.fillStyle=state.robot.phase==='idle'?'#6f2530':COLORS.orange; c.fill();
+        c.strokeStyle=state.robot.phase==='idle'?'#b54555':COLORS.yellow; c.stroke(); c.fillStyle='#fff'; c.font='bold 11px monospace'; c.fillText(state.robot.phase.toUpperCase(),item.x-18,item.y+4);
+        if(item.id===this.selectedId){c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.strokeRect(item.x-34,item.y-34,68,68);}
+      } else if(item.nodeId) {
+        const pos=this.nodePositions.get(item.nodeId); if(!pos) continue;
+        const busy=Boolean(state.locks[item.id]); c.fillStyle=busy?COLORS.pink:COLORS.text; c.font='10px monospace'; c.fillText(item.type==='station'?'WORK':'FORK',pos.x+18,pos.y+76);
+      } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
+        c.fillStyle=state.locks[item.id]?COLORS.pink:'#17334a';c.strokeStyle=item.id===this.selectedId?COLORS.yellow:COLORS.cyan;c.lineWidth=item.id===this.selectedId?2:1;
+        c.fillRect(item.x-30,item.y-20,60,40);c.strokeRect(item.x-30,item.y-20,60,40);c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-23,item.y+4);
+      }
+    }
+  }
+}

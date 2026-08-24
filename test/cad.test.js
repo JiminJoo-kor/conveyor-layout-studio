@@ -97,5 +97,6 @@ test('입고·창고·AGV 단절 구간을 방향 그래프로 구성한다',()=
   assert.equal(schematic.lanes.length,3);assert.equal(schematic.edges.filter(edge=>edge.kind==='warehouse').length,3);
   assert.equal(schematic.lanes.find(lane=>lane.name==='도어 라인').direction,'inbound');
   assert.ok(schematic.edges.some(edge=>edge.to==='agv'));assert.ok(schematic.edges.some(edge=>edge.from==='agv'));
+  assert.equal(schematic.inferredEquipment.length,2);assert.ok(schematic.inferredEquipment.every(item=>item.type==='agv'&&item.source.inferred));
   assert.ok(!edgeIds.some(id=>id.startsWith('label-')));
 });

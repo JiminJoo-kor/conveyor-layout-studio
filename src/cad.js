@@ -1,6 +1,8 @@
 import { createCanvasTransform, parseDxf } from './dxf.js';
 
 export const logisticsEquipmentCatalog = [
+  { type:'source', label:'투입구', keywords:['INFEED','INPUT','SOURCE','FEEDER','투입'], defaults:{ injectionInterval:30, batchSize:1 } },
+  { type:'sink', label:'배출구', keywords:['OUTFEED','OUTPUT','DISCHARGE','EXIT','배출'], defaults:{ dischargeTime:5, capacity:1 } },
   { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ speed:0.5, capacity:1 } },
   { type:'diverter', label:'디버터', keywords:['DIV','DIVERTER','MERGE','SORT GATE'], defaults:{ cycleTime:1.5, directions:2 } },
   { type:'shuttle', label:'셔틀', keywords:['SHUTTLE','STK','STACKER','MINILOAD'], defaults:{ speed:2, acceleration:1 } },
@@ -14,6 +16,14 @@ export const logisticsEquipmentCatalog = [
   { type:'buffer', label:'버퍼', keywords:['BUFFER','QUEUE','ACCUMULATION'], defaults:{ capacity:4 } },
   { type:'dock', label:'도크', keywords:['DOCK','INBOUND','OUTBOUND','TRUCK'], defaults:{ processTime:300 } }
 ];
+
+export const equipmentParameterLabels = {
+  injectionInterval:'투입 간격(초)',batchSize:'1회 투입 수량',dischargeTime:'배출 시간(초)',speed:'속도',capacity:'용량',
+  cycleTime:'사이클타임(초)',directions:'분기 수',acceleration:'가속도',chargeThreshold:'충전 기준(%)',destinations:'목적지 수',
+  levels:'층수',rows:'행',columns:'열',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'길이'
+};
+
+export function parameterFieldsFor(item){return Object.entries(item.parameters||{}).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}
 
 const normalized = value => String(value || '').toUpperCase().replace(/[_-]+/g,' ');
 
@@ -38,9 +48,12 @@ export function inferParameters(rule, entity) {
 export function buildLayoutCandidates(cadDocument) {
   return (cadDocument.entities||[]).map((entity,index)=>{
     const match=classifyCadEntity(entity),center=entity.center||{x:0,y:0};
+    const width=Math.abs((entity.bounds?.maxX??center.x)-(entity.bounds?.minX??center.x));
+    const height=Math.abs((entity.bounds?.maxY??center.y)-(entity.bounds?.minY??center.y));
+    const lineRotation=entity.start&&entity.end?Math.atan2(entity.end.y-entity.start.y,entity.end.x-entity.start.x)*180/Math.PI:null;
     return { id:`${match.type}-candidate-${index+1}`,type:match.type,name:entity.blockName||entity.text||match.label,
-      x:center.x,y:center.y,rotation:entity.rotation||0,confidence:match.confidence,parameters:match.parameters,
-      source:{ handle:entity.handle,layer:entity.layer,blockName:entity.blockName },reviewStatus:'candidate' };
+      x:center.x,y:center.y,rotation:lineRotation??entity.rotation??0,width,height,length:Math.hypot(width,height),confidence:match.confidence,parameters:match.parameters,
+      source:{ origin:'dxf',handle:entity.handle,layer:entity.layer,blockName:entity.blockName,entityType:entity.entityType },reviewStatus:'candidate' };
   });
 }
 
@@ -48,7 +61,7 @@ export async function analyzeCadFile(file) {
   const extension=file.name.split('.').pop().toLowerCase();
   if(extension==='dwg')throw new Error('DWG를 AutoCAD 2013 ASCII DXF로 저장한 뒤 업로드해 주세요.');
   if(extension!=='dxf')throw new Error('ASCII DXF 파일만 지원합니다.');
-  const document=parseDxf(await file.text()),transform=createCanvasTransform(document);
-  const candidates=buildLayoutCandidates(document).map(item=>({...item,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY)}));
+  const document=parseDxf(await file.text()),transform=createCanvasTransform(document),importId=`dxf-${Date.now()}`;
+  const candidates=buildLayoutCandidates(document).map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(8,Math.round(item.width*transform.scale)),height:Math.max(8,Math.round(item.height*transform.scale)),length:Math.max(16,Math.round(item.length*transform.scale)),source:{...item.source,importId}}));
   return { document:{...document,toCanvasTransform:transform},candidates };
 }

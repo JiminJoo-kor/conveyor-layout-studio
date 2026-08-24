@@ -1,5 +1,9 @@
 # Conveyor Layout Studio
 
+프로덕션: https://conveyor-layout-studio.vercel.app
+
+`main` 브랜치가 Vercel 기준 프로젝트에 연결되어 커밋 시 자동 배포됩니다.
+
 기존 단일 HTML 컨베이어 시뮬레이터를 기준본으로 삼아 고도화하는 새 프로젝트입니다.
 
 ## 2차 범위

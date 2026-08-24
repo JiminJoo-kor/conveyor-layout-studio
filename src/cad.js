@@ -48,22 +48,34 @@ export function inferParameters(rule, entity) {
 }
 
 export function buildLayoutCandidates(cadDocument) {
-  return (cadDocument.entities||[]).filter(isLogisticsDxfEntity).map((entity,index)=>{
+  return (cadDocument.entities||[]).flatMap((entity,rootIndex)=>isLogisticsDxfEntity(entity)?[{entity,rootIndex}]:[]).map(({entity,rootIndex},index)=>{
     const match=classifyCadEntity(entity),center=entity.center||{x:0,y:0};
     const width=Math.abs((entity.bounds?.maxX??center.x)-(entity.bounds?.minX??center.x));
     const height=Math.abs((entity.bounds?.maxY??center.y)-(entity.bounds?.minY??center.y));
-    const lineRotation=entity.start&&entity.end?Math.atan2(entity.end.y-entity.start.y,entity.end.x-entity.start.x)*180/Math.PI:null;
+    const lineRotation=entity.start&&entity.end?Math.atan2(entity.end.y-entity.start.y,entity.end.x-entity.start.x)*180/Math.PI:null,shapeRotation=entity.entityType==='INSERT'?(height>width?90:0):entity.rotation??0;
     return { id:`${match.type}-candidate-${index+1}`,type:match.type,name:entity.blockName||entity.text||match.label,
-      x:center.x,y:center.y,rotation:lineRotation??entity.rotation??0,width,height,length:Math.hypot(width,height),confidence:match.confidence,parameters:match.parameters,
-      source:{ origin:'dxf',handle:entity.handle,layer:entity.layer,blockName:entity.blockName,entityType:entity.entityType },reviewStatus:'candidate' };
+      x:center.x,y:center.y,rotation:lineRotation??shapeRotation,width,height,length:lineRotation===null?Math.max(width,height):Math.hypot(width,height),confidence:match.confidence,parameters:match.parameters,
+      source:{ origin:'dxf',handle:entity.handle,layer:entity.layer,blockName:entity.blockName,entityType:entity.entityType,rootIndex },reviewStatus:'candidate' };
   });
+}
+
+export function selectPrimaryLayoutCluster(candidates){
+  const recognized=candidates.filter(item=>item.type!=='unknown');if(recognized.length<2)return recognized;
+  const nearest=recognized.map((item,index)=>Math.min(...recognized.map((other,j)=>j===index?Infinity:Math.hypot(item.x-other.x,item.y-other.y)))).filter(Number.isFinite).sort((a,b)=>a-b);
+  const median=nearest[Math.floor(nearest.length/2)]||50000,threshold=Math.max(15000,Math.min(180000,median*3.5)),unseen=new Set(recognized),groups=[];
+  while(unseen.size){const seed=unseen.values().next().value,group=[],queue=[seed];unseen.delete(seed);while(queue.length){const item=queue.shift();group.push(item);for(const other of [...unseen])if(Math.hypot(item.x-other.x,item.y-other.y)<=threshold){unseen.delete(other);queue.push(other);}}groups.push(group);}
+  const score=group=>group.length+group.filter(x=>x.type==='conveyor').length*5+new Set(group.map(x=>x.type)).size*2;
+  return groups.sort((a,b)=>score(b)-score(a))[0];
 }
 
 export async function analyzeCadFile(file) {
   const extension=file.name.split('.').pop().toLowerCase();
   if(extension==='dwg')throw new Error('DWG를 AutoCAD 2013 ASCII DXF로 저장한 뒤 업로드해 주세요.');
   if(extension!=='dxf')throw new Error('ASCII DXF 파일만 지원합니다.');
-  const document=parseDxf(await file.text()),bounds=document.bounds||{minX:0,maxX:1,minY:0,maxY:1},aspect=Math.max(.36,Math.min(.72,(bounds.maxY-bounds.minY)/Math.max(1,bounds.maxX-bounds.minX))),canvasHeight=Math.round(1200*aspect),transform=createCanvasTransform(document,1200,canvasHeight),importId=`dxf-${Date.now()}`;
-  const candidates=buildLayoutCandidates(document).map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(8,Math.round(item.width*transform.scale)),height:Math.max(8,Math.round(item.height*transform.scale)),length:Math.max(16,Math.round(item.length*transform.scale)),source:{...item.source,importId}}));
-  return { document:{...document,canvasHeight,toCanvasTransform:transform,canvasGeometry:transformDxfGeometry(document,transform)},candidates };
+  const document=parseDxf(await file.text()),cluster=selectPrimaryLayoutCluster(buildLayoutCandidates(document)),points=cluster.flatMap(item=>[{x:item.x-item.width/2,y:item.y-item.height/2},{x:item.x+item.width/2,y:item.y+item.height/2}]);
+  if(points.length){document.bounds={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minY:Math.min(...points.map(p=>p.y)),maxY:Math.max(...points.map(p=>p.y))};}
+  const bounds=document.bounds||{minX:0,maxX:1,minY:0,maxY:1},aspect=Math.max(.36,Math.min(.72,(bounds.maxY-bounds.minY)/Math.max(1,bounds.maxX-bounds.minX))),canvasHeight=Math.round(1200*aspect),transform=createCanvasTransform(document,1200,canvasHeight),importId=`dxf-${Date.now()}`;
+  const candidates=cluster.map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(8,Math.round(item.width*transform.scale)),height:Math.max(8,Math.round(item.height*transform.scale)),length:Math.max(48,Math.round(item.length*transform.scale)),source:{...item.source,importId}}));
+  const fullGeometry=transformDxfGeometry(document,transform,cluster.map(item=>item.source.rootIndex)),stride=Math.max(1,Math.ceil(fullGeometry.length/6000)),canvasGeometry=fullGeometry.filter((_,index)=>index%stride===0);
+  return { document:{...document,canvasHeight,toCanvasTransform:transform,canvasGeometry},candidates };
 }

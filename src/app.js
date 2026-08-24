@@ -11,7 +11,7 @@ let selectedEquipment = null;
 let pendingCadCandidates = [];
 const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment);
 const cadParameterSection=document.createElement('section');cadParameterSection.id='cadEquipmentParameters';cadParameterSection.className='cad-parameter-section';cadParameterSection.hidden=true;
-document.querySelector('.controls').append(cadParameterSection);
+$('dynamicEquipmentControls').append(cadParameterSection);
 
 const inputKeys = ['injectA','injectB','injectC','conv2Speed','conv1Speed','pickTime','placeTime','station15Time','station16Time','forklift17Time','forklift211Time','simDuration'];
 function readParams() {
@@ -83,8 +83,9 @@ function renderCadCandidates(){
 function renderCadEquipmentParameters(){
   const items=layout.equipment.filter(item=>item.source?.origin==='dxf'&&item.reviewStatus==='approved'),counts={};
   for(const item of items)counts[item.type]=(counts[item.type]||0)+1;
-  cadParameterSection.hidden=!items.length;
-  cadParameterSection.innerHTML=items.length?`<h2>DXF 설비 설정</h2><p class="equipment-counts">${Object.entries(counts).map(([type,count])=>`${type.toUpperCase()} ${count}대`).join(' · ')}</p>`+items.map(item=>`<details class="equipment-parameter-card"><summary>${item.name} <small>${item.type.toUpperCase()}</small></summary>${parameterFieldsFor(item).map(field=>`<label>${field.label}<span><input type="number" step="0.1" data-equipment-id="${item.id}" data-parameter="${field.key}" value="${field.value}"></span></label>`).join('')}</details>`).join(''):'';
+  const active=items.length>0;$('defaultEquipmentControls').hidden=active;$('dynamicEquipmentControls').hidden=!active;cadParameterSection.hidden=!active;
+  const groups=Object.entries(Object.groupBy?Object.groupBy(items,item=>item.type):items.reduce((result,item)=>((result[item.type]??=[]).push(item),result),{}));
+  cadParameterSection.innerHTML=active?`<h2>레이아웃 설비 파라미터</h2><p class="equipment-counts">${Object.entries(counts).map(([type,count])=>`${type.toUpperCase()} ${count}대`).join(' · ')}</p>`+groups.map(([type,equipment])=>`<div class="equipment-type-group"><h3>${type.toUpperCase()} <small>${equipment.length}대</small></h3>${equipment.map(item=>`<details class="equipment-parameter-card"><summary>${item.name}</summary>${parameterFieldsFor(item).map(field=>`<label>${field.label}<span><input type="number" step="0.1" data-equipment-id="${item.id}" data-parameter="${field.key}" value="${field.value}"></span></label>`).join('')}</details>`).join('')}</div>`).join(''):'';
 }
 cadParameterSection.addEventListener('change',event=>{const input=event.target.closest('[data-equipment-id]');if(!input)return;const item=layout.equipment.find(entry=>entry.id===input.dataset.equipmentId);if(item)item.parameters[input.dataset.parameter]=Number(input.value);});
 $('cadCandidates').addEventListener('click',event=>{

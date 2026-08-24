@@ -46,6 +46,7 @@ export class LayoutRenderer {
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     if(this.layout.displayMode!=='cad')this.drawConnections();
     this.drawEquipment(state);
+    if(this.layout.displayMode==='cad')this.drawCadFlow(state);
     c.restore();
   }
 
@@ -105,5 +106,14 @@ export class LayoutRenderer {
         c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);
       }
     }
+  }
+
+  drawCadFlow(state){
+    const c=this.ctx,conveyors=this.layout.equipment.filter(item=>item.type==='conveyor'&&item.source?.origin==='dxf');
+    c.save();c.strokeStyle='rgba(0,255,136,.42)';c.lineWidth=2;c.setLineDash([7,6]);
+    conveyors.forEach((item,index)=>{const next=conveyors.slice(index+1).sort((a,b)=>Math.hypot(item.x-a.x,item.y-a.y)-Math.hypot(item.x-b.x,item.y-b.y))[0];if(!next)return;const distance=Math.hypot(item.x-next.x,item.y-next.y);if(distance<360){c.beginPath();c.moveTo(item.x,item.y);c.lineTo(next.x,next.y);c.stroke();}});c.setLineDash([]);c.restore();
+    conveyors.forEach((item,index)=>{const length=Math.max(48,item.length||item.width||80),speed=Math.max(.2,item.parameters?.speed||.5),progress=((state.t*speed*32+index*29)%length)-length/2;
+      c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=COLORS.yellow;c.strokeStyle='#fff2a8';c.lineWidth=1;c.fillRect(progress-7,-7,14,14);c.strokeRect(progress-7,-7,14,14);c.restore();
+    });
   }
 }

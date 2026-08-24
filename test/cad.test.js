@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLayoutCandidates, classifyCadEntity, parameterFieldsFor } from '../src/cad.js';
+import { buildLayoutCandidates, classifyCadEntity, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { isNodeConveyor } from '../src/renderer.js';
 
@@ -64,4 +64,9 @@ test('건축 배경은 제외하고 물류설비 레이어는 유지한다',()=>
   assert.equal(isLogisticsDxfEntity({entityType:'LINE',layer:'MHE_STACKER_CRANE'}),true);
   const geometry=transformDxfGeometry({entities:[{entityType:'LINE',layer:'WALL',start:{x:0,y:0},end:{x:10,y:0}},{entityType:'LINE',layer:'CV',start:{x:0,y:0},end:{x:20,y:0}}]},{scale:1,offsetX:0,offsetY:0});
   assert.equal(geometry.length,1);assert.equal(geometry[0].layer,'CV');
+});
+
+test('여러 도면이 섞이면 컨베이어가 많은 주요 물류 군집을 선택한다',()=>{
+  const items=[{type:'amr',x:0,y:0},{type:'amr',x:1000,y:0},{type:'conveyor',x:100000,y:0},{type:'conveyor',x:101000,y:0},{type:'conveyor',x:102000,y:0}];
+  const cluster=selectPrimaryLayoutCluster(items);assert.equal(cluster.length,3);assert.ok(cluster.every(item=>item.type==='conveyor'));
 });

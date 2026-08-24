@@ -34,8 +34,8 @@ function addData(data,code,value){if(data[code]===undefined)data[code]=value;els
 function transformPoint(point,matrix){return{x:point.x*matrix.a+point.y*matrix.c+matrix.e,y:point.x*matrix.b+point.y*matrix.d+matrix.f,z:point.z||0};}
 function multiply(parent,local){return{a:parent.a*local.a+parent.c*local.b,b:parent.b*local.a+parent.d*local.b,c:parent.a*local.c+parent.c*local.d,d:parent.b*local.c+parent.d*local.d,e:parent.a*local.e+parent.c*local.f+parent.e,f:parent.b*local.e+parent.d*local.f+parent.f};}
 function insertMatrix(insert,base={x:0,y:0}){const angle=(insert.rotation||0)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),sx=insert.scale?.x||1,sy=insert.scale?.y||1;return{a:c*sx,b:s*sx,c:-s*sy,d:c*sy,e:insert.center.x-(base.x*c*sx-base.y*s*sy),f:insert.center.y-(base.x*s*sx+base.y*c*sy)};}
-function transformEntity(entity,matrix,instance){
-  const result={...entity,instancePath:instance};
+function transformEntity(entity,matrix,instance,rootIndex){
+  const result={...entity,instancePath:instance,rootIndex};
   if(entity.center)result.center=transformPoint(entity.center,matrix);
   if(entity.start&&entity.end){result.start=transformPoint(entity.start,matrix);result.end=transformPoint(entity.end,matrix);}
   if(entity.vertices)result.vertices=entity.vertices.map(point=>transformPoint(point,matrix));
@@ -49,16 +49,17 @@ function transformEntity(entity,matrix,instance){
 
 function expandBlockInserts(entities,blocks,maxEntities=100000){
   const output=[];
-  const visit=(entity,matrix,depth,path)=>{
+  const visit=(entity,matrix,depth,path,rootIndex)=>{
     if(output.length>=maxEntities||depth>12)return;
-    if(entity.entityType!=='INSERT'){output.push(transformEntity(entity,matrix,path));return;}
+    if(entity.entityType!=='INSERT'){output.push(transformEntity(entity,matrix,path,rootIndex));return;}
     const block=blocks.get(entity.blockName);
-    if(!block){output.push(transformEntity(entity,matrix,path));return;}
+    if(!block){output.push(transformEntity(entity,matrix,path,rootIndex));return;}
     const next=multiply(matrix,insertMatrix(entity,block.base));
-    for(let index=0;index<block.entities.length;index++)visit(block.entities[index],next,depth+1,`${path}/${entity.blockName}:${index}`);
+    for(let index=0;index<block.entities.length;index++)visit(block.entities[index],next,depth+1,`${path}/${entity.blockName}:${index}`,rootIndex);
   };
   const identity={a:1,b:0,c:0,d:1,e:0,f:0};
-  entities.forEach((entity,index)=>visit(entity,identity,0,`model:${index}`));
+  // 이름이 확인된 물류 블록부터 펼쳐 대용량 도면에서도 핵심 설비가 잘리지 않게 한다.
+  entities.map((entity,index)=>({entity,index})).sort((a,b)=>Number(hasLogisticsIdentity(b.entity))-Number(hasLogisticsIdentity(a.entity))).forEach(({entity,index})=>visit(entity,identity,0,`model:${index}`,index));
   return output;
 }
 
@@ -83,7 +84,10 @@ export function parseDxf(text) {
     }
     i++;
   }
-  const expandedEntities=expandBlockInserts(entities,blocks),drawable=expandedEntities.filter(e=>e.center||e.bounds),allPoints=drawable.flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
+  const expandedEntities=expandBlockInserts(entities,blocks),rootBounds=new Map();
+  for(const entity of expandedEntities){if(!entity.bounds)continue;const b=rootBounds.get(entity.rootIndex)||{minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity};b.minX=Math.min(b.minX,entity.bounds.minX);b.maxX=Math.max(b.maxX,entity.bounds.maxX);b.minY=Math.min(b.minY,entity.bounds.minY);b.maxY=Math.max(b.maxY,entity.bounds.maxY);rootBounds.set(entity.rootIndex,b);}
+  for(const [index,b] of rootBounds){if(entities[index]?.entityType==='INSERT'){entities[index].bounds=b;entities[index].center=centerOf([{x:b.minX,y:b.minY},{x:b.maxX,y:b.maxY}]);}}
+  const drawable=expandedEntities.filter(e=>e.center||e.bounds),allPoints=drawable.flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
   const logisticsPoints=drawable.filter(isLogisticsDxfEntity).flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
   const bounds=boundsOf(logisticsPoints)||boundsOf(allPoints),unitNames={0:'unitless',1:'inch',2:'foot',4:'mm',5:'cm',6:'m'};
   return {format:'DXF',version:'ASCII',units:unitNames[unitsCode]||`code-${unitsCode}`,bounds,layers:[...layers],blocks:[...blocks.keys()],blockDefinitions:Object.fromEntries([...blocks].map(([name,block])=>[name,{base:block.base,entityCount:block.entities.length}])),entities,expandedEntities};
@@ -93,18 +97,20 @@ export function createCanvasTransform(document,width=1200,height=430,padding=40)
 
 const architecturalLayerTerms=['WALL','WAL','COLUMN','COL','DOOR','WINDOW','FLOOR','CEILING','GRID','AXIS','DIM','TEXT','TEX','TXT','HATCH','건축','벽','외벽','내벽','기둥','문','창호','치수','천장'];
 const logisticsLayerTerms=['CONV','CONVEYOR','CV','ROLLER','BELT','RACK','STACK','STK','CRANE','SHUTTLE','AMR','AGV','ASRS','MHE','SORT','LIFT','ROBOT','물류','컨베이어','랙','크레인','셔틀'];
+function hasLogisticsIdentity(entity){const haystack=`${entity.layer||''} ${entity.blockName||''} ${entity.instancePath||''}`.toUpperCase();return logisticsLayerTerms.some(term=>haystack.includes(term));}
 export function isLogisticsDxfEntity(entity){
   const haystack=`${entity.layer||''} ${entity.blockName||''} ${entity.instancePath||''}`.toUpperCase();
-  if(logisticsLayerTerms.some(term=>haystack.includes(term)))return true;
+  if(hasLogisticsIdentity(entity))return true;
   if(architecturalLayerTerms.some(term=>haystack.includes(term))||['HATCH','DIMENSION','TEXT','MTEXT'].includes(entity.entityType))return false;
   // 펼쳐진 익명/건축 블록은 물류 키워드가 확인될 때만 표시한다.
   if(entity.instancePath)return false;
   return true;
 }
 
-export function transformDxfGeometry(document,transform){
+export function transformDxfGeometry(document,transform,rootIndexes=null){
   const point=p=>({x:p.x*transform.scale+transform.offsetX,y:-p.y*transform.scale+transform.offsetY});
-  return (document.expandedEntities||document.entities||[]).filter(isLogisticsDxfEntity).flatMap(entity=>{
+  const allowed=rootIndexes?new Set(rootIndexes):null;
+  return (document.expandedEntities||document.entities||[]).filter(entity=>isLogisticsDxfEntity(entity)&&(!allowed||allowed.has(entity.rootIndex))).flatMap(entity=>{
     const common={type:entity.entityType,layer:entity.layer||'0'};
     if(entity.entityType==='LINE')return [{...common,start:point(entity.start),end:point(entity.end)}];
     if(['LWPOLYLINE','POLYLINE'].includes(entity.entityType)&&entity.vertices?.length)return [{...common,vertices:entity.vertices.map(point),closed:entity.closed}];

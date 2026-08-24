@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, classifyCadEntity } from '../src/cad.js';
 import { createCanvasTransform, parseDxf } from '../src/dxf.js';
+import { isNodeConveyor } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -22,4 +23,9 @@ test('CAD 형상에서 위치와 추정 파라미터를 포함한 후보를 생�
   assert.equal(candidate.x,120);
   assert.equal(candidate.parameters.length,300);
   assert.equal(candidate.reviewStatus,'candidate');
+});
+
+test('DXF 컨베이어 후보와 시뮬레이션 컨베이어를 구분한다',()=>{
+  assert.equal(isNodeConveyor({type:'conveyor',x:10,y:20}),false);
+  assert.equal(isNodeConveyor({type:'conveyor',nodes:[]}),true);
 });

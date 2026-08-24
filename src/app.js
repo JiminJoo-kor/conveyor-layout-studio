@@ -8,6 +8,7 @@ const $ = id => document.getElementById(id);
 let layout = cloneLayout(defaultLayout), engine = new SimulationEngine(layout, defaultParams);
 let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, frame = null, last = 0;
 let selectedEquipment = null;
+let pendingCadCandidates = [];
 const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment);
 
 const inputKeys = ['injectA','injectB','injectC','conv2Speed','conv1Speed','pickTime','placeTime','station15Time','station16Time','forklift17Time','forklift211Time','simDuration'];
@@ -64,16 +65,24 @@ $('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',J
 $('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hidden;$('editorTools').hidden=!active;editor.setEnabled(active);$('editorToggle').textContent=active?'편집 종료':'편집 모드';});
 $('drawingFile').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;const dataUrl=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(file);});layout.background={name:file.name,dataUrl};await renderer.setBackground(dataUrl);renderer.draw(engine.state);event.target.value='';});
 $('cadFile').addEventListener('change',async event=>{
-  const file=event.target.files[0];if(!file)return;const panel=$('cadStatus');panel.hidden=false;$('cadStatusTitle').textContent='DWG 분석 중';$('cadStatusText').textContent=`${file.name}의 레이어, 블록, 형상과 속성을 읽고 있습니다.`;$('cadCandidates').innerHTML='';
+  const file=event.target.files[0];if(!file)return;const panel=$('cadStatus');panel.hidden=false;$('cadStatusTitle').textContent='DXF 로컬 분석 중';$('cadStatusText').textContent=`${file.name}의 좌표, 레이어, 블록과 문자를 브라우저에서 읽고 있습니다.`;$('cadCandidates').innerHTML='';
   try{
     const result=await analyzeCadFile(file),candidates=result.candidates.filter(item=>item.type!=='unknown');
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units||'unknown'};
-    const scale=result.document.toCanvasScale||1;
-    for(const item of candidates){item.x=Math.round(item.x*scale);item.y=Math.round(item.y*scale);layout.equipment.push(item);}
-    renderer.setLayout(layout);renderer.draw(engine.state);$('cadStatusTitle').textContent='CAD 분석 완료';$('cadStatusText').textContent=`설비 후보 ${candidates.length}개를 배치했습니다. 신뢰도가 낮은 항목은 검수 후 확정하세요.`;
-    $('cadCandidates').innerHTML=candidates.map(item=>`<span>${item.name} · ${item.type} · ${Math.round(item.confidence*100)}%</span>`).join('');
-  }catch(error){$('cadStatusTitle').textContent='CAD 분석 연결 필요';$('cadStatusText').textContent=error.message;}
+    pendingCadCandidates=candidates;$('cadStatusTitle').textContent='DXF 분석 완료';$('cadStatusText').textContent=`${result.document.layers.length}개 레이어에서 설비 후보 ${candidates.length}개를 찾았습니다. 승인한 후보만 레이아웃에 반영됩니다.`;renderCadCandidates();
+  }catch(error){$('cadStatusTitle').textContent='DXF 분석 실패';$('cadStatusText').textContent=error.message;}
   finally{event.target.value='';}
+});
+function renderCadCandidates(){
+  const host=$('cadCandidates');
+  host.innerHTML=pendingCadCandidates.length?`<div class="candidate-actions"><button data-cad-action="approve-all">모두 승인</button><button data-cad-action="discard-all">모두 제외</button></div>`+pendingCadCandidates.map(item=>`<div class="candidate-card"><span>${item.name}</span><small>${item.type} · 신뢰도 ${Math.round(item.confidence*100)}%</small><button data-cad-action="approve" data-id="${item.id}">승인</button><button data-cad-action="discard" data-id="${item.id}">제외</button></div>`).join(''):'<span>검수할 후보가 없습니다.</span>';
+}
+$('cadCandidates').addEventListener('click',event=>{
+  const button=event.target.closest('[data-cad-action]');if(!button)return;const action=button.dataset.cadAction,id=button.dataset.id;
+  const selected=action==='approve-all'?pendingCadCandidates:pendingCadCandidates.filter(item=>item.id===id);
+  if(action==='approve'||action==='approve-all')for(const item of selected){item.reviewStatus='approved';layout.equipment.push(item);}
+  if(action==='approve-all'||action==='discard-all')pendingCadCandidates=[];else pendingCadCandidates=pendingCadCandidates.filter(item=>item.id!==id);
+  renderer.setLayout(layout);renderer.draw(engine.state);renderCadCandidates();
 });
 document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener('click',()=>editor.add(button.dataset.add)));
 $('resetView').addEventListener('click',()=>editor.resetView());

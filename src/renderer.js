@@ -26,10 +26,12 @@ export class LayoutRenderer {
     this.canvas.width = layout.canvas.width;
     this.canvas.height = layout.canvas.height;
     this.nodePositions = new Map();
-    for (const line of layout.equipment.filter(isNodeConveyor)) {
+    for (const line of layout.equipment.filter(item=>isNodeConveyor(item)&&this.isVisible(item))) {
       line.nodes.forEach((node, index) => this.nodePositions.set(node.id, { x: line.x + index * 88, y: line.y, lineId: line.id, index }));
     }
   }
+
+  isVisible(item) { return this.layout.displayMode!=='cad'||item.source?.origin==='dxf'; }
 
   draw(state) {
     const c = this.ctx, { width, height, grid } = this.layout.canvas;
@@ -39,9 +41,9 @@ export class LayoutRenderer {
     c.strokeStyle = 'rgba(70,120,150,.08)'; c.lineWidth = 1;
     for (let x = 0; x < width; x += grid) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,height); c.stroke(); }
     for (let y = 0; y < height; y += grid) { c.beginPath(); c.moveTo(0,y); c.lineTo(width,y); c.stroke(); }
-    const lines = this.layout.equipment.filter(isNodeConveyor);
+    const lines = this.layout.equipment.filter(item=>isNodeConveyor(item)&&this.isVisible(item));
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
-    this.drawConnections();
+    if(this.layout.displayMode!=='cad')this.drawConnections();
     this.drawEquipment(state);
     c.restore();
   }
@@ -75,7 +77,7 @@ export class LayoutRenderer {
 
   drawEquipment(state) {
     const c=this.ctx;
-    for(const item of this.layout.equipment.filter(x=>!isNodeConveyor(x))) {
+    for(const item of this.layout.equipment.filter(x=>!isNodeConveyor(x)&&this.isVisible(x))) {
       if(item.type==='robot') {
         c.beginPath(); c.arc(item.x,item.y,27,0,Math.PI*2); c.fillStyle=state.robot.phase==='idle'?'#6f2530':COLORS.orange; c.fill();
         c.strokeStyle=state.robot.phase==='idle'?'#b54555':COLORS.yellow; c.stroke(); c.fillStyle='#fff'; c.font='bold 11px monospace'; c.fillText(state.robot.phase.toUpperCase(),item.x-18,item.y+4);
@@ -84,8 +86,10 @@ export class LayoutRenderer {
         const pos=this.nodePositions.get(item.nodeId); if(!pos) continue;
         const busy=Boolean(state.locks[item.id]); c.fillStyle=busy?COLORS.pink:COLORS.text; c.font='10px monospace'; c.fillText(item.type==='station'?'WORK':'FORK',pos.x+18,pos.y+76);
       } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
-        c.fillStyle=state.locks[item.id]?COLORS.pink:'#17334a';c.strokeStyle=item.id===this.selectedId?COLORS.yellow:COLORS.cyan;c.lineWidth=item.id===this.selectedId?2:1;
-        c.fillRect(item.x-30,item.y-20,60,40);c.strokeRect(item.x-30,item.y-20,60,40);c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-23,item.y+4);
+        const long=item.type==='conveyor',w=long?Math.max(24,Math.min(500,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
+        c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=state.locks[item.id]?COLORS.pink:'#17334a';c.strokeStyle=item.id===this.selectedId?COLORS.yellow:COLORS.cyan;c.lineWidth=item.id===this.selectedId?2:1;
+        c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);if(long){c.setLineDash([8,5]);c.beginPath();c.moveTo(-w/2+5,0);c.lineTo(w/2-5,0);c.stroke();c.setLineDash([]);}c.restore();
+        c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);
       }
     }
   }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
+import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { isNodeConveyor } from '../src/renderer.js';
 
@@ -99,4 +99,9 @@ test('입고·창고·AGV 단절 구간을 방향 그래프로 구성한다',()=
   assert.ok(schematic.edges.some(edge=>edge.to==='agv'));assert.ok(schematic.edges.some(edge=>edge.from==='agv'));
   assert.equal(schematic.inferredEquipment.length,2);assert.ok(schematic.inferredEquipment.every(item=>item.type==='agv'&&item.source.inferred));
   assert.ok(!edgeIds.some(id=>id.startsWith('label-')));
+});
+
+test('약식 배치에서도 DXF의 상대 방향과 굴곡을 보존한다',()=>{
+  const items=[{id:'a',type:'conveyor',x:0,y:0},{id:'b',type:'conveyor',x:100,y:0},{id:'c',type:'conveyor',x:100,y:100},{id:'d',type:'conveyor',x:0,y:100}],normalized=normalizeSchematicPositions(items,{lanes:[],edges:[]},1200),byId=new Map(normalized.map(item=>[item.id,item]));
+  assert.ok(byId.get('b').x>byId.get('a').x);assert.equal(byId.get('a').y,byId.get('b').y);assert.ok(byId.get('c').y>byId.get('b').y);assert.equal(byId.get('c').x,byId.get('b').x);assert.equal(byId.get('d').y,byId.get('c').y);
 });

@@ -72,7 +72,7 @@ export function buildSchematicLayout(candidates){
   const labels=nodes.filter(item=>item.type==='processLine'),storage=nodes.filter(item=>['stackerCrane','asrs'].includes(item.type));
   const bridgeTypes=new Set(['robot','shuttle','amr','agv','diverter']),bridges=nodes.filter(item=>bridgeTypes.has(item.type));
   const flowNodes=nodes.filter(item=>item.type!=='processLine'&&!storage.includes(item)&&!bridges.includes(item)),lanes=[];
-  if(labels.length>=2){for(const label of [...labels].sort((a,b)=>a.y-b.y))lanes.push({id:`lane-${lanes.length+1}`,name:label.name,y:label.y,nodes:[]});for(const node of flowNodes){const lane=[...lanes].sort((a,b)=>Math.abs(a.y-node.y)-Math.abs(b.y-node.y))[0];lane.nodes.push(node);}}
+  if(labels.length>=2){for(const label of [...labels].sort((a,b)=>a.y-b.y))lanes.push({id:`lane-${lanes.length+1}`,name:label.name,labelId:label.id,y:label.y,nodes:[]});for(const node of flowNodes){const lane=[...lanes].sort((a,b)=>Math.abs(a.y-node.y)-Math.abs(b.y-node.y))[0];lane.nodes.push(node);}}
   else for(const node of [...flowNodes].sort((a,b)=>a.y-b.y||a.x-b.x)){let lane=lanes.find(group=>Math.abs(group.y-node.y)<=48);if(!lane){lane={id:`lane-${lanes.length+1}`,y:node.y,nodes:[]};lanes.push(lane);}lane.nodes.push(node);lane.y=lane.nodes.reduce((sum,item)=>sum+item.y,0)/lane.nodes.length;}
   const warehouse=storage.sort((a,b)=>(b.confidence||0)-(a.confidence||0))[0],edges=[],usedBridges=new Set(),inferredEquipment=[];
   lanes.forEach((lane,index)=>{
@@ -97,12 +97,8 @@ export function dedupeProcessLineCandidates(candidates){
 }
 
 export function normalizeSchematicPositions(candidates,schematic,width=1200){
-  const laneGap=Math.max(105,Math.min(155,620/Math.max(1,schematic.lanes.length))),positionById=new Map();
-  schematic.lanes.forEach((lane,laneIndex)=>{const count=lane.nodes.length,gap=count>1?Math.min(130,(width-300)/(count-1)):0;lane.nodes.forEach((node,index)=>positionById.set(node.id,{x:80+index*gap,y:90+laneIndex*laneGap}));});
-  if(schematic.warehouseId)positionById.set(schematic.warehouseId,{x:width-105,y:90+(schematic.lanes.length-1)*laneGap/2});
-  for(const bridge of candidates.filter(item=>['agv','amr','robot','shuttle','diverter'].includes(item.type))){if(positionById.has(bridge.id))continue;const incoming=schematic.edges.find(item=>item.to===bridge.id),outgoing=schematic.edges.find(item=>item.from===bridge.id),from=positionById.get(incoming?.from),to=positionById.get(outgoing?.to);if(from&&to)positionById.set(bridge.id,{x:(from.x+to.x)/2,y:(from.y+to.y)/2});}
-  candidates.filter(item=>!positionById.has(item.id)).forEach((item,index)=>positionById.set(item.id,{x:80+(index%9)*125,y:90+(schematic.lanes.length+Math.floor(index/9))*laneGap}));
-  return candidates.map(item=>{const normalizedPosition=positionById.get(item.id)||{x:item.x,y:item.y};return {...item,originalPosition:{x:item.x,y:item.y},normalizedPosition,...normalizedPosition};});
+  const visible=candidates.filter(item=>item.type!=='processLine'),xs=visible.map(item=>item.x),ys=visible.map(item=>item.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spanX=Math.max(1,maxX-minX),spanY=Math.max(1,maxY-minY),scale=Math.min((width-160)/spanX,560/spanY),offsetX=(width-spanX*scale)/2,offsetY=45;
+  return candidates.map(item=>{const originalPosition={x:item.x,y:item.y},normalizedPosition={x:offsetX+(item.x-minX)*scale,y:offsetY+(item.y-minY)*scale};return {...item,originalPosition,normalizedPosition,...normalizedPosition};});
 }
 
 export function selectPrimaryLayoutCluster(candidates){
@@ -121,7 +117,7 @@ export async function analyzeCadFile(file) {
   const document=parseDxf(await file.text()),allCandidates=buildLayoutCandidates(document),processRegion=detectProcessRegion(document),cluster=dedupeProcessLineCandidates(processRegion?allCandidates.filter(item=>item.type!=='unknown'&&inside({x:item.x,y:item.y},processRegion)):selectPrimaryLayoutCluster(allCandidates)),points=cluster.flatMap(item=>[{x:item.x-item.width/2,y:item.y-item.height/2},{x:item.x+item.width/2,y:item.y+item.height/2}]);
   if(processRegion)document.bounds=processRegion;else if(points.length){document.bounds={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minY:Math.min(...points.map(p=>p.y)),maxY:Math.max(...points.map(p=>p.y))};}
   const bounds=document.bounds||{minX:0,maxX:1,minY:0,maxY:1},aspect=Math.max(.36,Math.min(.72,(bounds.maxY-bounds.minY)/Math.max(1,bounds.maxX-bounds.minX))),canvasHeight=Math.round(1200*aspect),transform=createCanvasTransform(document,1200,canvasHeight),importId=`dxf-${Date.now()}`;
-  let candidates=cluster.map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(36,Math.min(110,Math.round(item.width*transform.scale))),height:Math.max(32,Math.min(70,Math.round(item.height*transform.scale))),length:Math.max(70,Math.min(110,Math.round(item.length*transform.scale))),rotation:0,source:{...item.source,importId}}));
+  let candidates=cluster.map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(36,Math.min(110,Math.round(item.width*transform.scale))),height:Math.max(32,Math.min(70,Math.round(item.height*transform.scale))),length:Math.max(70,Math.min(110,Math.round(item.length*transform.scale))),rotation:-(item.rotation||0),source:{...item.source,importId}}));
   const roots=processRegion?(document.entities||[]).map((entity,rootIndex)=>({entity,rootIndex})).filter(({entity})=>inside(entity.center,processRegion)).map(x=>x.rootIndex):cluster.map(item=>item.source.rootIndex),fullGeometry=transformDxfGeometry(document,transform,roots,Boolean(processRegion)),stride=Math.max(1,Math.ceil(fullGeometry.length/9000)),canvasGeometry=fullGeometry.filter((_,index)=>index%stride===0);
   const schematic=buildSchematicLayout(candidates);candidates=[...candidates,...(schematic.inferredEquipment||[])];candidates=normalizeSchematicPositions(candidates,schematic,1200);schematic.lanes.forEach(lane=>lane.nodes=lane.nodes.map(node=>candidates.find(item=>item.id===node.id)||node));
   return { document:{...document,canvasHeight:Math.max(canvasHeight,520,90+(schematic.lanes.length+2)*130),toCanvasTransform:transform,canvasGeometry},candidates,schematic };

@@ -3,8 +3,7 @@ import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeom
 export const logisticsEquipmentCatalog = [
   { type:'source', label:'투입구', keywords:['INFEED','INPUT','SOURCE','FEEDER','투입'], defaults:{ injectionInterval:30, batchSize:1 } },
   { type:'sink', label:'배출구', keywords:['OUTFEED','OUTPUT','DISCHARGE','EXIT','배출'], defaults:{ dischargeTime:5, capacity:1 } },
-  { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ speed:0.5, capacity:1, carrierCount:1 } },
-  { type:'carrier', label:'대차', keywords:['DOLLY','CART','CARRIER','대차','台車'], defaults:{ capacity:1 } },
+  { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ speed:0.5, capacity:1 } },
   { type:'processLine', label:'공정 라인', keywords:['DOOR LINE','FINAL LINE','TRIM LINE','도어 라인','화이날 라인','트림 라인'], defaults:{ lineSpeed:20, pitch:5, bufferCapacity:1 } },
   { type:'diverter', label:'디버터', keywords:['DIV','DIVERTER','MERGE','SORT GATE'], defaults:{ cycleTime:1.5, directions:2 } },
   { type:'stackerCrane', label:'스태커 크레인', keywords:['STACKER CRANE','STACKER','STK','RACK MASTER','ASRS CRANE','S/C','스태커','스테커','크레인'], defaults:{ travelSpeed:2.5, liftSpeed:1, acceleration:0.5, loadCapacity:1000, levels:1 } },
@@ -24,7 +23,7 @@ export const equipmentParameterLabels = {
   injectionInterval:'투입 간격(초)',batchSize:'1회 투입 수량',dischargeTime:'배출 시간(초)',speed:'속도',capacity:'용량',
   cycleTime:'사이클타임(초)',directions:'분기 수',acceleration:'가속도',chargeThreshold:'충전 기준(%)',destinations:'목적지 수',
   levels:'층수',rows:'행',columns:'열',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'길이',
-  travelSpeed:'주행 속도(m/s)',liftSpeed:'승강 속도(m/s)',loadCapacity:'적재 하중(kg)',lineSpeed:'라인 속도(m/min)',pitch:'차체 피치(m)',bufferCapacity:'라인 버퍼 수',carrierCount:'컨베이어 대차 수'
+  travelSpeed:'주행 속도(m/s)',liftSpeed:'승강 속도(m/s)',loadCapacity:'적재 하중(kg)',lineSpeed:'라인 속도(m/min)',pitch:'차체 피치(m)',bufferCapacity:'라인 버퍼 수'
 };
 
 export function parameterFieldsFor(item){return Object.entries(item.parameters||{}).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}

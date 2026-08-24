@@ -1,5 +1,7 @@
 const COLORS = { bg:'#071019', panel:'#0c1824', line:'#17334a', cyan:'#00d4ff', green:'#00ff88', yellow:'#ffd166', orange:'#ff7139', pink:'#ff4d9d', text:'#9fc5dd' };
 
+export const isNodeConveyor = item => item.type === 'conveyor' && Array.isArray(item.nodes);
+
 export class LayoutRenderer {
   constructor(canvas, layout) {
     this.canvas = canvas;
@@ -24,7 +26,7 @@ export class LayoutRenderer {
     this.canvas.width = layout.canvas.width;
     this.canvas.height = layout.canvas.height;
     this.nodePositions = new Map();
-    for (const line of layout.equipment.filter(item => item.type === 'conveyor')) {
+    for (const line of layout.equipment.filter(isNodeConveyor)) {
       line.nodes.forEach((node, index) => this.nodePositions.set(node.id, { x: line.x + index * 88, y: line.y, lineId: line.id, index }));
     }
   }
@@ -37,7 +39,7 @@ export class LayoutRenderer {
     c.strokeStyle = 'rgba(70,120,150,.08)'; c.lineWidth = 1;
     for (let x = 0; x < width; x += grid) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,height); c.stroke(); }
     for (let y = 0; y < height; y += grid) { c.beginPath(); c.moveTo(0,y); c.lineTo(width,y); c.stroke(); }
-    const lines = this.layout.equipment.filter(item => item.type === 'conveyor');
+    const lines = this.layout.equipment.filter(isNodeConveyor);
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     this.drawConnections();
     this.drawEquipment(state);
@@ -73,7 +75,7 @@ export class LayoutRenderer {
 
   drawEquipment(state) {
     const c=this.ctx;
-    for(const item of this.layout.equipment.filter(x=>x.type!=='conveyor')) {
+    for(const item of this.layout.equipment.filter(x=>!isNodeConveyor(x))) {
       if(item.type==='robot') {
         c.beginPath(); c.arc(item.x,item.y,27,0,Math.PI*2); c.fillStyle=state.robot.phase==='idle'?'#6f2530':COLORS.orange; c.fill();
         c.strokeStyle=state.robot.phase==='idle'?'#b54555':COLORS.yellow; c.stroke(); c.fillStyle='#fff'; c.font='bold 11px monospace'; c.fillText(state.robot.phase.toUpperCase(),item.x-18,item.y+4);

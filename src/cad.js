@@ -68,14 +68,24 @@ export function detectProcessRegion(document){
 const inside=(point,bounds)=>point&&point.x>=bounds.minX&&point.x<=bounds.maxX&&point.y>=bounds.minY&&point.y<=bounds.maxY;
 
 export function buildSchematicLayout(candidates){
-  const nodes=candidates.filter(item=>item.type!=='unknown'&&Number.isFinite(item.x)&&Number.isFinite(item.y)),labels=nodes.filter(item=>item.type==='processLine'),lanes=[];
-  if(labels.length>=2){for(const label of [...labels].sort((a,b)=>a.y-b.y))lanes.push({id:`lane-${lanes.length+1}`,name:label.name,y:label.y,nodes:[label]});for(const node of nodes.filter(item=>item.type!=='processLine')){const lane=[...lanes].sort((a,b)=>Math.abs(a.y-node.y)-Math.abs(b.y-node.y))[0];lane.nodes.push(node);}}
-  else for(const node of [...nodes].sort((a,b)=>a.y-b.y||a.x-b.x)){let lane=lanes.find(group=>Math.abs(group.y-node.y)<=48);if(!lane){lane={id:`lane-${lanes.length+1}`,y:node.y,nodes:[]};lanes.push(lane);}lane.nodes.push(node);lane.y=lane.nodes.reduce((sum,item)=>sum+item.y,0)/lane.nodes.length;}
-  lanes.forEach((lane,index)=>{lane.name=lane.name||lane.nodes.find(item=>item.type==='processLine')?.name||`${index+1}번 라인`;lane.nodes.sort((a,b)=>a.x-b.x);});
-  const edges=[];for(const lane of lanes)for(let index=1;index<lane.nodes.length;index++)edges.push({from:lane.nodes[index-1].id,to:lane.nodes[index].id,kind:'flow'});
-  const transfers=nodes.filter(item=>['robot','stackerCrane','shuttle','amr','agv','diverter'].includes(item.type));
-  for(const transfer of transfers){const nearby=nodes.filter(item=>item.id!==transfer.id&&!transfers.includes(item)).sort((a,b)=>Math.hypot(transfer.x-a.x,transfer.y-a.y)-Math.hypot(transfer.x-b.x,transfer.y-b.y)).slice(0,2);for(const target of nearby)if(Math.hypot(transfer.x-target.x,transfer.y-target.y)<420)edges.push({from:transfer.id,to:target.id,kind:'transfer'});}
-  return {lanes:labels.length>=2?lanes:lanes.filter(lane=>lane.nodes.length>1),edges};
+  const nodes=candidates.filter(item=>item.type!=='unknown'&&Number.isFinite(item.x)&&Number.isFinite(item.y));
+  const labels=nodes.filter(item=>item.type==='processLine'),storage=nodes.filter(item=>['stackerCrane','asrs'].includes(item.type));
+  const bridgeTypes=new Set(['robot','shuttle','amr','agv','diverter']),bridges=nodes.filter(item=>bridgeTypes.has(item.type));
+  const flowNodes=nodes.filter(item=>item.type!=='processLine'&&!storage.includes(item)&&!bridges.includes(item)),lanes=[];
+  if(labels.length>=2){for(const label of [...labels].sort((a,b)=>a.y-b.y))lanes.push({id:`lane-${lanes.length+1}`,name:label.name,y:label.y,nodes:[]});for(const node of flowNodes){const lane=[...lanes].sort((a,b)=>Math.abs(a.y-node.y)-Math.abs(b.y-node.y))[0];lane.nodes.push(node);}}
+  else for(const node of [...flowNodes].sort((a,b)=>a.y-b.y||a.x-b.x)){let lane=lanes.find(group=>Math.abs(group.y-node.y)<=48);if(!lane){lane={id:`lane-${lanes.length+1}`,y:node.y,nodes:[]};lanes.push(lane);}lane.nodes.push(node);lane.y=lane.nodes.reduce((sum,item)=>sum+item.y,0)/lane.nodes.length;}
+  const warehouse=storage.sort((a,b)=>b.confidence-a.confidence)[0],edges=[],usedBridges=new Set();
+  lanes.forEach((lane,index)=>{
+    lane.name=lane.name||`${index+1}번 라인`;const source=lane.nodes.find(item=>item.type==='source'),sink=lane.nodes.find(item=>['sink','dock'].includes(item.type));
+    lane.direction=source?'inbound':sink?'outbound':warehouse?'warehouse-outbound':'inferred';
+    const meanX=lane.nodes.reduce((sum,node)=>sum+node.x,0)/Math.max(1,lane.nodes.length),ascending=source?source.x<=(warehouse?.x??Infinity):sink?sink.x>=(warehouse?.x??-Infinity):warehouse?warehouse.x<meanX:true;
+    lane.nodes.sort((a,b)=>(ascending?1:-1)*(a.x-b.x));
+    if(source){lane.nodes.splice(lane.nodes.indexOf(source),1);lane.nodes.unshift(source);}if(sink){lane.nodes.splice(lane.nodes.indexOf(sink),1);lane.nodes.push(sink);}
+    for(let i=1;i<lane.nodes.length;i++){const from=lane.nodes[i-1],to=lane.nodes[i],minX=Math.min(from.x,to.x),maxX=Math.max(from.x,to.x),bridge=bridges.filter(item=>!usedBridges.has(item.id)&&item.x>=minX&&item.x<=maxX).sort((a,b)=>Math.abs(a.y-lane.y)-Math.abs(b.y-lane.y))[0];if(bridge&&Math.abs(bridge.y-lane.y)<180){edges.push({from:from.id,to:bridge.id,kind:'transfer'},{from:bridge.id,to:to.id,kind:'transfer'});usedBridges.add(bridge.id);}else edges.push({from:from.id,to:to.id,kind:'flow'});}
+    if(warehouse&&lane.nodes.length){const endpoint=[lane.nodes[0],lane.nodes.at(-1)].sort((a,b)=>Math.hypot(a.x-warehouse.x,a.y-warehouse.y)-Math.hypot(b.x-warehouse.x,b.y-warehouse.y))[0];edges.push(lane.direction==='inbound'?{from:endpoint.id,to:warehouse.id,kind:'warehouse'}:{from:warehouse.id,to:endpoint.id,kind:'warehouse'});}
+  });
+  for(const bridge of bridges.filter(item=>!usedBridges.has(item.id))){const nearby=[...flowNodes].sort((a,b)=>Math.hypot(bridge.x-a.x,bridge.y-a.y)-Math.hypot(bridge.x-b.x,bridge.y-b.y)).slice(0,2);if(nearby.length===2)edges.push({from:nearby[0].id,to:bridge.id,kind:'transfer'},{from:bridge.id,to:nearby[1].id,kind:'transfer'});}
+  return {lanes:labels.length>=2?lanes:lanes.filter(lane=>lane.nodes.length>1),edges,warehouseId:warehouse?.id};
 }
 
 const canonicalProcessLine=name=>/도어|DOOR/i.test(name)?'도어 라인':/화이날|FINAL/i.test(name)?'화이날 라인':/트림|TRIM/i.test(name)?'트림 라인':name;
@@ -85,7 +95,9 @@ export function dedupeProcessLineCandidates(candidates){
 
 export function normalizeSchematicPositions(candidates,schematic,width=1200){
   const laneGap=Math.max(105,Math.min(155,620/Math.max(1,schematic.lanes.length))),positionById=new Map();
-  schematic.lanes.forEach((lane,laneIndex)=>{const count=lane.nodes.length,gap=count>1?Math.min(130,(width-160)/(count-1)):0;lane.nodes.forEach((node,index)=>positionById.set(node.id,{x:80+index*gap,y:90+laneIndex*laneGap}));});
+  schematic.lanes.forEach((lane,laneIndex)=>{const count=lane.nodes.length,gap=count>1?Math.min(130,(width-300)/(count-1)):0;lane.nodes.forEach((node,index)=>positionById.set(node.id,{x:80+index*gap,y:90+laneIndex*laneGap}));});
+  if(schematic.warehouseId)positionById.set(schematic.warehouseId,{x:width-105,y:90+(schematic.lanes.length-1)*laneGap/2});
+  for(const edge of schematic.edges.filter(edge=>edge.kind==='transfer')){const bridge=candidates.find(item=>item.id===edge.to&&['agv','amr','robot','shuttle','diverter'].includes(item.type));if(!bridge||positionById.has(bridge.id))continue;const incoming=schematic.edges.find(item=>item.to===bridge.id),outgoing=schematic.edges.find(item=>item.from===bridge.id),from=positionById.get(incoming?.from),to=positionById.get(outgoing?.to);if(from&&to)positionById.set(bridge.id,{x:(from.x+to.x)/2,y:(from.y+to.y)/2});}
   candidates.filter(item=>!positionById.has(item.id)).forEach((item,index)=>positionById.set(item.id,{x:80+(index%9)*125,y:90+(schematic.lanes.length+Math.floor(index/9))*laneGap}));
   return candidates.map(item=>{const normalizedPosition=positionById.get(item.id)||{x:item.x,y:item.y};return {...item,originalPosition:{x:item.x,y:item.y},normalizedPosition,...normalizedPosition};});
 }

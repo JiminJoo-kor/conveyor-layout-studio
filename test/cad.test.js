@@ -86,3 +86,16 @@ test('중복 라벨을 제거하고 도어·화이날·트림 3개 라인을 유
   const labels=['도어 라인','도어 라인','화이날 라인','화이날 라인','트림 라인','트림 라인'].map((name,index)=>({id:`p${index}`,type:'processLine',name,x:index%2?200:100,y:index*20})),cv={id:'cv',type:'conveyor',name:'CV',x:300,y:70};
   const deduped=dedupeProcessLineCandidates([...labels,cv]),schematic=buildSchematicLayout(deduped);assert.equal(deduped.filter(x=>x.type==='processLine').length,3);assert.equal(schematic.lanes.length,3);assert.deepEqual(new Set(schematic.lanes.map(x=>x.name)),new Set(['도어 라인','화이날 라인','트림 라인']));
 });
+
+test('입고·창고·AGV 단절 구간을 방향 그래프로 구성한다',()=>{
+  const labels=['트림 라인','화이날 라인','도어 라인'].map((name,index)=>({id:`label-${index}`,type:'processLine',name,x:30,y:100+index*100}));
+  const items=[...labels,
+    {id:'in',type:'source',x:50,y:300},{id:'door-cv-1',type:'conveyor',x:230,y:300},{id:'agv',type:'agv',x:360,y:300},{id:'door-cv-2',type:'conveyor',x:500,y:300},
+    {id:'final-cv',type:'conveyor',x:420,y:200},{id:'trim-cv',type:'conveyor',x:420,y:100},{id:'asrs',type:'stackerCrane',x:700,y:200,confidence:.95}
+  ];
+  const schematic=buildSchematicLayout(items),edgeIds=schematic.edges.flatMap(edge=>[edge.from,edge.to]);
+  assert.equal(schematic.lanes.length,3);assert.equal(schematic.edges.filter(edge=>edge.kind==='warehouse').length,3);
+  assert.equal(schematic.lanes.find(lane=>lane.name==='도어 라인').direction,'inbound');
+  assert.ok(schematic.edges.some(edge=>edge.to==='agv'));assert.ok(schematic.edges.some(edge=>edge.from==='agv'));
+  assert.ok(!edgeIds.some(id=>id.startsWith('label-')));
+});

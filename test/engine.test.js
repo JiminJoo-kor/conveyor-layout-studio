@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
+import { SimulationEngine, validateParams } from '../src/engine.js';
+
+test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
+  const result = validateLayout(defaultLayout);
+  assert.equal(result.valid, true, result.errors.join(' '));
+  const nodes = defaultLayout.equipment.flatMap(item => item.nodes || []).map(node => node.id);
+  for (const id of ['2-5', '1-3', '1-5', '1-6', '1-7']) assert.ok(nodes.includes(id));
+});
+
+test('깨진 설비 참조를 거부한다', () => {
+  const layout = cloneLayout();
+  layout.equipment.find(item => item.type === 'robot').pickNode = 'missing-node';
+  const result = validateLayout(layout);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join(' '), /pickNode/);
+});
+
+test('잘못된 파라미터와 모든 소스 비활성화를 거부한다', () => {
+  const result = validateParams({
+    useA:false,useB:false,injectA:0,injectB:1,injectC:1,conv2Speed:1,conv1Speed:1,
+    forklift17Time:1,forklift211Time:1,simDuration:10,pickTime:0,placeTime:0,station15Time:0,station16Time:0
+  });
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.length >= 2);
+});
+
+test('A와 B가 동시에 대기하면 두 종류 모두 투입된다', () => {
+  const engine = new SimulationEngine(cloneLayout(), {
+    useA:true,useB:true,injectA:1,injectB:1,injectC:1,conv1Speed:.2,conv2Speed:.2,
+    pickTime:.1,placeTime:.1,station15Time:0,station16Time:0,forklift17Time:.2,forklift211Time:.2,simDuration:40
+  });
+  engine.runUntil(20);
+  const kinds = engine.state.events.filter(e => e.type === 'source-injected').map(e => e.kind);
+  assert.ok(kinds.includes('A'));
+  assert.ok(kinds.includes('B'));
+});
+
+test('시뮬레이션이 물품 이동과 KPI를 산출한다', () => {
+  const engine = new SimulationEngine(cloneLayout(), {
+    useA:true,useB:false,injectA:1,injectB:1,injectC:1,conv1Speed:.2,conv2Speed:.2,
+    pickTime:.1,placeTime:.1,station15Time:.2,station16Time:.2,forklift17Time:.2,forklift211Time:.2,simDuration:40
+  });
+  engine.runUntil(40);
+  const kpis = engine.getKpis();
+  assert.ok(kpis.movedItems > 0);
+  assert.ok(engine.state.completedSources.length > 0);
+  assert.ok(kpis.utilization.robot > 0);
+  assert.ok(kpis.wip >= 0);
+});

@@ -3,7 +3,8 @@ import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeom
 export const logisticsEquipmentCatalog = [
   { type:'source', label:'투입구', keywords:['INFEED','INPUT','SOURCE','FEEDER','투입'], defaults:{ injectionInterval:30, batchSize:1 } },
   { type:'sink', label:'배출구', keywords:['OUTFEED','OUTPUT','DISCHARGE','EXIT','배출'], defaults:{ dischargeTime:5, capacity:1 } },
-  { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ speed:0.5, capacity:1 } },
+  { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ speed:0.5, capacity:1, carrierCount:1 } },
+  { type:'carrier', label:'대차', keywords:['DOLLY','CART','CARRIER','대차','台車'], defaults:{ capacity:1 } },
   { type:'processLine', label:'공정 라인', keywords:['DOOR LINE','FINAL LINE','TRIM LINE','도어 라인','화이날 라인','트림 라인'], defaults:{ lineSpeed:20, pitch:5, bufferCapacity:1 } },
   { type:'diverter', label:'디버터', keywords:['DIV','DIVERTER','MERGE','SORT GATE'], defaults:{ cycleTime:1.5, directions:2 } },
   { type:'stackerCrane', label:'스태커 크레인', keywords:['STACKER CRANE','STACKER','STK','RACK MASTER','ASRS CRANE','S/C','스태커','스테커','크레인'], defaults:{ travelSpeed:2.5, liftSpeed:1, acceleration:0.5, loadCapacity:1000, levels:1 } },
@@ -23,7 +24,7 @@ export const equipmentParameterLabels = {
   injectionInterval:'투입 간격(초)',batchSize:'1회 투입 수량',dischargeTime:'배출 시간(초)',speed:'속도',capacity:'용량',
   cycleTime:'사이클타임(초)',directions:'분기 수',acceleration:'가속도',chargeThreshold:'충전 기준(%)',destinations:'목적지 수',
   levels:'층수',rows:'행',columns:'열',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'길이',
-  travelSpeed:'주행 속도(m/s)',liftSpeed:'승강 속도(m/s)',loadCapacity:'적재 하중(kg)',lineSpeed:'라인 속도(m/min)',pitch:'차체 피치(m)',bufferCapacity:'라인 버퍼 수'
+  travelSpeed:'주행 속도(m/s)',liftSpeed:'승강 속도(m/s)',loadCapacity:'적재 하중(kg)',lineSpeed:'라인 속도(m/min)',pitch:'차체 피치(m)',bufferCapacity:'라인 버퍼 수',carrierCount:'컨베이어 대차 수'
 };
 
 export function parameterFieldsFor(item){return Object.entries(item.parameters||{}).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}
@@ -81,7 +82,7 @@ export function normalizeSchematicPositions(candidates,schematic,width=1200){
   const laneGap=Math.max(105,Math.min(155,620/Math.max(1,schematic.lanes.length))),positionById=new Map();
   schematic.lanes.forEach((lane,laneIndex)=>{const count=lane.nodes.length,gap=count>1?Math.min(130,(width-160)/(count-1)):0;lane.nodes.forEach((node,index)=>positionById.set(node.id,{x:80+index*gap,y:90+laneIndex*laneGap}));});
   candidates.filter(item=>!positionById.has(item.id)).forEach((item,index)=>positionById.set(item.id,{x:80+(index%9)*125,y:90+(schematic.lanes.length+Math.floor(index/9))*laneGap}));
-  return candidates.map(item=>({...item,originalPosition:{x:item.x,y:item.y},...(positionById.get(item.id)||{})}));
+  return candidates.map(item=>{const normalizedPosition=positionById.get(item.id)||{x:item.x,y:item.y};return {...item,originalPosition:{x:item.x,y:item.y},normalizedPosition,...normalizedPosition};});
 }
 
 export function selectPrimaryLayoutCluster(candidates){
@@ -103,5 +104,5 @@ export async function analyzeCadFile(file) {
   let candidates=cluster.map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(36,Math.min(110,Math.round(item.width*transform.scale))),height:Math.max(32,Math.min(70,Math.round(item.height*transform.scale))),length:Math.max(70,Math.min(110,Math.round(item.length*transform.scale))),rotation:0,source:{...item.source,importId}}));
   const roots=processRegion?(document.entities||[]).map((entity,rootIndex)=>({entity,rootIndex})).filter(({entity})=>inside(entity.center,processRegion)).map(x=>x.rootIndex):cluster.map(item=>item.source.rootIndex),fullGeometry=transformDxfGeometry(document,transform,roots,Boolean(processRegion)),stride=Math.max(1,Math.ceil(fullGeometry.length/9000)),canvasGeometry=fullGeometry.filter((_,index)=>index%stride===0);
   const schematic=buildSchematicLayout(candidates);candidates=normalizeSchematicPositions(candidates,schematic,1200);schematic.lanes.forEach(lane=>lane.nodes=lane.nodes.map(node=>candidates.find(item=>item.id===node.id)||node));
-  return { document:{...document,canvasHeight:Math.max(520,90+(schematic.lanes.length+2)*130),toCanvasTransform:transform,canvasGeometry},candidates,schematic };
+  return { document:{...document,canvasHeight:Math.max(canvasHeight,520,90+(schematic.lanes.length+2)*130),toCanvasTransform:transform,canvasGeometry},candidates,schematic };
 }

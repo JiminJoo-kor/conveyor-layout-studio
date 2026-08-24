@@ -1,4 +1,4 @@
-import { createCanvasTransform, parseDxf } from './dxf.js';
+import { createCanvasTransform, parseDxf, transformDxfGeometry } from './dxf.js';
 
 export const logisticsEquipmentCatalog = [
   { type:'source', label:'투입구', keywords:['INFEED','INPUT','SOURCE','FEEDER','투입'], defaults:{ injectionInterval:30, batchSize:1 } },
@@ -61,7 +61,7 @@ export async function analyzeCadFile(file) {
   const extension=file.name.split('.').pop().toLowerCase();
   if(extension==='dwg')throw new Error('DWG를 AutoCAD 2013 ASCII DXF로 저장한 뒤 업로드해 주세요.');
   if(extension!=='dxf')throw new Error('ASCII DXF 파일만 지원합니다.');
-  const document=parseDxf(await file.text()),transform=createCanvasTransform(document),importId=`dxf-${Date.now()}`;
+  const document=parseDxf(await file.text()),bounds=document.bounds||{minX:0,maxX:1,minY:0,maxY:1},aspect=Math.max(.36,Math.min(.72,(bounds.maxY-bounds.minY)/Math.max(1,bounds.maxX-bounds.minX))),canvasHeight=Math.round(1200*aspect),transform=createCanvasTransform(document,1200,canvasHeight),importId=`dxf-${Date.now()}`;
   const candidates=buildLayoutCandidates(document).map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(8,Math.round(item.width*transform.scale)),height:Math.max(8,Math.round(item.height*transform.scale)),length:Math.max(16,Math.round(item.length*transform.scale)),source:{...item.source,importId}}));
-  return { document:{...document,toCanvasTransform:transform},candidates };
+  return { document:{...document,canvasHeight,toCanvasTransform:transform,canvasGeometry:transformDxfGeometry(document,transform)},candidates };
 }

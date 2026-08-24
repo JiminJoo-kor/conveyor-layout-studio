@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLayoutCandidates, classifyCadEntity } from '../src/cad.js';
+import { buildLayoutCandidates, classifyCadEntity, parameterFieldsFor } from '../src/cad.js';
 import { createCanvasTransform, parseDxf } from '../src/dxf.js';
 import { isNodeConveyor } from '../src/renderer.js';
 
@@ -28,4 +28,15 @@ test('CAD 형상에서 위치와 추정 파라미터를 포함한 후보를 생�
 test('DXF 컨베이어 후보와 시뮬레이션 컨베이어를 구분한다',()=>{
   assert.equal(isNodeConveyor({type:'conveyor',x:10,y:20}),false);
   assert.equal(isNodeConveyor({type:'conveyor',nodes:[]}),true);
+});
+
+test('DXF 선형 후보에 실제 길이와 회전각을 보존한다',()=>{
+  const [candidate]=buildLayoutCandidates({entities:[{entityType:'LINE',layer:'CONVEYOR',start:{x:0,y:0},end:{x:3000,y:3000},center:{x:1500,y:1500},bounds:{minX:0,maxX:3000,minY:0,maxY:3000}}]});
+  assert.equal(candidate.rotation,45);assert.ok(candidate.length>4000);assert.equal(candidate.source.origin,'dxf');
+});
+
+test('투입구와 설비별 파라미터 필드를 생성한다',()=>{
+  const source=classifyCadEntity({layer:'MHE_INFEED_01'});
+  assert.equal(source.type,'source');assert.equal(source.parameters.injectionInterval,30);
+  const fields=parameterFieldsFor({parameters:source.parameters});assert.equal(fields.length,2);assert.equal(fields[0].label,'투입 간격(초)');
 });

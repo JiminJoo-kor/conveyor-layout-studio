@@ -83,6 +83,8 @@ $('cadCandidates').addEventListener('click',event=>{
   if(action==='approve'||action==='approve-all')for(const item of selected){item.reviewStatus='approved';layout.equipment.push(item);}
   if(action==='approve-all'||action==='discard-all')pendingCadCandidates=[];else pendingCadCandidates=pendingCadCandidates.filter(item=>item.id!==id);
   renderer.setLayout(layout);renderer.draw(engine.state);renderCadCandidates();
+  if(action==='approve'||action==='approve-all'){$('cadStatusTitle').textContent='설비 반영 완료';$('cadStatusText').textContent=`${selected.length}개 설비를 레이아웃에 배치했습니다. 편집 모드에서 위치와 파라미터를 보정할 수 있습니다.`;}
+  else if(action==='discard-all'){$('cadStatusTitle').textContent='후보 제외 완료';$('cadStatusText').textContent='분석 후보를 모두 제외했습니다.';}
 });
 document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener('click',()=>editor.add(button.dataset.add)));
 $('resetView').addEventListener('click',()=>editor.resetView());

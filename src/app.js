@@ -2,6 +2,7 @@ import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
 import { defaultParams, SimulationEngine, validateParams } from './engine.js';
 import { LayoutRenderer } from './renderer.js';
 import { LayoutEditor } from './editor.js';
+import { analyzeCadFile } from './cad.js';
 
 const $ = id => document.getElementById(id);
 let layout = cloneLayout(defaultLayout), engine = new SimulationEngine(layout, defaultParams);
@@ -62,6 +63,18 @@ $('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(f
 $('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify(layout,null,2)));
 $('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hidden;$('editorTools').hidden=!active;editor.setEnabled(active);$('editorToggle').textContent=active?'편집 종료':'편집 모드';});
 $('drawingFile').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;const dataUrl=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(file);});layout.background={name:file.name,dataUrl};await renderer.setBackground(dataUrl);renderer.draw(engine.state);event.target.value='';});
+$('cadFile').addEventListener('change',async event=>{
+  const file=event.target.files[0];if(!file)return;const panel=$('cadStatus');panel.hidden=false;$('cadStatusTitle').textContent='DWG 분석 중';$('cadStatusText').textContent=`${file.name}의 레이어, 블록, 형상과 속성을 읽고 있습니다.`;$('cadCandidates').innerHTML='';
+  try{
+    const result=await analyzeCadFile(file),candidates=result.candidates.filter(item=>item.type!=='unknown');
+    layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units||'unknown'};
+    const scale=result.document.toCanvasScale||1;
+    for(const item of candidates){item.x=Math.round(item.x*scale);item.y=Math.round(item.y*scale);layout.equipment.push(item);}
+    renderer.setLayout(layout);renderer.draw(engine.state);$('cadStatusTitle').textContent='CAD 분석 완료';$('cadStatusText').textContent=`설비 후보 ${candidates.length}개를 배치했습니다. 신뢰도가 낮은 항목은 검수 후 확정하세요.`;
+    $('cadCandidates').innerHTML=candidates.map(item=>`<span>${item.name} · ${item.type} · ${Math.round(item.confidence*100)}%</span>`).join('');
+  }catch(error){$('cadStatusTitle').textContent='CAD 분석 연결 필요';$('cadStatusText').textContent=error.message;}
+  finally{event.target.value='';}
+});
 document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener('click',()=>editor.add(button.dataset.add)));
 $('resetView').addEventListener('click',()=>editor.resetView());
 $('deleteEquipment').addEventListener('click',()=>selectedEquipment&&editor.remove(selectedEquipment.id));

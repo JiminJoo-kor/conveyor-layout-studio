@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, detectProcessRegion, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
+import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { isNodeConveyor } from '../src/renderer.js';
 
@@ -80,4 +80,9 @@ test('도어·화이날·트림 라벨로 전체 공정 영역을 선택한다',
 test('임의 설비 배치를 가로 공정 라인과 이송 연결로 변환한다',()=>{
   const items=[{id:'a',type:'source',x:10,y:100},{id:'b',type:'conveyor',x:100,y:105},{id:'c',type:'sink',x:200,y:95},{id:'r',type:'robot',x:110,y:220}];
   const schematic=buildSchematicLayout(items);assert.equal(schematic.lanes[0].nodes.length,3);assert.ok(schematic.edges.some(edge=>edge.from==='a'&&edge.to==='b'));
+});
+
+test('중복 라벨을 제거하고 도어·화이날·트림 3개 라인을 유지한다',()=>{
+  const labels=['도어 라인','도어 라인','화이날 라인','화이날 라인','트림 라인','트림 라인'].map((name,index)=>({id:`p${index}`,type:'processLine',name,x:index%2?200:100,y:index*20})),cv={id:'cv',type:'conveyor',name:'CV',x:300,y:70};
+  const deduped=dedupeProcessLineCandidates([...labels,cv]),schematic=buildSchematicLayout(deduped);assert.equal(deduped.filter(x=>x.type==='processLine').length,3);assert.equal(schematic.lanes.length,3);assert.deepEqual(new Set(schematic.lanes.map(x=>x.name)),new Set(['도어 라인','화이날 라인','트림 라인']));
 });

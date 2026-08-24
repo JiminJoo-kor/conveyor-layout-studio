@@ -68,13 +68,19 @@ export function detectProcessRegion(document){
 const inside=(point,bounds)=>point&&point.x>=bounds.minX&&point.x<=bounds.maxX&&point.y>=bounds.minY&&point.y<=bounds.maxY;
 
 export function buildSchematicLayout(candidates){
-  const nodes=candidates.filter(item=>item.type!=='unknown'&&Number.isFinite(item.x)&&Number.isFinite(item.y)),lanes=[];
-  for(const node of [...nodes].sort((a,b)=>a.y-b.y||a.x-b.x)){let lane=lanes.find(group=>Math.abs(group.y-node.y)<=64);if(!lane){lane={id:`lane-${lanes.length+1}`,y:node.y,nodes:[]};lanes.push(lane);}lane.nodes.push(node);lane.y=lane.nodes.reduce((sum,item)=>sum+item.y,0)/lane.nodes.length;}
-  lanes.forEach((lane,index)=>{lane.name=lane.nodes.find(item=>item.type==='processLine')?.name||`${index+1}번 라인`;lane.nodes.sort((a,b)=>a.x-b.x);});
+  const nodes=candidates.filter(item=>item.type!=='unknown'&&Number.isFinite(item.x)&&Number.isFinite(item.y)),labels=nodes.filter(item=>item.type==='processLine'),lanes=[];
+  if(labels.length>=2){for(const label of [...labels].sort((a,b)=>a.y-b.y))lanes.push({id:`lane-${lanes.length+1}`,name:label.name,y:label.y,nodes:[label]});for(const node of nodes.filter(item=>item.type!=='processLine')){const lane=[...lanes].sort((a,b)=>Math.abs(a.y-node.y)-Math.abs(b.y-node.y))[0];lane.nodes.push(node);}}
+  else for(const node of [...nodes].sort((a,b)=>a.y-b.y||a.x-b.x)){let lane=lanes.find(group=>Math.abs(group.y-node.y)<=48);if(!lane){lane={id:`lane-${lanes.length+1}`,y:node.y,nodes:[]};lanes.push(lane);}lane.nodes.push(node);lane.y=lane.nodes.reduce((sum,item)=>sum+item.y,0)/lane.nodes.length;}
+  lanes.forEach((lane,index)=>{lane.name=lane.name||lane.nodes.find(item=>item.type==='processLine')?.name||`${index+1}번 라인`;lane.nodes.sort((a,b)=>a.x-b.x);});
   const edges=[];for(const lane of lanes)for(let index=1;index<lane.nodes.length;index++)edges.push({from:lane.nodes[index-1].id,to:lane.nodes[index].id,kind:'flow'});
   const transfers=nodes.filter(item=>['robot','stackerCrane','shuttle','amr','agv','diverter'].includes(item.type));
   for(const transfer of transfers){const nearby=nodes.filter(item=>item.id!==transfer.id&&!transfers.includes(item)).sort((a,b)=>Math.hypot(transfer.x-a.x,transfer.y-a.y)-Math.hypot(transfer.x-b.x,transfer.y-b.y)).slice(0,2);for(const target of nearby)if(Math.hypot(transfer.x-target.x,transfer.y-target.y)<420)edges.push({from:transfer.id,to:target.id,kind:'transfer'});}
-  return {lanes:lanes.filter(lane=>lane.nodes.length>1),edges};
+  return {lanes:labels.length>=2?lanes:lanes.filter(lane=>lane.nodes.length>1),edges};
+}
+
+const canonicalProcessLine=name=>/도어|DOOR/i.test(name)?'도어 라인':/화이날|FINAL/i.test(name)?'화이날 라인':/트림|TRIM/i.test(name)?'트림 라인':name;
+export function dedupeProcessLineCandidates(candidates){
+  const others=candidates.filter(item=>item.type!=='processLine'),best=new Map();for(const item of candidates.filter(x=>x.type==='processLine')){const key=canonicalProcessLine(item.name),current=best.get(key);if(!current||item.x>current.x)best.set(key,{...item,name:key});}return [...others,...best.values()];
 }
 
 export function normalizeSchematicPositions(candidates,schematic,width=1200){
@@ -97,7 +103,7 @@ export async function analyzeCadFile(file) {
   const extension=file.name.split('.').pop().toLowerCase();
   if(extension==='dwg')throw new Error('DWG를 AutoCAD 2013 ASCII DXF로 저장한 뒤 업로드해 주세요.');
   if(extension!=='dxf')throw new Error('ASCII DXF 파일만 지원합니다.');
-  const document=parseDxf(await file.text()),allCandidates=buildLayoutCandidates(document),processRegion=detectProcessRegion(document),cluster=processRegion?allCandidates.filter(item=>item.type!=='unknown'&&inside({x:item.x,y:item.y},processRegion)):selectPrimaryLayoutCluster(allCandidates),points=cluster.flatMap(item=>[{x:item.x-item.width/2,y:item.y-item.height/2},{x:item.x+item.width/2,y:item.y+item.height/2}]);
+  const document=parseDxf(await file.text()),allCandidates=buildLayoutCandidates(document),processRegion=detectProcessRegion(document),cluster=dedupeProcessLineCandidates(processRegion?allCandidates.filter(item=>item.type!=='unknown'&&inside({x:item.x,y:item.y},processRegion)):selectPrimaryLayoutCluster(allCandidates)),points=cluster.flatMap(item=>[{x:item.x-item.width/2,y:item.y-item.height/2},{x:item.x+item.width/2,y:item.y+item.height/2}]);
   if(processRegion)document.bounds=processRegion;else if(points.length){document.bounds={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minY:Math.min(...points.map(p=>p.y)),maxY:Math.max(...points.map(p=>p.y))};}
   const bounds=document.bounds||{minX:0,maxX:1,minY:0,maxY:1},aspect=Math.max(.36,Math.min(.72,(bounds.maxY-bounds.minY)/Math.max(1,bounds.maxX-bounds.minX))),canvasHeight=Math.round(1200*aspect),transform=createCanvasTransform(document,1200,canvasHeight),importId=`dxf-${Date.now()}`;
   let candidates=cluster.map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(36,Math.min(110,Math.round(item.width*transform.scale))),height:Math.max(32,Math.min(70,Math.round(item.height*transform.scale))),length:Math.max(70,Math.min(110,Math.round(item.length*transform.scale))),rotation:0,source:{...item.source,importId}}));

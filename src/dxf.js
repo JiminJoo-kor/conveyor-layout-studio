@@ -22,36 +22,89 @@ function polylinePoints(data) {
   const xs=Array.isArray(data[10])?data[10]:[data[10]],ys=Array.isArray(data[20])?data[20]:[data[20]];
   return xs.filter(v=>v!==undefined).map((x,i)=>({x:number(x),y:number(ys[i])}));
 }
-function boundsOf(points){if(!points.length)return null;return{minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minY:Math.min(...points.map(p=>p.y)),maxY:Math.max(...points.map(p=>p.y))};}
+function boundsOf(points){
+  if(!points.length)return null;
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(const point of points){if(!point)continue;if(point.x<minX)minX=point.x;if(point.x>maxX)maxX=point.x;if(point.y<minY)minY=point.y;if(point.y>maxY)maxY=point.y;}
+  return Number.isFinite(minX)?{minX,maxX,minY,maxY}:null;
+}
 function centerOf(points){const b=boundsOf(points);return b?{x:(b.minX+b.maxX)/2,y:(b.minY+b.maxY)/2}:{x:0,y:0};}
 function addData(data,code,value){if(data[code]===undefined)data[code]=value;else if(Array.isArray(data[code]))data[code].push(value);else data[code]=[data[code],value];}
 
+function transformPoint(point,matrix){return{x:point.x*matrix.a+point.y*matrix.c+matrix.e,y:point.x*matrix.b+point.y*matrix.d+matrix.f,z:point.z||0};}
+function multiply(parent,local){return{a:parent.a*local.a+parent.c*local.b,b:parent.b*local.a+parent.d*local.b,c:parent.a*local.c+parent.c*local.d,d:parent.b*local.c+parent.d*local.d,e:parent.a*local.e+parent.c*local.f+parent.e,f:parent.b*local.e+parent.d*local.f+parent.f};}
+function insertMatrix(insert,base={x:0,y:0}){const angle=(insert.rotation||0)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),sx=insert.scale?.x||1,sy=insert.scale?.y||1;return{a:c*sx,b:s*sx,c:-s*sy,d:c*sy,e:insert.center.x-(base.x*c*sx-base.y*s*sy),f:insert.center.y-(base.x*s*sx+base.y*c*sy)};}
+function transformEntity(entity,matrix,instance){
+  const result={...entity,instancePath:instance};
+  if(entity.center)result.center=transformPoint(entity.center,matrix);
+  if(entity.start&&entity.end){result.start=transformPoint(entity.start,matrix);result.end=transformPoint(entity.end,matrix);}
+  if(entity.vertices)result.vertices=entity.vertices.map(point=>transformPoint(point,matrix));
+  const points=result.vertices?.length?result.vertices:result.start?[result.start,result.end]:null;
+  if(points){result.bounds=boundsOf(points);result.center=centerOf(points);}
+  else if(entity.bounds){const corners=[{x:entity.bounds.minX,y:entity.bounds.minY},{x:entity.bounds.maxX,y:entity.bounds.minY},{x:entity.bounds.maxX,y:entity.bounds.maxY},{x:entity.bounds.minX,y:entity.bounds.maxY}].map(point=>transformPoint(point,matrix));result.bounds=boundsOf(corners);result.center=centerOf(corners);}
+  const scale=Math.sqrt(Math.abs(matrix.a*matrix.d-matrix.b*matrix.c));
+  if(entity.radius)result.radius=entity.radius*scale;
+  return result;
+}
+
+function expandBlockInserts(entities,blocks,maxEntities=100000){
+  const output=[];
+  const visit=(entity,matrix,depth,path)=>{
+    if(output.length>=maxEntities||depth>12)return;
+    if(entity.entityType!=='INSERT'){output.push(transformEntity(entity,matrix,path));return;}
+    const block=blocks.get(entity.blockName);
+    if(!block){output.push(transformEntity(entity,matrix,path));return;}
+    const next=multiply(matrix,insertMatrix(entity,block.base));
+    for(let index=0;index<block.entities.length;index++)visit(block.entities[index],next,depth+1,`${path}/${entity.blockName}:${index}`);
+  };
+  const identity={a:1,b:0,c:0,d:1,e:0,f:0};
+  entities.forEach((entity,index)=>visit(entity,identity,0,`model:${index}`));
+  return output;
+}
+
 export function parseDxf(text) {
-  const input=pairs(text),entities=[],layers=new Set(),blocks=new Map();let section='',i=0,unitsCode=0;
+  const input=pairs(text),entities=[],layers=new Set(),blocks=new Map();let section='',currentBlock=null,i=0,unitsCode=0;
   while(i<input.length){const pair=input[i];
     if(pair.code===0&&pair.value==='SECTION'){section=input[i+1]?.value||'';i+=2;continue;}
     if(pair.code===0&&pair.value==='ENDSEC'){section='';i++;continue;}
     if(section==='HEADER'&&pair.code===9&&pair.value==='$INSUNITS'){unitsCode=Number(input[i+1]?.value)||0;i+=2;continue;}
+    if(section==='BLOCKS'&&pair.code===0&&pair.value==='BLOCK'){
+      const data={};i++;while(i<input.length&&input[i].code!==0){addData(data,input[i].code,input[i].value);i++;}
+      currentBlock={name:data[2]||data[3],base:pointFrom(data),entities:[]};if(currentBlock.name)blocks.set(currentBlock.name,currentBlock);continue;
+    }
+    if(section==='BLOCKS'&&pair.code===0&&pair.value==='ENDBLK'){currentBlock=null;i++;continue;}
     if((section==='ENTITIES'||section==='BLOCKS')&&pair.code===0&&!['SECTION','ENDSEC','EOF','BLOCK','ENDBLK','SEQEND','VERTEX'].includes(pair.value)){
       const type=pair.value,data={},vertices=[];i++;
       while(i<input.length&&input[i].code!==0){addData(data,input[i].code,input[i].value);i++;}
       if(type==='POLYLINE')while(input[i]?.value==='VERTEX'){const vd={};i++;while(i<input.length&&input[i].code!==0){addData(vd,input[i].code,input[i].value);i++;}vertices.push(pointFrom(vd));}
       const entity=collectEntity(type,data,vertices);layers.add(entity.layer);
-      if(section==='ENTITIES')entities.push(entity);else if(entity.blockName)blocks.set(entity.blockName,entity);
+      if(section==='ENTITIES')entities.push(entity);else if(currentBlock)currentBlock.entities.push(entity);
       continue;
     }
     i++;
   }
-  const drawable=entities.filter(e=>e.center||e.bounds),allPoints=drawable.flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
-  const bounds=boundsOf(allPoints),unitNames={0:'unitless',1:'inch',2:'foot',4:'mm',5:'cm',6:'m'};
-  return {format:'DXF',version:'ASCII',units:unitNames[unitsCode]||`code-${unitsCode}`,bounds,layers:[...layers],blocks:[...blocks.keys()],entities};
+  const expandedEntities=expandBlockInserts(entities,blocks),drawable=expandedEntities.filter(e=>e.center||e.bounds),allPoints=drawable.flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
+  const logisticsPoints=drawable.filter(isLogisticsDxfEntity).flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
+  const bounds=boundsOf(logisticsPoints)||boundsOf(allPoints),unitNames={0:'unitless',1:'inch',2:'foot',4:'mm',5:'cm',6:'m'};
+  return {format:'DXF',version:'ASCII',units:unitNames[unitsCode]||`code-${unitsCode}`,bounds,layers:[...layers],blocks:[...blocks.keys()],blockDefinitions:Object.fromEntries([...blocks].map(([name,block])=>[name,{base:block.base,entityCount:block.entities.length}])),entities,expandedEntities};
 }
 
 export function createCanvasTransform(document,width=1200,height=430,padding=40){const b=document.bounds;if(!b)return{scale:1,offsetX:0,offsetY:0};const sx=(width-padding*2)/Math.max(1,b.maxX-b.minX),sy=(height-padding*2)/Math.max(1,b.maxY-b.minY),scale=Math.min(sx,sy);return{scale,offsetX:padding-b.minX*scale,offsetY:padding+b.maxY*scale};}
 
+const architecturalLayerTerms=['WALL','WAL','COLUMN','COL','DOOR','WINDOW','FLOOR','CEILING','GRID','AXIS','DIM','TEXT','TEX','TXT','HATCH','건축','벽','외벽','내벽','기둥','문','창호','치수','천장'];
+const logisticsLayerTerms=['CONV','CONVEYOR','CV','ROLLER','BELT','RACK','STACK','STK','CRANE','SHUTTLE','AMR','AGV','ASRS','MHE','SORT','LIFT','ROBOT','물류','컨베이어','랙','크레인','셔틀'];
+export function isLogisticsDxfEntity(entity){
+  const haystack=`${entity.layer||''} ${entity.blockName||''} ${entity.instancePath||''}`.toUpperCase();
+  if(logisticsLayerTerms.some(term=>haystack.includes(term)))return true;
+  if(architecturalLayerTerms.some(term=>haystack.includes(term))||['HATCH','DIMENSION','TEXT','MTEXT'].includes(entity.entityType))return false;
+  // 펼쳐진 익명/건축 블록은 물류 키워드가 확인될 때만 표시한다.
+  if(entity.instancePath)return false;
+  return true;
+}
+
 export function transformDxfGeometry(document,transform){
   const point=p=>({x:p.x*transform.scale+transform.offsetX,y:-p.y*transform.scale+transform.offsetY});
-  return (document.entities||[]).flatMap(entity=>{
+  return (document.expandedEntities||document.entities||[]).filter(isLogisticsDxfEntity).flatMap(entity=>{
     const common={type:entity.entityType,layer:entity.layer||'0'};
     if(entity.entityType==='LINE')return [{...common,start:point(entity.start),end:point(entity.end)}];
     if(['LWPOLYLINE','POLYLINE'].includes(entity.entityType)&&entity.vertices?.length)return [{...common,vertices:entity.vertices.map(point),closed:entity.closed}];

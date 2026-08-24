@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, classifyCadEntity, parameterFieldsFor } from '../src/cad.js';
-import { createCanvasTransform, parseDxf, transformDxfGeometry } from '../src/dxf.js';
+import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { isNodeConveyor } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
@@ -45,4 +45,23 @@ test('DXF 원본 선형을 캔버스 좌표의 라인워크로 변환한다',()=
   const document={entities:[{entityType:'LINE',layer:'FLOW',start:{x:0,y:0},end:{x:100,y:50}},{entityType:'LWPOLYLINE',layer:'CV',vertices:[{x:0,y:0},{x:50,y:50}],closed:false}]};
   const geometry=transformDxfGeometry(document,{scale:2,offsetX:10,offsetY:210});
   assert.equal(geometry.length,2);assert.deepEqual(geometry[0].end,{x:210,y:110});assert.deepEqual(geometry[1].vertices[1],{x:110,y:110});
+});
+
+test('스태커 크레인을 셔틀과 구분하고 전용 파라미터를 만든다',()=>{
+  const stacker=classifyCadEntity({layer:'ASRS',blockName:'RACK_MASTER_STACKER_CRANE_01'});
+  assert.equal(stacker.type,'stackerCrane');assert.equal(stacker.parameters.travelSpeed,2.5);assert.equal(stacker.parameters.loadCapacity,1000);
+});
+
+test('중첩 DXF 블록을 삽입 좌표와 회전에 맞춰 실제 선형으로 펼친다',()=>{
+  const dxf=`0\nSECTION\n2\nBLOCKS\n0\nBLOCK\n2\nCV_UNIT\n10\n0\n20\n0\n0\nLINE\n8\nCV\n10\n0\n20\n0\n11\n100\n21\n0\n0\nENDBLK\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nINSERT\n8\nMHE\n2\nCV_UNIT\n10\n1000\n20\n2000\n50\n90\n0\nENDSEC\n0\nEOF\n`;
+  const document=parseDxf(dxf),line=document.expandedEntities[0];
+  assert.equal(line.entityType,'LINE');assert.ok(Math.abs(line.start.x-1000)<.001);assert.ok(Math.abs(line.end.y-2100)<.001);
+});
+
+test('건축 배경은 제외하고 물류설비 레이어는 유지한다',()=>{
+  assert.equal(isLogisticsDxfEntity({entityType:'LINE',layer:'외벽판넬'}),false);
+  assert.equal(isLogisticsDxfEntity({entityType:'DIMENSION',layer:'DIM'}),false);
+  assert.equal(isLogisticsDxfEntity({entityType:'LINE',layer:'MHE_STACKER_CRANE'}),true);
+  const geometry=transformDxfGeometry({entities:[{entityType:'LINE',layer:'WALL',start:{x:0,y:0},end:{x:10,y:0}},{entityType:'LINE',layer:'CV',start:{x:0,y:0},end:{x:20,y:0}}]},{scale:1,offsetX:0,offsetY:0});
+  assert.equal(geometry.length,1);assert.equal(geometry[0].layer,'CV');
 });

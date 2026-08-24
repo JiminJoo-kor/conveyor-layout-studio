@@ -1,3 +1,5 @@
+import { createCanvasTransform, parseDxf } from './dxf.js';
+
 export const logisticsEquipmentCatalog = [
   { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ speed:0.5, capacity:1 } },
   { type:'diverter', label:'디버터', keywords:['DIV','DIVERTER','MERGE','SORT GATE'], defaults:{ cycleTime:1.5, directions:2 } },
@@ -44,9 +46,9 @@ export function buildLayoutCandidates(cadDocument) {
 
 export async function analyzeCadFile(file) {
   const extension=file.name.split('.').pop().toLowerCase();
-  if(!['dwg','dxf'].includes(extension))throw new Error('DWG 또는 DXF 파일만 지원합니다.');
-  const response=await fetch('/api/cad/analyze',{method:'POST',headers:{'content-type':'application/octet-stream','x-file-name':encodeURIComponent(file.name)},body:file});
-  const payload=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(payload.message||'CAD 분석 서비스가 준비되지 않았습니다.');
-  return { document:payload,candidates:buildLayoutCandidates(payload) };
+  if(extension==='dwg')throw new Error('DWG를 AutoCAD 2013 ASCII DXF로 저장한 뒤 업로드해 주세요.');
+  if(extension!=='dxf')throw new Error('ASCII DXF 파일만 지원합니다.');
+  const document=parseDxf(await file.text()),transform=createCanvasTransform(document);
+  const candidates=buildLayoutCandidates(document).map(item=>({...item,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY)}));
+  return { document:{...document,toCanvasTransform:transform},candidates };
 }

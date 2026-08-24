@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, classifyCadEntity, parameterFieldsFor } from '../src/cad.js';
-import { createCanvasTransform, parseDxf } from '../src/dxf.js';
+import { createCanvasTransform, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { isNodeConveyor } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
@@ -39,4 +39,10 @@ test('투입구와 설비별 파라미터 필드를 생성한다',()=>{
   const source=classifyCadEntity({layer:'MHE_INFEED_01'});
   assert.equal(source.type,'source');assert.equal(source.parameters.injectionInterval,30);
   const fields=parameterFieldsFor({parameters:source.parameters});assert.equal(fields.length,2);assert.equal(fields[0].label,'투입 간격(초)');
+});
+
+test('DXF 원본 선형을 캔버스 좌표의 라인워크로 변환한다',()=>{
+  const document={entities:[{entityType:'LINE',layer:'FLOW',start:{x:0,y:0},end:{x:100,y:50}},{entityType:'LWPOLYLINE',layer:'CV',vertices:[{x:0,y:0},{x:50,y:50}],closed:false}]};
+  const geometry=transformDxfGeometry(document,{scale:2,offsetX:10,offsetY:210});
+  assert.equal(geometry.length,2);assert.deepEqual(geometry[0].end,{x:210,y:110});assert.deepEqual(geometry[1].vertices[1],{x:110,y:110});
 });

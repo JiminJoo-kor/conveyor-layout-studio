@@ -122,10 +122,10 @@ export class LayoutRenderer {
   }
 
   drawCadSymbol(item){
-    if(!Number.isFinite(item.x)||!Number.isFinite(item.y))return false;const c=this.ctx;
-    if(['stackerCrane','asrs'].includes(item.type)){c.save();c.translate(item.x,item.y);c.strokeStyle=COLORS.green;c.fillStyle='#0d2530';c.lineWidth=1;c.fillRect(-52,-38,104,76);c.strokeRect(-52,-38,104,76);for(const x of [-40,-28,28,40]){c.beginPath();c.moveTo(x,-32);c.lineTo(x,32);c.stroke();}c.strokeStyle=COLORS.orange;c.lineWidth=3;c.beginPath();c.moveTo(0,-34);c.lineTo(0,34);c.stroke();c.fillStyle=COLORS.orange;c.fillRect(-8,-8,16,16);c.fillStyle='#d8f3ff';c.font='9px monospace';c.fillText(item.type==='asrs'?'AS/RS':'STACKER',-25,4);c.restore();return true;}
+    if(!Number.isFinite(item.x)||!Number.isFinite(item.y))return false;const c=this.ctx,compact=this.layout.cadViewMode==='hybrid';
+    if(['stackerCrane','asrs'].includes(item.type)){const w=compact?46:104,h=compact?34:76;c.save();c.translate(item.x,item.y);c.strokeStyle=COLORS.green;c.fillStyle='#0d2530';c.lineWidth=1;c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);for(const x of [-w*.34,-w*.22,w*.22,w*.34]){c.beginPath();c.moveTo(x,-h*.4);c.lineTo(x,h*.4);c.stroke();}c.strokeStyle=COLORS.orange;c.lineWidth=compact?2:3;c.beginPath();c.moveTo(0,-h*.42);c.lineTo(0,h*.42);c.stroke();c.fillStyle=COLORS.orange;c.fillRect(-4,-4,8,8);c.fillStyle='#d8f3ff';c.font=`${compact?7:9}px monospace`;c.fillText(item.type==='asrs'?'AS/RS':'STACKER',compact?-15:-25,3);c.restore();return true;}
     if(['source','sink','dock'].includes(item.type)){c.save();c.translate(item.x,item.y);c.fillStyle='#17334a';c.strokeStyle=COLORS.cyan;c.fillRect(-42,-20,58,40);c.strokeRect(-42,-20,58,40);c.fillRect(16,-13,24,33);c.strokeRect(16,-13,24,33);c.beginPath();c.arc(-25,23,6,0,Math.PI*2);c.arc(25,23,6,0,Math.PI*2);c.stroke();c.fillStyle='#d8f3ff';c.font='9px monospace';c.fillText(item.type==='source'?'입고':'출고',-13,4);c.restore();return true;}
-    if(['amr','agv'].includes(item.type)){c.save();c.translate(item.x,item.y);c.rotate(Math.PI/4);c.fillStyle='#15374a';c.strokeStyle=COLORS.yellow;c.fillRect(-22,-22,44,44);c.strokeRect(-22,-22,44,44);c.rotate(-Math.PI/4);c.fillStyle='#fff';c.font='9px monospace';c.fillText(item.type.toUpperCase(),-10,3);c.restore();return true;}
+    if(['amr','agv'].includes(item.type)){const half=compact?11:22;c.save();c.translate(item.x,item.y);c.rotate(Math.PI/4);c.fillStyle='#15374a';c.strokeStyle=COLORS.yellow;c.fillRect(-half,-half,half*2,half*2);c.strokeRect(-half,-half,half*2,half*2);c.rotate(-Math.PI/4);c.fillStyle='#fff';c.font=`${compact?7:9}px monospace`;c.fillText(item.type.toUpperCase(),compact?-7:-10,3);c.restore();return true;}
     return false;
   }
 

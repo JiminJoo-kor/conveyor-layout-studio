@@ -48,3 +48,15 @@ export function parseDxf(text) {
 }
 
 export function createCanvasTransform(document,width=1200,height=430,padding=40){const b=document.bounds;if(!b)return{scale:1,offsetX:0,offsetY:0};const sx=(width-padding*2)/Math.max(1,b.maxX-b.minX),sy=(height-padding*2)/Math.max(1,b.maxY-b.minY),scale=Math.min(sx,sy);return{scale,offsetX:padding-b.minX*scale,offsetY:padding+b.maxY*scale};}
+
+export function transformDxfGeometry(document,transform){
+  const point=p=>({x:p.x*transform.scale+transform.offsetX,y:-p.y*transform.scale+transform.offsetY});
+  return (document.entities||[]).flatMap(entity=>{
+    const common={type:entity.entityType,layer:entity.layer||'0'};
+    if(entity.entityType==='LINE')return [{...common,start:point(entity.start),end:point(entity.end)}];
+    if(['LWPOLYLINE','POLYLINE'].includes(entity.entityType)&&entity.vertices?.length)return [{...common,vertices:entity.vertices.map(point),closed:entity.closed}];
+    if(entity.entityType==='CIRCLE')return [{...common,center:point(entity.center),radius:entity.radius*transform.scale}];
+    if(entity.entityType==='ARC')return [{...common,center:point(entity.center),radius:entity.radius*transform.scale,startAngle:-(entity.endAngle||0)*Math.PI/180,endAngle:-(entity.startAngle||0)*Math.PI/180}];
+    return [];
+  });
+}

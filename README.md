@@ -38,6 +38,14 @@
 
 네이티브 DWG 해석은 브라우저에서 직접 수행하지 않습니다. Vercel 환경 변수 `CAD_ANALYZER_URL`에 Autodesk APS 또는 ODA 기반 분석 서비스를 연결해야 하며, 필요한 경우 `CAD_ANALYZER_TOKEN`을 함께 설정합니다.
 
+## 5차 로컬 DXF 분석
+
+- 서버나 유료 API 없이 브라우저에서 ASCII DXF 직접 분석
+- HEADER 단위, ENTITIES, LINE, POLYLINE, LWPOLYLINE, INSERT, TEXT, MTEXT, CIRCLE, ARC 추출
+- CAD 전체 경계를 Canvas 크기로 자동 정규화
+- 설비 후보를 바로 배치하지 않고 승인·제외 검수 후 반영
+- DWG는 AutoCAD 2013 ASCII DXF로 저장한 뒤 업로드
+
 ES 모듈을 사용하므로 로컬 웹 서버에서 실행해야 합니다. `npm test`로 엔진과 데이터 모델을 검증할 수 있습니다.
 
 ## 최종 목표를 위한 확장 순서

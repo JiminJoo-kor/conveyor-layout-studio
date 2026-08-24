@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
-import { SimulationEngine, validateParams } from '../src/engine.js';
+import { CadFlowEngine, SimulationEngine, validateParams } from '../src/engine.js';
 
 test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
   const result = validateLayout(defaultLayout);
@@ -49,4 +49,10 @@ test('시뮬레이션이 물품 이동과 KPI를 산출한다', () => {
   assert.ok(engine.state.completedSources.length > 0);
   assert.ok(kpis.utilization.robot > 0);
   assert.ok(kpis.wip >= 0);
+});
+
+test('CAD 흐름 그래프에서 실제 완료 기준 UPH와 CT를 계산한다',()=>{
+  const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{speed:10}},{id:'out',type:'sink',x:200,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}];
+  const engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}},{injectA:2,simDuration:20});for(let i=0;i<400;i++)engine.step(.05);const kpis=engine.getKpis();
+  assert.equal(kpis.mode,'cad');assert.ok(kpis.throughput>0);assert.ok(kpis.cycleTime>0);
 });

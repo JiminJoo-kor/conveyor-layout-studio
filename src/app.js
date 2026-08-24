@@ -1,5 +1,5 @@
 import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
-import { defaultParams, SimulationEngine, validateParams } from './engine.js';
+import { CadFlowEngine, defaultParams, SimulationEngine, validateParams } from './engine.js';
 import { LayoutRenderer } from './renderer.js';
 import { LayoutEditor } from './editor.js';
 import { analyzeCadFile, parameterFieldsFor } from './cad.js';
@@ -21,7 +21,7 @@ function resetEngine() {
   const params=readParams(), check=validateParams(params);
   $('validation').textContent=check.errors.join(' ');
   if(!check.valid) return false;
-  engine=new SimulationEngine(layout,params); renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
+  engine=layout.displayMode==='cad'&&layout.equipment.some(item=>item.source?.origin==='dxf')?new CadFlowEngine(layout,params):new SimulationEngine(layout,params); renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
 }
 function editorChanged(rebuild) {
   if (rebuild) renderer.setLayout(layout);
@@ -36,7 +36,7 @@ function selectEquipment(item) {
 function updateDashboard() {
   const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
   $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
-  $('robotUtil').textContent=(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
+  $('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
   $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
   $('moved').textContent=k.movedItems; $('completed').textContent=engine.state.completedProducts.length;
 }
@@ -72,7 +72,7 @@ $('cadFile').addEventListener('change',async event=>{
   try{
     const result=await analyzeCadFile(file),candidates=result.candidates.filter(item=>item.type!=='unknown');
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units||'unknown',importId:candidates[0]?.source?.importId};
-    layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.canvas.height=result.document.canvasHeight;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');
+    layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='schematic';layout.canvas.height=result.document.canvasHeight;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');
     renderer.setLayout(layout);renderer.draw(engine.state);pendingCadCandidates=candidates;$('cadStatusTitle').textContent='DXF 분석 완료';$('cadStatusText').textContent=`원본 라인 ${layout.dxfGeometry.length}개와 설비 후보 ${candidates.length}개를 찾았습니다. 라인워크 위에 승인 설비가 배치됩니다.`;renderCadCandidates();renderCadEquipmentParameters();
   }catch(error){$('cadStatusTitle').textContent='DXF 분석 실패';$('cadStatusText').textContent=error.message;}
   finally{event.target.value='';}
@@ -98,7 +98,7 @@ $('cadCandidates').addEventListener('click',event=>{
     for(const item of selected){item.reviewStatus='approved';layout.equipment.push(item);}
   }
   if(action==='approve-all'||action==='discard-all')pendingCadCandidates=[];else pendingCadCandidates=pendingCadCandidates.filter(item=>item.id!==id);
-  renderer.setLayout(layout);renderer.draw(engine.state);renderCadCandidates();renderCadEquipmentParameters();
+  renderer.setLayout(layout);if(action==='approve'||action==='approve-all')resetEngine();else renderer.draw(engine.state);renderCadCandidates();renderCadEquipmentParameters();
   if(action==='approve'||action==='approve-all'){$('cadStatusTitle').textContent='설비 반영 완료';$('cadStatusText').textContent=`${selected.length}개 설비를 레이아웃에 배치했습니다. 편집 모드에서 위치와 파라미터를 보정할 수 있습니다.`;}
   else if(action==='discard-all'){$('cadStatusTitle').textContent='후보 제외 완료';$('cadStatusText').textContent='분석 후보를 모두 제외했습니다.';}
 });

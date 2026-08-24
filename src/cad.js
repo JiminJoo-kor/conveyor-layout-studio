@@ -71,10 +71,17 @@ export function buildSchematicLayout(candidates){
   const nodes=candidates.filter(item=>item.type!=='unknown'&&Number.isFinite(item.x)&&Number.isFinite(item.y)),lanes=[];
   for(const node of [...nodes].sort((a,b)=>a.y-b.y||a.x-b.x)){let lane=lanes.find(group=>Math.abs(group.y-node.y)<=64);if(!lane){lane={id:`lane-${lanes.length+1}`,y:node.y,nodes:[]};lanes.push(lane);}lane.nodes.push(node);lane.y=lane.nodes.reduce((sum,item)=>sum+item.y,0)/lane.nodes.length;}
   lanes.forEach((lane,index)=>{lane.name=lane.nodes.find(item=>item.type==='processLine')?.name||`${index+1}번 라인`;lane.nodes.sort((a,b)=>a.x-b.x);});
-  const edges=[];for(const lane of lanes)for(let index=1;index<lane.nodes.length;index++)if(lane.nodes[index].x-lane.nodes[index-1].x<520)edges.push({from:lane.nodes[index-1].id,to:lane.nodes[index].id,kind:'flow'});
+  const edges=[];for(const lane of lanes)for(let index=1;index<lane.nodes.length;index++)edges.push({from:lane.nodes[index-1].id,to:lane.nodes[index].id,kind:'flow'});
   const transfers=nodes.filter(item=>['robot','stackerCrane','shuttle','amr','agv','diverter'].includes(item.type));
   for(const transfer of transfers){const nearby=nodes.filter(item=>item.id!==transfer.id&&!transfers.includes(item)).sort((a,b)=>Math.hypot(transfer.x-a.x,transfer.y-a.y)-Math.hypot(transfer.x-b.x,transfer.y-b.y)).slice(0,2);for(const target of nearby)if(Math.hypot(transfer.x-target.x,transfer.y-target.y)<420)edges.push({from:transfer.id,to:target.id,kind:'transfer'});}
   return {lanes:lanes.filter(lane=>lane.nodes.length>1),edges};
+}
+
+export function normalizeSchematicPositions(candidates,schematic,width=1200){
+  const laneGap=Math.max(105,Math.min(155,620/Math.max(1,schematic.lanes.length))),positionById=new Map();
+  schematic.lanes.forEach((lane,laneIndex)=>{const count=lane.nodes.length,gap=count>1?Math.min(130,(width-160)/(count-1)):0;lane.nodes.forEach((node,index)=>positionById.set(node.id,{x:80+index*gap,y:90+laneIndex*laneGap}));});
+  candidates.filter(item=>!positionById.has(item.id)).forEach((item,index)=>positionById.set(item.id,{x:80+(index%9)*125,y:90+(schematic.lanes.length+Math.floor(index/9))*laneGap}));
+  return candidates.map(item=>({...item,originalPosition:{x:item.x,y:item.y},...(positionById.get(item.id)||{})}));
 }
 
 export function selectPrimaryLayoutCluster(candidates){
@@ -93,7 +100,8 @@ export async function analyzeCadFile(file) {
   const document=parseDxf(await file.text()),allCandidates=buildLayoutCandidates(document),processRegion=detectProcessRegion(document),cluster=processRegion?allCandidates.filter(item=>item.type!=='unknown'&&inside({x:item.x,y:item.y},processRegion)):selectPrimaryLayoutCluster(allCandidates),points=cluster.flatMap(item=>[{x:item.x-item.width/2,y:item.y-item.height/2},{x:item.x+item.width/2,y:item.y+item.height/2}]);
   if(processRegion)document.bounds=processRegion;else if(points.length){document.bounds={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minY:Math.min(...points.map(p=>p.y)),maxY:Math.max(...points.map(p=>p.y))};}
   const bounds=document.bounds||{minX:0,maxX:1,minY:0,maxY:1},aspect=Math.max(.36,Math.min(.72,(bounds.maxY-bounds.minY)/Math.max(1,bounds.maxX-bounds.minX))),canvasHeight=Math.round(1200*aspect),transform=createCanvasTransform(document,1200,canvasHeight),importId=`dxf-${Date.now()}`;
-  const candidates=cluster.map(item=>{const processLine=item.type==='processLine';return {...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:processLine?420:Math.max(8,Math.round(item.width*transform.scale)),height:processLine?18:Math.max(8,Math.round(item.height*transform.scale)),length:processLine?420:Math.max(48,Math.round(item.length*transform.scale)),rotation:processLine?0:item.rotation,source:{...item.source,importId}};});
+  let candidates=cluster.map(item=>({...item,id:`${item.id}-${importId}`,x:Math.round(item.x*transform.scale+transform.offsetX),y:Math.round(-item.y*transform.scale+transform.offsetY),width:Math.max(36,Math.min(110,Math.round(item.width*transform.scale))),height:Math.max(32,Math.min(70,Math.round(item.height*transform.scale))),length:Math.max(70,Math.min(110,Math.round(item.length*transform.scale))),rotation:0,source:{...item.source,importId}}));
   const roots=processRegion?(document.entities||[]).map((entity,rootIndex)=>({entity,rootIndex})).filter(({entity})=>inside(entity.center,processRegion)).map(x=>x.rootIndex):cluster.map(item=>item.source.rootIndex),fullGeometry=transformDxfGeometry(document,transform,roots,Boolean(processRegion)),stride=Math.max(1,Math.ceil(fullGeometry.length/9000)),canvasGeometry=fullGeometry.filter((_,index)=>index%stride===0);
-  return { document:{...document,canvasHeight,toCanvasTransform:transform,canvasGeometry},candidates,schematic:buildSchematicLayout(candidates) };
+  const schematic=buildSchematicLayout(candidates);candidates=normalizeSchematicPositions(candidates,schematic,1200);schematic.lanes.forEach(lane=>lane.nodes=lane.nodes.map(node=>candidates.find(item=>item.id===node.id)||node));
+  return { document:{...document,canvasHeight:Math.max(520,90+(schematic.lanes.length+2)*130),toCanvasTransform:transform,canvasGeometry},candidates,schematic };
 }

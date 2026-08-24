@@ -12,6 +12,16 @@ export const defaultParams = {
   forklift211Time: 30, simDuration: 600
 };
 
+const cadDuration=item=>Math.max(.2,Number(item?.parameters?.cycleTime??item?.parameters?.processTime??item?.parameters?.dischargeTime??1));
+export class CadFlowEngine {
+  constructor(layout,params={}){this.layout=layout;this.params={...defaultParams,...params};this.nodes=new Map(layout.equipment.filter(item=>item.source?.origin==='dxf').map(item=>[item.id,item]));this.edges=(layout.cadSchematic?.edges||[]).filter(edge=>this.nodes.has(edge.from)&&this.nodes.has(edge.to));this.outgoing=new Map();this.incoming=new Map();for(const edge of this.edges){if(!this.outgoing.has(edge.from))this.outgoing.set(edge.from,[]);this.outgoing.get(edge.from).push(edge);this.incoming.set(edge.to,(this.incoming.get(edge.to)||0)+1);}this.sources=[...this.nodes.values()].filter(node=>node.type==='source'||!this.incoming.has(node.id));this.reset();}
+  reset(){this.state={t:0,cadTokens:[],nextId:1,nextInjection:0,completedProducts:[],events:[],movedItems:0,locks:{},robot:{phase:'idle'},source:[],product:[]};return this.state;}
+  emit(type,detail={}){this.state.events.push({t:this.state.t,type,...detail});}
+  step(dt){const s=this.state;if(!(dt>0)||s.t>=this.params.simDuration)return s;s.t+=Math.min(dt,this.params.simDuration-s.t);if(s.t>=s.nextInjection){for(const source of this.sources)s.cadTokens.push({id:s.nextId++,nodeId:source.id,createdAt:s.t,readyAt:s.t+cadDuration(source),edge:null,progress:0});s.nextInjection=s.t+Math.max(1,this.params.injectA||30);this.emit('source-injected',{equipmentId:this.sources.map(x=>x.id).join(',')});}
+    for(const token of [...s.cadTokens]){if(token.edge){const from=this.nodes.get(token.edge.from),to=this.nodes.get(token.edge.to),distance=Math.max(40,Math.hypot(to.x-from.x,to.y-from.y)),lineSpeed=Number(from.parameters?.lineSpeed),speed=Math.max(.2,Number(from.parameters?.speed??(Number.isFinite(lineSpeed)?lineSpeed/20:1)));token.progress+=dt*speed*90/distance;if(token.progress>=1){token.nodeId=to.id;token.edge=null;token.progress=0;token.readyAt=s.t+cadDuration(to);s.movedItems++;this.emit('equipment-start',{equipmentId:to.id});}}else if(s.t>=token.readyAt){const options=this.outgoing.get(token.nodeId)||[];if(options.length){token.edge=options[(token.id-1)%options.length];token.progress=0;}else{s.completedProducts.push({id:token.id,cycleTime:s.t-token.createdAt});s.cadTokens.splice(s.cadTokens.indexOf(token),1);this.emit('equipment-complete',{equipmentId:token.nodeId,productId:token.id});}}}return s;}
+  getKpis(){const completed=this.state.completedProducts,elapsed=Math.max(this.state.t,1),cycleTime=completed.length?completed.reduce((sum,item)=>sum+item.cycleTime,0)/completed.length:0;return{mode:'cad',throughput:completed.length/elapsed*3600,cycleTime,wip:this.state.cadTokens.length,bottleneck:null,movedItems:this.state.movedItems,utilization:{robot:0}};}
+}
+
 export function validateParams(params) {
   const errors = [];
   const positive = ['injectA','injectB','injectC','conv2Speed','conv1Speed','forklift17Time','forklift211Time','simDuration'];

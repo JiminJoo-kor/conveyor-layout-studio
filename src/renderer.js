@@ -41,7 +41,7 @@ export class LayoutRenderer {
     c.strokeStyle = 'rgba(70,120,150,.08)'; c.lineWidth = 1;
     for (let x = 0; x < width; x += grid) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,height); c.stroke(); }
     for (let y = 0; y < height; y += grid) { c.beginPath(); c.moveTo(0,y); c.lineTo(width,y); c.stroke(); }
-    this.drawDxfGeometry();
+    if(this.layout.cadViewMode==='raw')this.drawDxfGeometry();
     if(this.layout.displayMode==='cad')this.drawCadSchematic();
     const lines = this.layout.equipment.filter(item=>isNodeConveyor(item)&&this.isVisible(item));
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
@@ -102,7 +102,7 @@ export class LayoutRenderer {
   drawEquipment(state) {
     const c=this.ctx;
     for(const item of this.layout.equipment.filter(x=>!isNodeConveyor(x)&&this.isVisible(x))) {
-      if(item.type==='robot') {
+      if(item.type==='robot'&&!item.source?.origin) {
         c.beginPath(); c.arc(item.x,item.y,27,0,Math.PI*2); c.fillStyle=state.robot.phase==='idle'?'#6f2530':COLORS.orange; c.fill();
         c.strokeStyle=state.robot.phase==='idle'?'#b54555':COLORS.yellow; c.stroke(); c.fillStyle='#fff'; c.font='bold 11px monospace'; c.fillText(state.robot.phase.toUpperCase(),item.x-18,item.y+4);
         if(item.id===this.selectedId){c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.strokeRect(item.x-34,item.y-34,68,68);}
@@ -122,6 +122,7 @@ export class LayoutRenderer {
     const c=this.ctx,conveyors=this.layout.equipment.filter(item=>['conveyor','processLine'].includes(item.type)&&item.source?.origin==='dxf');
     c.save();c.strokeStyle='rgba(0,255,136,.42)';c.lineWidth=2;c.setLineDash([7,6]);
     conveyors.forEach((item,index)=>{const next=conveyors.slice(index+1).sort((a,b)=>Math.hypot(item.x-a.x,item.y-a.y)-Math.hypot(item.x-b.x,item.y-b.y))[0];if(!next)return;const distance=Math.hypot(item.x-next.x,item.y-next.y);if(distance<360){c.beginPath();c.moveTo(item.x,item.y);c.lineTo(next.x,next.y);c.stroke();}});c.setLineDash([]);c.restore();
+    if(state.cadTokens){const nodes=new Map(this.layout.equipment.filter(item=>item.source?.origin==='dxf').map(item=>[item.id,item]));for(const token of state.cadTokens){const from=nodes.get(token.edge?.from||token.nodeId),to=nodes.get(token.edge?.to||token.nodeId);if(!from||!to)continue;const progress=token.edge?token.progress:0,x=from.x+(to.x-from.x)*progress,y=from.y+(to.y-from.y)*progress;c.fillStyle=COLORS.yellow;c.strokeStyle='#fff2a8';c.fillRect(x-7,y-7,14,14);c.strokeRect(x-7,y-7,14,14);}return;}
     conveyors.forEach((item,index)=>{const length=Math.max(48,item.length||item.width||160),speed=Math.max(.2,item.parameters?.speed||item.parameters?.lineSpeed/20||.5),progress=((state.t*speed*32+index*29)%length)-length/2;
       c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=COLORS.yellow;c.strokeStyle='#fff2a8';c.lineWidth=1;c.fillRect(progress-7,-7,14,14);c.strokeRect(progress-7,-7,14,14);c.restore();
     });

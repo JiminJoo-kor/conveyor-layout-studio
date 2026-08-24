@@ -3,6 +3,7 @@ import { CadFlowEngine, defaultParams, SimulationEngine, validateParams } from '
 import { LayoutRenderer } from './renderer.js';
 import { LayoutEditor } from './editor.js';
 import { analyzeCadFile, parameterFieldsFor } from './cad.js';
+import { buildSimulationReport } from './report.js';
 
 const $ = id => document.getElementById(id);
 let layout = cloneLayout(defaultLayout), engine = new SimulationEngine(layout, defaultParams);
@@ -39,7 +40,9 @@ function updateDashboard() {
   $('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
   $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
   $('moved').textContent=k.movedItems; $('completed').textContent=engine.state.completedProducts.length;
+  renderSimulationReport();
 }
+function renderSimulationReport(){const panel=$('simulationReport');if(layout.displayMode!=='cad'||!layout.equipment.some(item=>item.source?.origin==='dxf')){panel.hidden=true;return;}panel.hidden=false;const report=buildSimulationReport(layout,engine),asrs=report.kpis.asrs;$('reportContent').innerHTML=`<div class="report-grid"><section class="report-block"><h3>1. 🛠️ Layout Corrections</h3><ul>${report.corrections.map(item=>`<li>[${item.kind}] ${item.detail} · ${item.status}</li>`).join('')}</ul></section><section class="report-block"><h3>2. 📐 Corrected Flow & Topology</h3><ul>${report.topology.map(item=>`<li>${item}</li>`).join('')}</ul></section><section class="report-block wide"><h3>3. ⏱️ 공정별 CT 및 병목</h3><div class="table-wrap"><table><thead><tr><th>공정명</th><th>거리(m)</th><th>이동(sec)</th><th>작업(sec)</th><th>공정 CT</th><th>병목</th></tr></thead><tbody>${report.rows.map(row=>`<tr><td>${row.process}</td><td>${row.distance.toFixed(1)}</td><td>${row.move.toFixed(1)}</td><td>${row.work.toFixed(1)}</td><td>${row.ct.toFixed(1)}</td><td>${row.bottleneck?'병목':'-'}</td></tr>`).join('')}</tbody></table></div></section><section class="report-block wide"><h3>4. 📊 UPH 및 생산성 예측</h3><div class="report-metrics"><div>Target UPH<strong>${report.targetUph.toFixed(1)}</strong></div><div>Realizable UPH<strong>${report.realizableUph.toFixed(1)}</strong></div><div>8시간 물동량<strong>${Math.floor(report.eightHours)}</strong></div><div>12시간 물동량<strong>${Math.floor(report.twelveHours)}</strong></div>${asrs?`<div>AS/RS 재고<strong>${asrs.inventory}/${asrs.capacity}</strong></div><div>AS/RS 가동률<strong>${(report.kpis.utilization.asrs*100).toFixed(1)}%</strong></div>`:''}</div></section></div>`;}
 function loop(now) {
   if(!running) return; if(!last) last=now;
   const simDt=Math.min((now-last)/1000*Number($('playback').value),2); last=now;
@@ -57,7 +60,7 @@ function renderEvents() {
   const rows=engine.state.events.slice(-12).reverse();
   $('eventRows').innerHTML=rows.length?rows.map(e=>`<tr><td>${format(e.t)}</td><td>${eventLabel(e.type)}</td><td>${e.equipmentId||e.kind||''}</td><td>#${e.trayId||e.productId||'-'}</td></tr>`).join(''):'<tr><td colspan="4">아직 이벤트가 없습니다.</td></tr>';
 }
-function eventLabel(type){return ({'source-injected':'소스 투입','product-injected':'C 투입','robot-pick-start':'PICK 시작','robot-place-complete':'PLACE 완료','equipment-start':'설비 작업 시작','equipment-complete':'설비 작업 완료'})[type]||type;}
+function eventLabel(type){return ({'source-injected':'소스 투입','product-injected':'C 투입','robot-pick-start':'PICK 시작','robot-place-complete':'PLACE 완료','equipment-start':'설비 작업 시작','equipment-complete':'설비 작업 완료','asrs-putaway':'AS/RS 적치','asrs-retrieval':'AS/RS 반출'})[type]||type;}
 function format(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
 function download(name,text,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
 

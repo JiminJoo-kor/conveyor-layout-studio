@@ -1,0 +1,11 @@
+{
+  "name": "conveyor-layout-studio",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python -m http.server 4173",
+    "test": "node --test",
+    "check": "node --check src/app.js && node --check src/engine.js && node --check src/renderer.js"
+  }
+}

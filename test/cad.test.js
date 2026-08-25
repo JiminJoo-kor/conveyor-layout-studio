@@ -67,7 +67,7 @@ test('건축 배경은 제외하고 물류설비 레이어는 유지한다',()=>
 });
 
 test('포킹장치를 일반 컨베이어가 아닌 ASRS 이송장치로 분류한다',()=>{
-  const fork=classifyCadEntity({entityType:'TEXT',text:'포킹장치',layer:'3'}),hp=classifyCadEntity({entityType:'TEXT',text:'H/P',layer:'3'});assert.equal(fork.type,'forkingDevice');assert.equal(fork.parameters.forkTime,4);assert.equal(hp.type,'handoffPoint');assert.equal(hp.parameters.transferTime,2);
+  const fork=classifyCadEntity({entityType:'TEXT',text:'포킹장치',layer:'3'}),hp=classifyCadEntity({entityType:'TEXT',text:'H/P',layer:'3'}),turntable=classifyCadEntity({entityType:'CIRCLE',radius:1200,layer:'0'});assert.equal(fork.type,'forkingDevice');assert.equal(fork.parameters.forkTime,4);assert.equal(hp.type,'handoffPoint');assert.equal(hp.parameters.transferTime,2);assert.equal(turntable.type,'turntable');assert.equal(turntable.parameters.rotationTime,6);
 });
 
 test('여러 도면이 섞이면 컨베이어가 많은 주요 물류 군집을 선택한다',()=>{

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { equipmentOperationProgress, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute } from '../src/renderer.js';
+import { asrsOccupiedSlots, equipmentOperationProgress, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -80,6 +80,10 @@ test('AGV는 적재 후 이동하고 하역 위치에 도착해야 물품을 넘
 
 test('턴테이블 진행률은 물품 작업시간에 동기화된다',()=>{
   const item={id:'tt',type:'turntable',parameters:{rotationTime:8}},token={nodeId:'tt',edge:null,nodeEnteredAt:2,operationDuration:8};assert.equal(equipmentOperationProgress(item,{t:6,cadTokens:[token]}).progress,.5);
+});
+
+test('ASRS 재고 비율을 랙 점등 셀 수로 변환한다',()=>{
+  assert.equal(asrsOccupiedSlots(0,64),0);assert.equal(asrsOccupiedSlots(16,64),4);assert.equal(asrsOccupiedSlots(64,64),16);
 });
 
 test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{

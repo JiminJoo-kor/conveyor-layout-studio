@@ -3,6 +3,7 @@ import { connectionAnchor, edgeRoute, equipmentPorts, orthogonalRoute, pointOnRo
 
 export const isNodeConveyor = item => item.type === 'conveyor' && Array.isArray(item.nodes);
 export const laneTitleAnchor = nodes => nodes.find(node=>node.type==='dock'||node.type==='sink'||node.type==='source')||nodes[0];
+export const asrsOccupiedSlots=(inventory,capacity,slots=16)=>Math.min(slots,Math.ceil(slots*Math.max(0,Number(inventory)||0)/Math.max(1,Number(capacity)||1)));
 
 export function mobileEquipmentRoute(layout,item){
   const edges=layout.cadSchematic?.edges||[],byId=new Map(layout.equipment.map(node=>[node.id,node])),incoming=edges.find(edge=>edge.to===item.id),outgoing=edges.find(edge=>edge.from===item.id),before=byId.get(incoming?.from),after=byId.get(outgoing?.to);
@@ -139,6 +140,7 @@ export class LayoutRenderer {
         const pos=this.nodePositions.get(item.nodeId); if(!pos) continue;
         const busy=Boolean(state.locks[item.id]); c.fillStyle=busy?COLORS.pink:COLORS.text; c.font='10px monospace'; c.fillText(item.type==='station'?'WORK':'FORK',pos.x+18,pos.y+76);
       } else if(item.source?.origin==='dxf'&&this.drawRotatedCadSymbol(item,state)) {
+        if(['stackerCrane','asrs'].includes(item.type))this.drawAsrsOccupancy(item,state);
         continue;
       } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
         const long=['conveyor','processLine'].includes(item.type),schematicMax=this.layout.cadViewMode==='schematic'?78:500,w=long?Math.max(24,Math.min(schematicMax,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
@@ -149,6 +151,8 @@ export class LayoutRenderer {
     }
     if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId,ports=equipmentPorts(item);c.save();c.strokeStyle='#061019';c.lineWidth=2;for(const [name,point] of Object.entries(ports)){c.fillStyle=active?COLORS.yellow:['right','bottom'].includes(name)?COLORS.green:COLORS.cyan;c.beginPath();c.arc(point.x,point.y,active?7:6,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
   }
+
+  drawAsrsOccupancy(item,state){const asrs=state?.asrs;if(!asrs||asrs.equipmentId!==item.id)return;const c=this.ctx,zones=Object.entries(asrs.zones||{}),slots=16,cellW=7,cellH=7,gap=2,palette=[COLORS.cyan,COLORS.green,COLORS.yellow,COLORS.pink];c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);const startX=-74,startY=-48;c.fillStyle='rgba(5,18,29,.9)';c.fillRect(startX-3,startY-4,slots*(cellW+gap)+6,Math.max(1,zones.length)*(cellH+gap)+19);zones.slice(0,5).forEach(([name,zone],row)=>{const filled=asrsOccupiedSlots(zone.inventory,zone.capacity,slots);for(let column=0;column<slots;column++){const x=startX+column*(cellW+gap),y=startY+row*(cellH+gap);c.fillStyle=column<filled?palette[row%palette.length]:'#17334a';c.fillRect(x,y,cellW,cellH);c.strokeStyle=column<filled?'rgba(255,255,255,.55)':'rgba(159,197,221,.25)';c.strokeRect(x,y,cellW,cellH);}});c.fillStyle='#d8f3ff';c.font='7px monospace';c.fillText(`랙 재고 ${asrs.inventory}/${asrs.capacity}`,startX,startY+Math.max(1,zones.length)*(cellH+gap)+8);c.restore();}
 
   drawConnectionPreview(){if(!this.connectionPreview)return;const {from,to,valid}=this.connectionPreview,c=this.ctx,points=orthogonalRoute(from,to);c.save();c.strokeStyle=valid?COLORS.green:COLORS.yellow;c.lineWidth=3;c.setLineDash(valid?[]:[7,5]);c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();c.setLineDash([]);c.fillStyle=valid?COLORS.green:COLORS.yellow;c.beginPath();c.arc(to.x,to.y,7,0,Math.PI*2);c.fill();c.restore();}
 

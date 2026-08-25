@@ -86,6 +86,10 @@ test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 �
   const fields=parameterFieldsFor({type:'stackerCrane',parameters:{travelSpeed:2.5}}),byKey=Object.fromEntries(fields.map(field=>[field.key,field.value]));assert.equal(byKey.levels,4);assert.equal(byKey.rows,3);assert.equal(byKey.columns,4);assert.equal(byKey.productTypes,3);
 });
 
+test('포킹장치는 출력 1 분기 비율을 기본 50%로 제공한다',()=>{
+  const fields=parameterFieldsFor({type:'forkingDevice',parameters:{forkTime:3}}),ratio=fields.find(field=>field.key==='output1Ratio');assert.equal(ratio.value,50);assert.equal(ratio.min,0);assert.equal(ratio.max,100);
+});
+
 test('포킹장치를 일반 컨베이어가 아닌 ASRS 이송장치로 분류한다',()=>{
   const fork=classifyCadEntity({entityType:'TEXT',text:'포킹장치',layer:'3'}),hp=classifyCadEntity({entityType:'TEXT',text:'H/P',layer:'3'}),turntable=classifyCadEntity({entityType:'CIRCLE',radius:1200,layer:'0'});assert.equal(fork.type,'forkingDevice');assert.equal(fork.parameters.forkTime,4);assert.equal(hp.type,'handoffPoint');assert.equal(hp.parameters.transferTime,2);assert.equal(turntable.type,'turntable');assert.equal(turntable.parameters.rotationTime,6);
 });

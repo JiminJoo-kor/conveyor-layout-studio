@@ -10,11 +10,13 @@ export class LayoutRenderer {
     this.view = { zoom: 1, x: 0, y: 0 };
     this.backgroundImage = null;
     this.selectedId = null;
+    this.connectionMode=false;this.connectionSourceId=null;
     this.setLayout(layout);
   }
 
   setView(view) { this.view = { ...this.view, ...view }; }
   setSelected(id) { this.selectedId = id; }
+  setConnectionMode(value,sourceId=null){this.connectionMode=value;this.connectionSourceId=sourceId;}
   async setBackground(source) {
     if (!source) { this.backgroundImage = null; return; }
     const image = new Image();
@@ -123,6 +125,7 @@ export class LayoutRenderer {
         c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);
       }
     }
+    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId;c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of [{x:item.x-44,y:item.y},{x:item.x+44,y:item.y},{x:item.x,y:item.y-44},{x:item.x,y:item.y+44}]){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
   }
 
   drawCadSymbol(item,state){

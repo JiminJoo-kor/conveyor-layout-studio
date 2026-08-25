@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { insertEquipmentIntoNearestEdge, removeEquipmentAndReconnect } from '../src/editor.js';
+import { insertEquipmentIntoNearestEdge, refreshEquipmentConnections, removeEquipmentAndReconnect } from '../src/editor.js';
 
 test('중간 설비를 삭제하면 이전 설비와 다음 설비를 자동 연결한다',()=>{
   const layout={equipment:[{id:'a'},{id:'middle'},{id:'b'}],cadSchematic:{lanes:[{nodes:[{id:'a'},{id:'middle'},{id:'b'}]}],inboundBranches:[],edges:[{from:'a',to:'middle',kind:'flow'},{from:'middle',to:'b',kind:'transfer'}]}};
@@ -20,4 +20,9 @@ test('기존 연결선 위에 설비를 놓으면 원래 선을 두 연결로 �
 test('연결선에서 먼 위치에 놓은 설비는 자동 삽입하지 않는다',()=>{
   const layout={equipment:[{id:'a',x:0,y:0},{id:'b',x:300,y:0},{id:'new',x:150,y:200}],cadSchematic:{lanes:[],inboundBranches:[],edges:[{from:'a',to:'b',kind:'flow'}]}};
   assert.equal(insertEquipmentIntoNearestEdge(layout,layout.equipment[2]),null);assert.deepEqual(layout.cadSchematic.edges.map(edge=>[edge.from,edge.to]),[['a','b']]);
+});
+
+test('설비를 세로 회전하면 연결선 포트를 화면의 위아래 방향으로 다시 계산한다',()=>{
+  const layout={equipment:[{id:'a',x:0,y:0,rotation:0},{id:'middle',x:150,y:0,rotation:90},{id:'b',x:300,y:0,rotation:0}],cadSchematic:{edges:[{from:'a',to:'middle'},{from:'middle',to:'b'}]}};
+  assert.equal(refreshEquipmentConnections(layout,'middle'),2);assert.equal(layout.cadSchematic.edges[0].toPort,'left');assert.equal(layout.cadSchematic.edges[1].fromPort,'right');
 });

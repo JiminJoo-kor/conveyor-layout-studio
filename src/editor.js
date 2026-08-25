@@ -17,6 +17,12 @@ export function insertEquipmentIntoNearestEdge(layout,item,maxDistance=58){
   return {replaced:nearest.edge,edges:schematic.edges.slice(nearest.index,nearest.index+2),distance:nearest.distance};
 }
 
+export function refreshEquipmentConnections(layout,id){
+  const item=layout.equipment.find(node=>node.id===id);if(!item)return 0;const byId=new Map(layout.equipment.map(node=>[node.id,node]));let changed=0;
+  for(const edge of layout.cadSchematic?.edges||[]){if(edge.from!==id&&edge.to!==id)continue;const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)continue;const ports=closestPortPair(from,to);edge.fromPort=edge.from===id?'right':ports.fromPort;edge.toPort=edge.to===id?'left':ports.toPort;changed++;}
+  return changed;
+}
+
 export function removeEquipmentAndReconnect(layout,id){
   const index=layout.equipment.findIndex(item=>item.id===id);if(index<0)return false;
   const schematic=layout.cadSchematic,edges=schematic?.edges||[],incoming=edges.filter(edge=>edge.to===id),outgoing=edges.filter(edge=>edge.from===id),remaining=edges.filter(edge=>edge.from!==id&&edge.to!==id),priority={flow:0,handoff:1,forking:2,warehouse:3,transfer:4};

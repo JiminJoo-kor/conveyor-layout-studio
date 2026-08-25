@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
-import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, conveyorCargoCapacity, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
+import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, cargoSpec, conveyorCargoCapacity, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
 
 test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
   const result = validateLayout(defaultLayout);
@@ -73,6 +73,21 @@ test('컨베이어 물류 길이에 따라 동시 적재 가능 수량을 계산
   const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10}},layout={cargoSpec:{length:2.5,width:1}};assert.equal(conveyorCargoCapacity(conveyor,layout),4);layout.cargoSpec.length=4;assert.equal(conveyorCargoCapacity(conveyor,layout),2);
 });
 
+test('mm 물류 규격은 m로 변환되어 컨베이어 용량과 통과시간에 반영된다',()=>{
+  const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,speed:1}},layout={cargoSpec:{length:2500,width:1200,unit:'mm'}};
+  assert.deepEqual(cargoSpec(layout),{length:2.5,width:1.2,unit:'m'});
+  assert.equal(conveyorCargoCapacity(conveyor,layout),4);
+  assert.equal(cadDuration(conveyor,layout),12.5);
+});
+
+test('셔틀·지게차·리프트·소터는 각 거리와 속도 파라미터로 CT를 계산한다',()=>{
+  const layout={cargoSpec:{length:1000,width:800,unit:'mm'}};
+  assert.equal(cadDuration({type:'shuttle',parameters:{shuttleDistance:6,speed:2,loadTime:2,unloadTime:3}},layout),8);
+  assert.equal(cadDuration({type:'forklift',parameters:{travelDistance:9,speed:3,loadTime:4,unloadTime:5}},layout),12);
+  assert.equal(cadDuration({type:'lift',parameters:{liftHeight:6,liftSpeed:2,loadTime:1,unloadTime:2}},layout),6);
+  assert.equal(cadDuration({type:'sorter',parameters:{length:5,speed:2}},layout),3);
+});
+
 test('포킹장치는 설정 비율에 따라 두 출력으로 물품을 분기한다',()=>{
   const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.01}},{id:'fork',type:'forkingDevice',x:100,y:0,source:{origin:'dxf'},parameters:{forkTime:.01,output1Ratio:50}},{id:'out-1',type:'sink',x:200,y:-50,source:{origin:'dxf'},parameters:{dischargeTime:.01}},{id:'out-2',type:'sink',x:200,y:50,source:{origin:'dxf'},parameters:{dischargeTime:.01}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'fork'},{from:'fork',to:'out-1'},{from:'fork',to:'out-2'}]}},{injectA:1,simDuration:20});for(let i=0;i<2000;i++)engine.step(.01);const routed=engine.state.events.filter(event=>event.type==='fork-routed'),output1=routed.filter(event=>event.output===1).length,output2=routed.filter(event=>event.output===2).length;assert.ok(routed.length>10);assert.ok(Math.abs(output1-output2)<=1);assert.deepEqual(routed.slice(0,4).map(event=>event.output),[1,2,1,2]);assert.ok(routed.every(event=>event.sequence==='deterministic-per-flow'));
 });
@@ -93,8 +108,8 @@ test('진입부 포크 물류는 컨베이어 전체 이송을 마치기 전에 
   const equipment=[{id:'in',type:'source',source:{origin:'dxf'},parameters:{processTime:.01}},{id:'junction',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:100,speed:1}},{id:'main',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}},{id:'fork',type:'forkingDevice',source:{origin:'dxf'},parameters:{forkTime:.01,output1Ratio:50}},{id:'branch',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}}],edges=[{from:'in',to:'junction',toPort:'left'},{from:'junction',to:'main',fromPort:'right'},{from:'junction',to:'fork',fromPort:'left'},{from:'fork',to:'branch'}],layout={equipment,cadSchematic:{edges},cargoSpec:{length:1,width:1}},engine=new CadFlowEngine(layout,{injectA:.5,simDuration:4});for(let index=0;index<800;index++)engine.step(.005);const routed=engine.state.events.filter(event=>event.type==='fork-routed');assert.deepEqual(routed.slice(0,2).map(event=>event.route),['primary','fork']);assert.ok(routed[1].t<cadDuration(equipment[1],layout));assert.ok(engine.state.completedProducts.length>0);
 });
 
-test('출력부 포크 화살표는 컨베이어 이송을 마친 뒤 분기한다',()=>{
-  const equipment=[{id:'in',type:'source',source:{origin:'dxf'},parameters:{processTime:.01}},{id:'junction',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,speed:1}},{id:'main',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}},{id:'fork',type:'forkingDevice',source:{origin:'dxf'},parameters:{forkTime:.01,output1Ratio:50}},{id:'branch',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}}],edges=[{from:'in',to:'junction',toPort:'left'},{from:'junction',to:'main',fromPort:'right'},{from:'junction',to:'fork',fromPort:'right'},{from:'fork',to:'branch'}],layout={equipment,cadSchematic:{edges}},engine=new CadFlowEngine(layout,{injectA:30,simDuration:20});for(let index=0;index<1000;index++)engine.step(.005);assert.equal(engine.state.events.filter(event=>event.type==='fork-routed').length,0);for(let index=0;index<1200;index++)engine.step(.005);const routed=engine.state.events.filter(event=>event.type==='fork-routed');assert.equal(routed.length,1);assert.ok(routed[0].t>=cadDuration(equipment[1],layout));
+test('출력부 포크 화살표는 컨베이어와 물류 전체 길이의 이송을 마친 뒤 분기한다',()=>{
+  const equipment=[{id:'in',type:'source',source:{origin:'dxf'},parameters:{processTime:.01}},{id:'junction',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,speed:1}},{id:'main',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}},{id:'fork',type:'forkingDevice',source:{origin:'dxf'},parameters:{forkTime:.01,output1Ratio:50}},{id:'branch',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}}],edges=[{from:'in',to:'junction',toPort:'left'},{from:'junction',to:'main',fromPort:'right'},{from:'junction',to:'fork',fromPort:'right'},{from:'fork',to:'branch'}],layout={equipment,cadSchematic:{edges},cargoSpec:{length:1200,width:800,unit:'mm'}},engine=new CadFlowEngine(layout,{injectA:30,simDuration:20});for(let index=0;index<1000;index++)engine.step(.005);assert.equal(engine.state.events.filter(event=>event.type==='fork-routed').length,0);for(let index=0;index<1600;index++)engine.step(.005);const routed=engine.state.events.filter(event=>event.type==='fork-routed');assert.equal(routed.length,1);assert.ok(routed[0].t>=cadDuration(equipment[1],layout));
 });
 
 test('출고 트럭은 설정 수량이 적재되면 출발한다',()=>{

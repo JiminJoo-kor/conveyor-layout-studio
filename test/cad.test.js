@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { asrsOccupiedSlots, asrsRackCells, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, shouldDrawCadToken } from '../src/renderer.js';
+import { asrsOccupiedSlots, asrsRackCells, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -104,6 +104,10 @@ test('여러 라인의 이동 물류는 서로 다른 고정 색상을 사용한
 
 test('ASRS 내부 적재 물류는 사각형 토큰으로 중복 표시하지 않는다',()=>{
   assert.equal(shouldDrawCadToken({nodeId:'asrs',edge:null},{type:'stackerCrane'}),false);assert.equal(shouldDrawCadToken({nodeId:'asrs',edge:{from:'asrs',to:'out'}},{type:'stackerCrane'}),true);assert.equal(shouldDrawCadToken({nodeId:'cv',edge:null},{type:'conveyor'}),true);
+});
+
+test('물류 규격은 화면에서도 mm 저장값을 m 크기로 정규화한다',()=>{
+  assert.deepEqual(normalizedCargoSpec({cargoSpec:{length:1200,width:800,unit:'mm'}}),{length:1.2,width:.8,lengthMm:1200,widthMm:800});
 });
 
 test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{

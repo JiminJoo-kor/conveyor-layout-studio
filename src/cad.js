@@ -31,7 +31,7 @@ export const equipmentParameterLabels = {
   ,shuttleDistance:'AGV 편도 거리(m)',loadTime:'적재 시간(초)',unloadTime:'하역 시간(초)'
 };
 
-export function parameterFieldsFor(item){const storage=['asrs','stackerCrane'].includes(item.type),defaults=storage?{levels:4,rows:3,columns:4,productTypes:3}:{},parameters={...defaults,...item.parameters};return Object.entries(parameters).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}
+export function parameterFieldsFor(item){const defaultsByType={asrs:{levels:4,rows:3,columns:4,productTypes:3},stackerCrane:{levels:4,rows:3,columns:4,productTypes:3},agv:{speed:1.2,shuttleDistance:5,loadTime:2,unloadTime:2},amr:{speed:1.5,shuttleDistance:5,loadTime:2,unloadTime:2},turntable:{rotationTime:6,positions:2}},parameters={...(defaultsByType[item.type]||{}),...item.parameters};return Object.entries(parameters).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}
 
 const normalized = value => String(value || '').toUpperCase().replace(/[_-]+/g,' ');
 

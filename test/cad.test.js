@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { isNodeConveyor, mobileEquipmentRoute } from '../src/renderer.js';
+import { equipmentOperationProgress, isNodeConveyor, mobileEquipmentRoute } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -71,7 +71,15 @@ test('지게차와 고정 포킹장치를 별도 설비로 분류한다',()=>{
 });
 
 test('연결된 AGV와 AMR은 앞뒤 설비 사이의 동적 이동 경로를 갖는다',()=>{
-  const equipment=[{id:'a',type:'conveyor',x:0,y:0},{id:'agv',type:'agv',x:100,y:50},{id:'b',type:'conveyor',x:200,y:100}],layout={equipment,cadSchematic:{edges:[{from:'a',to:'agv',fromPort:'right',toPort:'left'},{from:'agv',to:'b',fromPort:'right',toPort:'left'}]}},route=mobileEquipmentRoute(layout,equipment[1]);assert.ok(route);assert.equal(route.points.length,4);assert.deepEqual(route.start,{x:44,y:0});assert.deepEqual(route.end,{x:156,y:100});
+  const equipment=[{id:'a',type:'conveyor',x:0,y:0},{id:'agv',type:'agv',x:100,y:50},{id:'b',type:'conveyor',x:200,y:100}],layout={equipment,cadSchematic:{edges:[{from:'a',to:'agv',fromPort:'right',toPort:'left'},{from:'agv',to:'b',fromPort:'right',toPort:'left'}]}},route=mobileEquipmentRoute(layout,equipment[1]);assert.ok(route);assert.equal(route.points.length,2);assert.deepEqual(route.start,{x:56,y:50});assert.deepEqual(route.end,{x:144,y:50});
+});
+
+test('AGV는 적재 후 이동하고 하역 위치에 도착해야 물품을 넘긴다',()=>{
+  const item={id:'agv',type:'agv',parameters:{loadTime:2,unloadTime:2}},token={nodeId:'agv',edge:null,nodeEnteredAt:10,operationDuration:10};assert.equal(equipmentOperationProgress(item,{t:11,cadTokens:[token]}).progress,0);assert.ok(Math.abs(equipmentOperationProgress(item,{t:15,cadTokens:[token]}).progress-.5)<1e-9);assert.equal(equipmentOperationProgress(item,{t:19,cadTokens:[token]}).progress,1);assert.equal(equipmentOperationProgress(item,{t:20,cadTokens:[]}).active,false);
+});
+
+test('턴테이블 진행률은 물품 작업시간에 동기화된다',()=>{
+  const item={id:'tt',type:'turntable',parameters:{rotationTime:8}},token={nodeId:'tt',edge:null,nodeEnteredAt:2,operationDuration:8};assert.equal(equipmentOperationProgress(item,{t:6,cadTokens:[token]}).progress,.5);
 });
 
 test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{

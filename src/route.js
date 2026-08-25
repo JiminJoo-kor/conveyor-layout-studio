@@ -4,6 +4,13 @@ export function orthogonalRoute(from,to){
   return[{x:from.x,y:from.y},{x:elbowX,y:from.y},{x:elbowX,y:to.y},{x:to.x,y:to.y}];
 }
 
+export function edgeRoute(from,to,edge={}){
+  const offset=edge.routeOffset||{x:0,y:0};
+  if(Math.abs(from.y-to.y)<=8){const y=(from.y+to.y)/2+(Number(offset.y)||0);if(Math.abs(y-from.y)<=1)return[{x:from.x,y:from.y},{x:to.x,y:to.y}];return[{x:from.x,y:from.y},{x:from.x,y},{x:to.x,y},{x:to.x,y:to.y}];}
+  const x=from.x+(to.x-from.x)*.55+(Number(offset.x)||0);
+  return[{x:from.x,y:from.y},{x,y:from.y},{x,y:to.y},{x:to.x,y:to.y}];
+}
+
 export function routeLength(points){
   return points.slice(1).reduce((sum,point,index)=>sum+Math.hypot(point.x-points[index].x,point.y-points[index].y),0);
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { closestPortPair, connectionAnchor, connectionKind, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from '../src/route.js';
+import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from '../src/route.js';
 
 test('대각선 설비 사이 물류는 직교 꺾임 경로를 따라 이동한다',()=>{
   const points=orthogonalRoute({x:0,y:0},{x:100,y:100});
@@ -18,4 +18,8 @@ test('연결 설비 특성에 따라 흐름 종류와 색상 의미를 분류한
 
 test('화살표는 가장 긴 직교 구간의 실제 진행 방향을 따른다',()=>{
   const arrow=routeArrow([{x:0,y:0},{x:100,y:0},{x:100,y:20},{x:110,y:20}]);assert.equal(arrow.angle,0);assert.equal(arrow.y,0);assert.ok(arrow.x>0&&arrow.x<100);
+});
+
+test('연결선 이동 오프셋은 끝점을 유지하고 중간 경로만 이동한다',()=>{
+  const horizontal=edgeRoute({x:0,y:0},{x:200,y:0},{routeOffset:{x:0,y:60}});assert.deepEqual(horizontal,[{x:0,y:0},{x:0,y:60},{x:200,y:60},{x:200,y:0}]);const bent=edgeRoute({x:0,y:0},{x:200,y:100},{routeOffset:{x:40,y:0}});assert.equal(bent[1].x,150);assert.deepEqual(bent[0],{x:0,y:0});assert.deepEqual(bent.at(-1),{x:200,y:100});
 });

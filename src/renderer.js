@@ -114,7 +114,7 @@ export class LayoutRenderer {
       } else if(item.source?.origin==='dxf'&&this.drawCadSymbol(item,state)) {
         continue;
       } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
-        const long=['conveyor','processLine'].includes(item.type),w=long?Math.max(24,Math.min(500,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
+        const long=['conveyor','processLine'].includes(item.type),schematicMax=this.layout.cadViewMode==='schematic'?78:500,w=long?Math.max(24,Math.min(schematicMax,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
         c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=state.locks[item.id]?COLORS.pink:'#17334a';c.strokeStyle=item.id===this.selectedId?COLORS.yellow:COLORS.cyan;c.lineWidth=item.id===this.selectedId?2:1;
         c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);if(long){for(let roller=-w/2+10;roller<w/2;roller+=14){c.beginPath();c.arc(roller,0,3,0,Math.PI*2);c.stroke();}}c.restore();
         c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);

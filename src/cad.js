@@ -10,13 +10,13 @@ export const logisticsEquipmentCatalog = [
   { type:'handoffPoint', label:'H/P', keywords:['H/P','HANDOFF POINT','HANDOVER POINT'], defaults:{ transferTime:2, bufferCapacity:1 } },
   { type:'forklift', label:'지게차', keywords:['FORKLIFT','LIFT TRUCK','FORK TRUCK','지게차'], defaults:{ speed:1.5, loadTime:8, unloadTime:8, loadCapacity:1500 } },
   { type:'forkingDevice', label:'포킹장치', keywords:['포킹장치','FORKING DEVICE','TELESCOPIC FORK','PUSH PULL'], defaults:{ forkTime:4, strokeDistance:1.5, loadCapacity:1000, output1Ratio:50 } },
-  { type:'stackerCrane', label:'스태커 크레인', keywords:['STACKER CRANE','STACKER','STK','RACK MASTER','ASRS CRANE','S/C','스태커','스테커','크레인'], defaults:{ travelSpeed:2.5, liftSpeed:1, acceleration:0.5, loadCapacity:1000, levels:4, rows:3, columns:4, productTypes:3 } },
+  { type:'stackerCrane', label:'스태커 크레인', keywords:['STACKER CRANE','STACKER','STK','RACK MASTER','ASRS CRANE','S/C','스태커','스테커','크레인'], defaults:{ travelSpeed:2.5, liftSpeed:1, acceleration:0.5, loadCapacity:1000, rows:2, columns:8, levels:4, productTypes:3 } },
   { type:'shuttle', label:'셔틀', keywords:['SHUTTLE','MINILOAD'], defaults:{ speed:2, acceleration:1 } },
   { type:'agv', label:'AGV', keywords:['AGV','GUIDED VEHICLE'], defaults:{ speed:1.2, chargeThreshold:20 } },
   { type:'amr', label:'AMR', keywords:['AMR','MOBILE ROBOT'], defaults:{ speed:1.5, chargeThreshold:20 } },
   { type:'sorter', label:'소터', keywords:['SORTER','CROSSBELT','SHOE SORTER'], defaults:{ speed:1.8, destinations:2 } },
   { type:'lift', label:'리프트', keywords:['LIFT','ELEVATOR','VRC','HOIST'], defaults:{ cycleTime:15, levels:2 } },
-  { type:'asrs', label:'자동창고', keywords:['ASRS','AS/RS','RACK','STORAGE'], defaults:{ rows:3, columns:4, levels:4, productTypes:3 } },
+  { type:'asrs', label:'자동창고', keywords:['ASRS','AS/RS','RACK','STORAGE'], defaults:{ rows:2, columns:8, levels:4, productTypes:3 } },
   { type:'robot', label:'로봇', keywords:['ROBOT','ARM','PALLETIZER','DEPALLETIZER'], defaults:{ pickTime:2, placeTime:2 } },
   { type:'station', label:'작업 스테이션', keywords:['STATION','WORKCELL','INSPECTION','PACKING'], defaults:{ processTime:30, operators:1 } },
   { type:'buffer', label:'버퍼', keywords:['BUFFER','QUEUE','ACCUMULATION'], defaults:{ capacity:4 } },
@@ -26,12 +26,12 @@ export const logisticsEquipmentCatalog = [
 export const equipmentParameterLabels = {
   injectionInterval:'투입 간격(초)',batchSize:'1회 투입 수량',dischargeTime:'배출 시간(초)',speed:'속도(m/s)',capacity:'용량',
   cycleTime:'사이클타임(초)',directions:'분기 수',rotationTime:'회전시간(초)',positions:'정지 위치 수',acceleration:'가속도',chargeThreshold:'충전 기준(%)',destinations:'목적지 수',
-  levels:'적재 층수',rows:'랙 깊이(행)',columns:'베이 수(열)',productTypes:'물품 구분 수',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'실제 길이(m)',
+  levels:'단',rows:'열',columns:'번지',cellCount:'CELL(자동)',productTypes:'물품 구분 수',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'실제 길이(m)',
   travelSpeed:'주행 속도(m/s)',liftSpeed:'승강 속도(m/s)',loadCapacity:'적재 하중(kg)',lineSpeed:'라인 속도(m/min)',pitch:'차체 피치(m)',bufferCapacity:'라인 버퍼 수',transferTime:'H/P 이재시간(초)',forkTime:'포킹 동작시간(초)',strokeDistance:'포크 스트로크(m)',truckCapacity:'트럭 적재 수량',departureTime:'트럭 교대시간(초)'
   ,shuttleDistance:'AGV 편도 거리(m)',loadTime:'적재 시간(초)',unloadTime:'하역 시간(초)',output1Ratio:'출력 1 분기 비율(%)',cargoLength:'물류 길이(m)',cargoWidth:'물류 폭(m)'
 };
 
-export function parameterFieldsFor(item){const defaultsByType={conveyor:{length:5,speed:.5},asrs:{levels:4,rows:3,columns:4,productTypes:3},stackerCrane:{levels:4,rows:3,columns:4,productTypes:3},agv:{speed:1.2,shuttleDistance:5,loadTime:2,unloadTime:2},amr:{speed:1.5,shuttleDistance:5,loadTime:2,unloadTime:2},turntable:{rotationTime:6,positions:2},forkingDevice:{forkTime:4,strokeDistance:1.5,loadCapacity:1000,output1Ratio:50}},parameters={...(defaultsByType[item.type]||{}),...item.parameters};if(item.type==='conveyor'){delete parameters.beltWidth;delete parameters.capacity;delete parameters.cargoLength;delete parameters.cargoWidth;}return Object.entries(parameters).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value,...(key==='output1Ratio'?{min:0,max:100}:key==='length'?{min:.1}:{} )}));}
+export function parameterFieldsFor(item){const storage=['asrs','stackerCrane'].includes(item.type),defaultsByType={conveyor:{length:5,speed:.5},asrs:{rows:2,columns:8,levels:4,productTypes:3},stackerCrane:{rows:2,columns:8,levels:4,productTypes:3},agv:{speed:1.2,shuttleDistance:5,loadTime:2,unloadTime:2},amr:{speed:1.5,shuttleDistance:5,loadTime:2,unloadTime:2},turntable:{rotationTime:6,positions:2},forkingDevice:{forkTime:4,strokeDistance:1.5,loadCapacity:1000,output1Ratio:50}},parameters={...(defaultsByType[item.type]||{}),...item.parameters};if(item.type==='conveyor'){delete parameters.beltWidth;delete parameters.capacity;delete parameters.cargoLength;delete parameters.cargoWidth;}if(storage)parameters.cellCount=Math.max(1,Math.round(Number(parameters.rows)||1))*Math.max(1,Math.round(Number(parameters.columns)||1))*Math.max(1,Math.round(Number(parameters.levels)||1));return Object.entries(parameters).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value,...(key==='cellCount'?{readOnly:true}:key==='output1Ratio'?{min:0,max:100}:key==='length'?{min:.1}:{} )}));}
 
 const normalized = value => String(value || '').toUpperCase().replace(/[_-]+/g,' ');
 

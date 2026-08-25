@@ -83,7 +83,7 @@ test('턴테이블 진행률은 물품 작업시간에 동기화된다',()=>{
 });
 
 test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{
-  const fields=parameterFieldsFor({type:'stackerCrane',parameters:{travelSpeed:2.5}}),byKey=Object.fromEntries(fields.map(field=>[field.key,field.value]));assert.equal(byKey.levels,4);assert.equal(byKey.rows,3);assert.equal(byKey.columns,4);assert.equal(byKey.productTypes,3);
+  const fields=parameterFieldsFor({type:'stackerCrane',parameters:{travelSpeed:2.5}}),byKey=Object.fromEntries(fields.map(field=>[field.key,field.value])),cell=fields.find(field=>field.key==='cellCount');assert.equal(byKey.levels,4);assert.equal(byKey.rows,2);assert.equal(byKey.columns,8);assert.equal(byKey.productTypes,3);assert.equal(byKey.cellCount,64);assert.equal(cell.readOnly,true);
 });
 
 test('포킹장치는 출력 1 분기 비율을 기본 50%로 제공한다',()=>{

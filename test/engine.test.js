@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
-import { CadFlowEngine, SimulationEngine, cadDuration, conveyorCargoCapacity, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
+import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, conveyorCargoCapacity, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
 
 test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
   const result = validateLayout(defaultLayout);
@@ -115,4 +115,13 @@ test('ASRS 랙 2열 8번지 4단은 품목별 64 CELL로 계산한다',()=>{
 
 test('ASRS는 요청 라인 재고가 없으면 다른 라인 재고로 대체 출고하지 않는다',()=>{
   const equipment=[{id:'asrs',type:'stackerCrane',source:{origin:'dxf'},parameters:{rows:1,columns:2,levels:1,productTypes:2,travelSpeed:10,liftSpeed:10}},{id:'out',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'asrs',to:'out'}]}},{injectA:30,simDuration:40});for(let index=0;index<200;index++)engine.step(.05);const [requested,other]=Object.values(engine.state.asrs.zones);other.inventory=1;engine.state.asrs.inventory=1;for(let index=0;index<100;index++)engine.step(.05);assert.equal(engine.state.completedProducts.length,0);assert.equal(other.inventory,1);requested.inventory=1;engine.state.asrs.inventory=2;for(let index=0;index<100;index++)engine.step(.05);assert.ok(engine.state.completedProducts.length>0);assert.equal(other.inventory,1);
+});
+
+test('ASRS 사이클은 목표 열과 층, 상승·하강 속도를 반영한다',()=>{
+  const item={type:'stackerCrane',parameters:{rows:2,columns:8,levels:4,columnPitch:1.5,levelHeight:2,travelSpeed:3,liftSpeed:1,downSpeed:2,acceleration:1,putawayTime:4,retrievalTime:6,simultaneousMotion:1}};
+  assert.deepEqual(asrsTargetCell(item,0),{index:0,column:0,level:0,row:0});
+  assert.deepEqual(asrsTargetCell(item,17),{index:17,column:2,level:0,row:1});
+  assert.ok(asrsCycleDuration(item,{slotIndex:63,operation:'putaway'})>asrsCycleDuration(item,{slotIndex:0,operation:'putaway'}));
+  assert.notEqual(asrsCycleDuration(item,{slotIndex:17,operation:'putaway'}),asrsCycleDuration(item,{slotIndex:17,operation:'retrieval'}));
+  assert.ok(acceleratedTravelTime(10,2,1)>0);
 });

@@ -26,7 +26,7 @@ export function equipmentPorts(item,distance=44){
 export function connectionAnchor(item,port){return port&&equipmentPorts(item)[port]||{x:item.x,y:item.y};}
 
 export function closestPortPair(from,to){
-  const fromPorts=equipmentPorts(from),toPorts=equipmentPorts(to);let best=null;
+  const allFrom=equipmentPorts(from),allTo=equipmentPorts(to),fromPorts={left:allFrom.left,right:allFrom.right},toPorts={left:allTo.left,right:allTo.right};let best=null;
   for(const [fromPort,a] of Object.entries(fromPorts))for(const [toPort,b] of Object.entries(toPorts)){const distance=Math.hypot(a.x-b.x,a.y-b.y);if(!best||distance<best.distance)best={fromPort,toPort,distance};}
   return best;
 }

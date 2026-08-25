@@ -127,7 +127,7 @@ export class LayoutRenderer {
         c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);
       }
     }
-    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId;c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of Object.values(equipmentPorts(item))){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
+    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId,ports=equipmentPorts(item);c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of [ports.left,ports.right]){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
   }
 
   drawPlacementPreview(){const {type,point}=this.placementPreview;if(!type||!point)return;const c=this.ctx;c.save();c.globalAlpha=.62;c.fillStyle='#17334a';c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.setLineDash([6,4]);c.fillRect(point.x-34,point.y-22,68,44);c.strokeRect(point.x-34,point.y-22,68,44);c.setLineDash([]);c.fillStyle='#fff';c.font='10px monospace';c.fillText(type.toUpperCase(),point.x-25,point.y+4);c.restore();}

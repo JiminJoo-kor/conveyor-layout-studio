@@ -21,7 +21,7 @@ export class LayoutRenderer {
     this.view = { zoom: 1, x: 0, y: 0 };
     this.backgroundImage = null;
     this.selectedId = null;
-    this.selectedIds=new Set();this.selectedEdgeIndex=null;this.marquee=null;this.connectionMode=false;this.connectionSourceId=null;this.placementPreview={type:null,point:null};
+    this.selectedIds=new Set();this.selectedEdgeIndex=null;this.marquee=null;this.connectionMode=false;this.connectionSourceId=null;this.connectionPreview=null;this.placementPreview={type:null,point:null};
     this.setLayout(layout);
   }
 
@@ -32,6 +32,7 @@ export class LayoutRenderer {
   setMarquee(rect){this.marquee=rect;}
   setSelectedEdge(index=null){this.selectedEdgeIndex=Number.isInteger(index)?index:null;}
   setConnectionMode(value,sourceId=null){this.connectionMode=value;this.connectionSourceId=sourceId;}
+  setConnectionPreview(preview){this.connectionPreview=preview;}
   setPlacementPreview(type,point){this.placementPreview={type,point};}
   async setBackground(source) {
     if (!source) { this.backgroundImage = null; return; }
@@ -66,6 +67,7 @@ export class LayoutRenderer {
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     if(this.layout.displayMode!=='cad')this.drawConnections();
     this.drawEquipment(state);
+    this.drawConnectionPreview();
     this.drawMarquee();
     this.drawPlacementPreview();
     if(this.layout.displayMode==='cad')this.drawCadFlow(state);
@@ -145,8 +147,10 @@ export class LayoutRenderer {
         c.font='9px monospace';const label=String(item.name||item.type).replace(/\s+/g,' ').slice(0,18),labelWidth=Math.min(150,Math.max(42,c.measureText(label).width+12)),labelY=item.y+Math.abs(Math.sin((item.rotation||0)*Math.PI/180))*w/2+Math.abs(Math.cos((item.rotation||0)*Math.PI/180))*h/2+14;c.fillStyle='rgba(5,18,29,.9)';c.fillRect(item.x-labelWidth/2,labelY-10,labelWidth,14);c.fillStyle='#d8f3ff';c.textAlign='center';c.fillText(label,item.x,labelY);c.textAlign='start';
       }
     }
-    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId,ports=equipmentPorts(item);c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of [ports.left,ports.right]){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
+    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId,ports=equipmentPorts(item);c.save();c.strokeStyle='#061019';c.lineWidth=2;for(const [name,point] of Object.entries(ports)){c.fillStyle=active?COLORS.yellow:['right','bottom'].includes(name)?COLORS.green:COLORS.cyan;c.beginPath();c.arc(point.x,point.y,active?7:6,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
   }
+
+  drawConnectionPreview(){if(!this.connectionPreview)return;const {from,to,valid}=this.connectionPreview,c=this.ctx,points=orthogonalRoute(from,to);c.save();c.strokeStyle=valid?COLORS.green:COLORS.yellow;c.lineWidth=3;c.setLineDash(valid?[]:[7,5]);c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();c.setLineDash([]);c.fillStyle=valid?COLORS.green:COLORS.yellow;c.beginPath();c.arc(to.x,to.y,7,0,Math.PI*2);c.fill();c.restore();}
 
   drawPlacementPreview(){const {type,point}=this.placementPreview;if(!type||!point)return;const c=this.ctx;c.save();c.globalAlpha=.62;c.fillStyle='#17334a';c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.setLineDash([6,4]);c.fillRect(point.x-34,point.y-22,68,44);c.strokeRect(point.x-34,point.y-22,68,44);c.setLineDash([]);c.fillStyle='#fff';c.font='10px monospace';c.fillText(type.toUpperCase(),point.x-25,point.y+4);c.restore();}
 

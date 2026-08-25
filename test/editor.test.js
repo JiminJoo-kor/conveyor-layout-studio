@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { insertEquipmentIntoNearestEdge, itemsInRect, refreshEquipmentConnections, removeConnection, removeEquipmentAndReconnect } from '../src/editor.js';
+import { insertEquipmentIntoNearestEdge, itemsInRect, refreshEquipmentConnections, removeConnection, removeEquipmentAndReconnect, snapUnit } from '../src/editor.js';
 
 test('중간 설비를 삭제하면 이전 설비와 다음 설비를 자동 연결한다',()=>{
   const layout={equipment:[{id:'a'},{id:'middle'},{id:'b'}],cadSchematic:{lanes:[{nodes:[{id:'a'},{id:'middle'},{id:'b'}]}],inboundBranches:[],edges:[{from:'a',to:'middle',kind:'flow'},{from:'middle',to:'b',kind:'transfer'}]}};
@@ -25,6 +25,14 @@ test('연결선에서 먼 위치에 놓은 설비는 자동 삽입하지 않는�
 test('설비를 세로 회전하면 연결선 포트를 화면의 위아래 방향으로 다시 계산한다',()=>{
   const layout={equipment:[{id:'a',x:0,y:0,rotation:0},{id:'middle',x:150,y:0,rotation:90},{id:'b',x:300,y:0,rotation:0}],cadSchematic:{edges:[{from:'a',to:'middle'},{from:'middle',to:'b'}]}};
   assert.equal(refreshEquipmentConnections(layout,'middle'),2);assert.equal(layout.cadSchematic.edges[0].toPort,'left');assert.equal(layout.cadSchematic.edges[1].fromPort,'right');
+});
+
+test('설비와 연결선 이동 좌표는 1단위로 스냅한다',()=>{
+  assert.equal(snapUnit(10.49),10);assert.equal(snapUnit(10.5),11);assert.equal(snapUnit(-2.6),-3);
+});
+
+test('수동 연결점은 설비 이동 후에도 지정한 끝점을 유지한다',()=>{
+  const layout={equipment:[{id:'a',x:0,y:0},{id:'b',x:100,y:100}],cadSchematic:{edges:[{from:'a',to:'b',fromPort:'bottom',toPort:'top',manual:true}]}};refreshEquipmentConnections(layout,'a');assert.equal(layout.cadSchematic.edges[0].fromPort,'bottom');assert.equal(layout.cadSchematic.edges[0].toPort,'top');
 });
 
 test('드래그 선택 사각형 안의 이동 가능한 설비만 그룹 선택한다',()=>{

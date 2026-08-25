@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { asrsOccupiedSlots, asrsRackCells, equipmentOperationProgress, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, shouldDrawCadToken } from '../src/renderer.js';
+import { asrsOccupiedSlots, asrsRackCells, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, shouldDrawCadToken } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -76,6 +76,10 @@ test('연결된 AGV와 AMR은 앞뒤 설비 사이의 동적 이동 경로를 �
 
 test('AGV는 적재 후 이동하고 하역 위치에 도착해야 물품을 넘긴다',()=>{
   const item={id:'agv',type:'agv',parameters:{loadTime:2,unloadTime:2}},token={nodeId:'agv',edge:null,nodeEnteredAt:10,operationDuration:10};assert.equal(equipmentOperationProgress(item,{t:11,cadTokens:[token]}).progress,0);assert.ok(Math.abs(equipmentOperationProgress(item,{t:15,cadTokens:[token]}).progress-.5)<1e-9);assert.equal(equipmentOperationProgress(item,{t:19,cadTokens:[token]}).progress,1);assert.equal(equipmentOperationProgress(item,{t:20,cadTokens:[]}).active,false);
+});
+
+test('정지 AMR은 저장 좌표에 있고 운반 중에만 경로 좌표로 이동한다',()=>{
+  const item={id:'amr',type:'amr',x:100,y:80,parameters:{loadTime:0,unloadTime:0},shuttleRoute:{start:{x:20,y:20},end:{x:220,y:20},points:[{x:20,y:20},{x:220,y:20}]}},layout={equipment:[item],cadSchematic:{edges:[]}},idle=equipmentVisualPosition(layout,item,{t:0,cadTokens:[]}),token={nodeId:'amr',edge:null,nodeEnteredAt:0,operationDuration:10},moving=equipmentVisualPosition(layout,item,{t:5,cadTokens:[token]},token);assert.deepEqual(idle,{x:100,y:80});assert.ok(Math.abs(moving.x-120)<1e-9);assert.equal(moving.y,20);
 });
 
 test('턴테이블 진행률은 물품 작업시간에 동기화된다',()=>{

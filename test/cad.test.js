@@ -91,7 +91,7 @@ test('포킹장치는 출력 1 분기 비율을 기본 50%로 제공한다',()=>
 });
 
 test('컨베이어는 화면 크기와 분리된 실제 길이 파라미터를 제공한다',()=>{
-  const fields=parameterFieldsFor({type:'conveyor',length:90,parameters:{speed:.5}}),length=fields.find(field=>field.key==='length');assert.equal(length.value,5);assert.equal(length.label,'실제 길이(m)');assert.equal(length.min,.1);
+  const fields=parameterFieldsFor({type:'conveyor',length:90,parameters:{speed:.5}}),length=fields.find(field=>field.key==='length'),width=fields.find(field=>field.key==='beltWidth'),speed=fields.find(field=>field.key==='speed');assert.equal(length.value,5);assert.equal(length.label,'실제 길이(m)');assert.equal(length.min,.1);assert.equal(width.value,.8);assert.equal(width.label,'실제 폭(m)');assert.equal(speed.label,'속도(m/s)');
 });
 
 test('포킹장치를 일반 컨베이어가 아닌 ASRS 이송장치로 분류한다',()=>{

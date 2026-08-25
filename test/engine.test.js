@@ -98,7 +98,7 @@ test('출력부 포크 화살표는 컨베이어 이송을 마친 뒤 분기한�
 });
 
 test('출고 트럭은 설정 수량이 적재되면 출발한다',()=>{
-  const equipment=[{id:'asrs',type:'stackerCrane',x:0,y:0,source:{origin:'dxf'},parameters:{rows:1,columns:10,levels:1}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{speed:10}},{id:'amr',type:'amr',x:200,y:0,source:{origin:'dxf'},parameters:{speed:10,shuttleDistance:1,loadTime:.1,unloadTime:.1}},{id:'truck',type:'dock',x:300,y:0,source:{origin:'dxf'},parameters:{dockRole:'outbound',truckCapacity:2,processTime:.1}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'asrs',to:'cv'},{from:'cv',to:'amr'},{from:'amr',to:'truck'}]}},{injectA:1,simDuration:30});for(let i=0;i<600;i++)engine.step(.05);assert.ok(engine.state.outboundTrucks.truck.departures>0);assert.ok(engine.state.events.some(event=>event.type==='truck-departed'));
+  const equipment=[{id:'asrs',type:'stackerCrane',x:0,y:0,source:{origin:'dxf'},parameters:{rows:1,columns:10,levels:1}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{speed:10}},{id:'amr',type:'amr',x:200,y:0,source:{origin:'dxf'},parameters:{speed:10,shuttleDistance:1,loadTime:.1,unloadTime:.1}},{id:'truck',type:'dock',x:300,y:0,source:{origin:'dxf'},parameters:{dockRole:'outbound',truckCapacity:2,processTime:.1}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'asrs',to:'cv'},{from:'cv',to:'amr'},{from:'amr',to:'truck'}]}},{injectA:1,simDuration:30}),zone=Object.values(engine.state.asrs.zones)[0];zone.inventory=4;engine.state.asrs.inventory=4;for(let i=0;i<600;i++)engine.step(.05);assert.ok(engine.state.outboundTrucks.truck.departures>0);assert.ok(engine.state.events.some(event=>event.type==='truck-departed'));
 });
 
 test('AS/RS는 트림·화이날·도어를 각각 16개 구역으로 관리한다',()=>{
@@ -111,4 +111,8 @@ test('ASRS 적재 구조와 물품 구분 수로 총 용량 및 구역 용량을
 
 test('ASRS 랙 2열 8번지 4단은 품목별 64 CELL로 계산한다',()=>{
   const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'}},{id:'asrs',type:'asrs',x:100,y:0,source:{origin:'dxf'},parameters:{rows:2,columns:8,levels:4,productTypes:3}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'asrs'}]}});assert.equal(engine.state.asrs.cellCount,64);assert.equal(engine.state.asrs.capacity,192);assert.deepEqual(Object.values(engine.state.asrs.zones).map(zone=>zone.capacity),[64,64,64]);
+});
+
+test('ASRS는 요청 라인 재고가 없으면 다른 라인 재고로 대체 출고하지 않는다',()=>{
+  const equipment=[{id:'asrs',type:'stackerCrane',source:{origin:'dxf'},parameters:{rows:1,columns:2,levels:1,productTypes:2,travelSpeed:10,liftSpeed:10}},{id:'out',type:'sink',source:{origin:'dxf'},parameters:{dischargeTime:.01}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'asrs',to:'out'}]}},{injectA:30,simDuration:40});for(let index=0;index<200;index++)engine.step(.05);const [requested,other]=Object.values(engine.state.asrs.zones);other.inventory=1;engine.state.asrs.inventory=1;for(let index=0;index<100;index++)engine.step(.05);assert.equal(engine.state.completedProducts.length,0);assert.equal(other.inventory,1);requested.inventory=1;engine.state.asrs.inventory=2;for(let index=0;index<100;index++)engine.step(.05);assert.ok(engine.state.completedProducts.length>0);assert.equal(other.inventory,1);
 });

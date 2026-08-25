@@ -1,6 +1,6 @@
 import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
 import { CadFlowEngine, defaultParams, SimulationEngine, validateParams } from './engine.js';
-import { LayoutRenderer } from './renderer.js';
+import { flowColor, LayoutRenderer } from './renderer.js';
 import { LayoutEditor, refreshEquipmentConnections } from './editor.js';
 import { analyzeCadFile, parameterFieldsFor } from './cad.js';
 import { buildSimulationReport } from './report.js';
@@ -20,7 +20,7 @@ const inputKeys = ['injectA','injectB','injectC','conv2Speed','conv1Speed','pick
 function readParams() {
   return { useA:$('useA').checked, useB:$('useB').checked, ...Object.fromEntries(inputKeys.map(key=>[key,Number($(key).value)])) };
 }
-function syncFlowView(){const select=$('flowView'),current=select.value||'all',names=Object.keys(engine.state?.asrs?.zones||{});select.replaceChildren(new Option('전체 물류','all'),...names.map(name=>new Option(`${name}만`,name)));select.value=names.includes(current)?current:'all';renderer.setFlowFilter(select.value);}
+function syncFlowView(){const select=$('flowView'),current=select.value||'all',names=Object.keys(engine.state?.asrs?.zones||{});select.replaceChildren(new Option('전체 물류','all'),...names.map(name=>new Option(`${name}만`,name)));select.value=names.includes(current)?current:'all';renderer.setFlowFilter(select.value);const legend=$('flowLegend');legend.replaceChildren(...names.map((name,index)=>{const entry=document.createElement('span'),swatch=document.createElement('i'),label=document.createTextNode(name);swatch.style.background=flowColor(name,index);swatch.style.color=flowColor(name,index);entry.append(swatch,label);return entry;}));}
 function resetEngine() {
   const params=readParams(), check=validateParams(params);
   $('validation').textContent=check.errors.join(' ');

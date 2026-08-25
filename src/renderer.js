@@ -3,6 +3,14 @@ import { connectionAnchor, equipmentPorts, orthogonalRoute, pointOnRoute, routeA
 
 export const isNodeConveyor = item => item.type === 'conveyor' && Array.isArray(item.nodes);
 
+export function mobileEquipmentRoute(layout,item){
+  const edges=layout.cadSchematic?.edges||[],byId=new Map(layout.equipment.map(node=>[node.id,node])),incoming=edges.find(edge=>edge.to===item.id),outgoing=edges.find(edge=>edge.from===item.id),before=byId.get(incoming?.from),after=byId.get(outgoing?.to);
+  if(before&&after){const start=connectionAnchor(before,incoming.fromPort),end=connectionAnchor(after,outgoing.toPort);return{start,end,points:orthogonalRoute(start,end),axis:'orthogonal'};}
+  if(before){const start=connectionAnchor(before,incoming.fromPort),end=connectionAnchor(item,incoming.toPort||'left');return{start,end,points:orthogonalRoute(start,end),axis:'orthogonal'};}
+  if(after){const start=connectionAnchor(item,outgoing.fromPort||'right'),end=connectionAnchor(after,outgoing.toPort);return{start,end,points:orthogonalRoute(start,end),axis:'orthogonal'};}
+  return item.shuttleRoute||null;
+}
+
 export class LayoutRenderer {
   constructor(canvas, layout) {
     this.canvas = canvas;
@@ -149,7 +157,7 @@ export class LayoutRenderer {
     if(item.type==='forkingDevice'){const w=compact?32:58,h=compact?18:28;c.save();c.translate(item.x,item.y);c.fillStyle='#0d3928';c.strokeStyle=COLORS.green;c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);c.lineWidth=2;for(const dy of [-5,5]){c.beginPath();c.moveTo(-w/2-12,dy);c.lineTo(w/2+12,dy);c.stroke();}c.fillStyle=COLORS.green;c.font=`${compact?7:9}px monospace`;c.fillText('FORK',compact?-9:-12,3);c.restore();return true;}
     if(item.type==='forklift'){const scale=compact?.7:1;c.save();c.translate(item.x,item.y);c.scale(scale,scale);c.fillStyle='#273446';c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.fillRect(-24,-11,30,20);c.strokeRect(-24,-11,30,20);c.fillRect(-17,-25,17,14);c.strokeRect(-17,-25,17,14);c.beginPath();c.arc(-15,13,6,0,Math.PI*2);c.arc(4,13,6,0,Math.PI*2);c.stroke();c.beginPath();c.moveTo(10,-17);c.lineTo(10,12);c.moveTo(10,8);c.lineTo(34,8);c.moveTo(10,13);c.lineTo(34,13);c.stroke();c.fillStyle='#fff2a8';c.font='8px monospace';c.fillText('지게차',-22,3);c.restore();return true;}
     if(['source','sink','dock'].includes(item.type)){const inbound=item.type==='source'||(item.type==='dock'&&item.parameters?.dockRole!=='outbound'&&/TRUCK|INBOUND|입고/i.test(item.name||'')),truck=state?.outboundTrucks?.[item.id];c.save();c.translate(item.x,item.y);c.fillStyle='#17334a';c.strokeStyle=COLORS.cyan;c.fillRect(-42,-20,58,40);c.strokeRect(-42,-20,58,40);c.fillRect(16,-13,24,33);c.strokeRect(16,-13,24,33);c.beginPath();c.arc(-25,23,6,0,Math.PI*2);c.arc(25,23,6,0,Math.PI*2);c.stroke();c.fillStyle='#d8f3ff';c.font='9px monospace';c.fillText(inbound?'입고':'출고',-13,4);if(truck){c.fillStyle=COLORS.yellow;c.font='8px monospace';c.fillText(`${truck.loaded}/${truck.capacity} · ${truck.departures}회`,-35,-25);}c.restore();return true;}
-    if(['amr','agv'].includes(item.type)){const half=compact?11:18,route=item.shuttleRoute,speed=Math.max(.2,Number(item.parameters?.speed||1.2));let x=item.x,y=item.y;if(route){const points=route.points||[route.start,route.end],distance=Math.max(1,routeLength(points)),phase=((state?.t||0)*speed*28)%(distance*2),progress=(phase<=distance?phase:distance*2-phase)/distance,point=pointOnRoute(points,progress);x=point.x;y=point.y;}c.save();c.translate(x,y);c.fillStyle='#15374a';c.strokeStyle=COLORS.yellow;c.fillRect(-half,-half*.7,half*2,half*1.4);c.strokeRect(-half,-half*.7,half*2,half*1.4);c.fillStyle='#fff';c.font=`${compact?7:9}px monospace`;c.fillText(item.type.toUpperCase(),compact?-7:-10,3);c.restore();return true;}
+    if(['amr','agv'].includes(item.type)){const half=compact?11:18,route=mobileEquipmentRoute(this.layout,item),speed=Math.max(.2,Number(item.parameters?.speed||1.2));let x=item.x,y=item.y;if(route){const points=route.points||[route.start,route.end],distance=Math.max(1,routeLength(points)),phase=((state?.t||0)*speed*28)%(distance*2),progress=(phase<=distance?phase:distance*2-phase)/distance,point=pointOnRoute(points,progress);x=point.x;y=point.y;}c.save();c.translate(x,y);c.fillStyle='#15374a';c.strokeStyle=COLORS.yellow;c.fillRect(-half,-half*.7,half*2,half*1.4);c.strokeRect(-half,-half*.7,half*2,half*1.4);c.fillStyle='#fff';c.font=`${compact?7:9}px monospace`;c.fillText(item.type.toUpperCase(),compact?-7:-10,3);c.restore();return true;}
     return false;
   }
 

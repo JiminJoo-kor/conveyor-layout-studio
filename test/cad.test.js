@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { isNodeConveyor } from '../src/renderer.js';
+import { isNodeConveyor, mobileEquipmentRoute } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -68,6 +68,10 @@ test('건축 배경은 제외하고 물류설비 레이어는 유지한다',()=>
 
 test('지게차와 고정 포킹장치를 별도 설비로 분류한다',()=>{
   assert.equal(classifyCadEntity({text:'FORKLIFT',layer:'MHE'}).type,'forklift');assert.equal(classifyCadEntity({text:'포킹장치',layer:'MHE'}).type,'forkingDevice');
+});
+
+test('연결된 AGV와 AMR은 앞뒤 설비 사이의 동적 이동 경로를 갖는다',()=>{
+  const equipment=[{id:'a',type:'conveyor',x:0,y:0},{id:'agv',type:'agv',x:100,y:50},{id:'b',type:'conveyor',x:200,y:100}],layout={equipment,cadSchematic:{edges:[{from:'a',to:'agv',fromPort:'right',toPort:'left'},{from:'agv',to:'b',fromPort:'right',toPort:'left'}]}},route=mobileEquipmentRoute(layout,equipment[1]);assert.ok(route);assert.equal(route.points.length,4);assert.deepEqual(route.start,{x:44,y:0});assert.deepEqual(route.end,{x:156,y:100});
 });
 
 test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{

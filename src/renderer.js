@@ -116,7 +116,7 @@ export class LayoutRenderer {
       } else if(item.nodeId) {
         const pos=this.nodePositions.get(item.nodeId); if(!pos) continue;
         const busy=Boolean(state.locks[item.id]); c.fillStyle=busy?COLORS.pink:COLORS.text; c.font='10px monospace'; c.fillText(item.type==='station'?'WORK':'FORK',pos.x+18,pos.y+76);
-      } else if(item.source?.origin==='dxf'&&this.drawCadSymbol(item,state)) {
+      } else if(item.source?.origin==='dxf'&&this.drawRotatedCadSymbol(item,state)) {
         continue;
       } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
         const long=['conveyor','processLine'].includes(item.type),schematicMax=this.layout.cadViewMode==='schematic'?78:500,w=long?Math.max(24,Math.min(schematicMax,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
@@ -125,8 +125,10 @@ export class LayoutRenderer {
         c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);
       }
     }
-    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId;c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of [{x:item.x-44,y:item.y},{x:item.x+44,y:item.y},{x:item.x,y:item.y-44},{x:item.x,y:item.y+44}]){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
+    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId,angle=(item.rotation||0)*Math.PI/180,rotate=point=>({x:item.x+point.x*Math.cos(angle)-point.y*Math.sin(angle),y:item.y+point.x*Math.sin(angle)+point.y*Math.cos(angle)});c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of [{x:-44,y:0},{x:44,y:0},{x:0,y:-44},{x:0,y:44}].map(rotate)){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
   }
+
+  drawRotatedCadSymbol(item,state){const c=this.ctx;c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.translate(-item.x,-item.y);const drawn=this.drawCadSymbol(item,state);c.restore();return drawn;}
 
   drawCadSymbol(item,state){
     if(!Number.isFinite(item.x)||!Number.isFinite(item.y))return false;const c=this.ctx,compact=this.layout.cadViewMode==='hybrid';

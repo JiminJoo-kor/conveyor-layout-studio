@@ -32,9 +32,9 @@ function connectEquipment(fromId,toId){if(fromId===toId)return false;layout.cadS
 function selectEquipment(item) {
   const changed=selectedEquipment?.id!==item?.id;
   selectedEquipment=item;
-  for(const id of ['propName','propX','propY']) $(id).disabled=!item;
+  for(const id of ['propName','propX','propY','propRotation','rotateLeft','rotateRight']) $(id).disabled=!item;
   $('deleteEquipment').disabled=!item;
-  $('propName').value=item?.name||'';$('propX').value=item?.x??'';$('propY').value=item?.y??'';
+  $('propName').value=item?.name||'';$('propX').value=item?.x??'';$('propY').value=item?.y??'';$('propRotation').value=item?.rotation??0;
   if(changed&&layout.displayMode==='cad')renderCadEquipmentParameters(item?.source?.origin==='dxf'?item.id:null);
 }
 function updateDashboard() {
@@ -115,7 +115,9 @@ document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener(
 $('connectEquipment').addEventListener('click',()=>{const active=!editor.connecting;editor.setConnectionMode(active,active?selectedEquipment?.id:null);$('connectEquipment').classList.toggle('active',active);$('connectionHint').hidden=!active;$('connectionHint').textContent=selectedEquipment?`${selectedEquipment.name}에서 연결할 대상 설비를 클릭하세요.`:'시작 설비를 클릭한 다음 도착 설비를 클릭하세요.';});
 $('resetView').addEventListener('click',()=>editor.resetView());
 $('deleteEquipment').addEventListener('click',()=>{if(selectedEquipment&&editor.remove(selectedEquipment.id)){resetEngine();renderCadEquipmentParameters();}});
-for(const id of ['propName','propX','propY']) $(id).addEventListener('change',()=>{if(!selectedEquipment)return;selectedEquipment.name=$('propName').value||selectedEquipment.name;selectedEquipment.x=Number($('propX').value);selectedEquipment.y=Number($('propY').value);renderer.draw(engine.state);});
+for(const id of ['propName','propX','propY','propRotation']) $(id).addEventListener('change',()=>{if(!selectedEquipment)return;selectedEquipment.name=$('propName').value||selectedEquipment.name;selectedEquipment.x=Number($('propX').value);selectedEquipment.y=Number($('propY').value);selectedEquipment.rotation=((Number($('propRotation').value)||0)%360+360)%360;$('propRotation').value=selectedEquipment.rotation;renderer.draw(engine.state);});
+function rotateSelected(delta){if(!selectedEquipment)return;selectedEquipment.rotation=((Number(selectedEquipment.rotation)||0)+delta+360)%360;$('propRotation').value=selectedEquipment.rotation;renderer.draw(engine.state);}
+$('rotateLeft').addEventListener('click',()=>rotateSelected(-90));$('rotateRight').addEventListener('click',()=>rotateSelected(90));
 $('layoutFile').addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;
   try {const candidate=JSON.parse(await file.text()), check=validateLayout(candidate);if(!check.valid)throw new Error(check.errors.join(' '));layout=candidate;renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);resetEngine();$('layoutName').textContent=layout.name;selectEquipment(null);}

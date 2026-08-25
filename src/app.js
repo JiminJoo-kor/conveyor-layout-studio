@@ -76,7 +76,7 @@ $('cadFile').addEventListener('change',async event=>{
   try{
     const result=await analyzeCadFile(file),candidates=result.candidates.filter(item=>item.type!=='unknown');
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units||'unknown',importId:candidates[0]?.source?.importId};
-    layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='hybrid';layout.canvas.height=result.document.canvasHeight;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');for(const item of candidates)if(item.originalPosition){item.x=item.originalPosition.x;item.y=item.originalPosition.y;}$('cadViewToggle').textContent='보기: 혼합';
+    layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='schematic';layout.canvas.height=Math.max(result.document.canvasHeight,650);layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: 약식';
     renderer.setLayout(layout);renderer.draw(engine.state);pendingCadCandidates=candidates;$('cadStatusTitle').textContent='DXF 분석 완료';$('cadStatusText').textContent=`원본 라인 ${layout.dxfGeometry.length}개와 설비 후보 ${candidates.length}개를 찾았습니다. 라인워크 위에 승인 설비가 배치됩니다.`;renderCadCandidates();renderCadEquipmentParameters();
   }catch(error){$('cadStatusTitle').textContent='DXF 분석 실패';$('cadStatusText').textContent=error.message;}
   finally{event.target.value='';}

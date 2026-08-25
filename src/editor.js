@@ -2,6 +2,7 @@ import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipment
 
 const movable = item => Number.isFinite(item?.x) && Number.isFinite(item?.y);
 export const snapUnit=value=>Math.round(Number(value)||0);
+export const isSelectedEdgeHit=(selectedIndex,hit)=>Number.isInteger(selectedIndex)&&hit?.index===selectedIndex;
 
 export function itemsInRect(items,start,end){const left=Math.min(start.x,end.x),right=Math.max(start.x,end.x),top=Math.min(start.y,end.y),bottom=Math.max(start.y,end.y);return items.filter(item=>movable(item)&&item.type!=='processLine'&&item.x>=left&&item.x<=right&&item.y>=top&&item.y<=bottom);}
 
@@ -40,7 +41,7 @@ export function removeEquipmentAndReconnect(layout,id){
 export class LayoutEditor {
   constructor(canvas, renderer, getLayout, onChange, onSelect, onConnect, onModeChange, onEdgeSelect) {
     this.canvas=canvas;this.renderer=renderer;this.getLayout=getLayout;this.onChange=onChange;this.onSelect=onSelect;this.onConnect=onConnect;this.onModeChange=onModeChange;this.onEdgeSelect=onEdgeSelect;
-    this.enabled=false;this.drag=null;this.edgeDrag=null;this.connectionDrag=null;this.pan=null;this.marquee=null;this.selectedIds=new Set();this.connecting=false;this.connectionSource=null;this.placementType=null;this.view={zoom:1,x:0,y:0};
+    this.enabled=false;this.drag=null;this.edgeDrag=null;this.connectionDrag=null;this.pan=null;this.marquee=null;this.selectedIds=new Set();this.selectedEdgeIndex=null;this.connecting=false;this.connectionSource=null;this.placementType=null;this.view={zoom:1,x:0,y:0};
     canvas.addEventListener('pointerdown',e=>this.pointerDown(e));
     canvas.addEventListener('pointermove',e=>this.pointerMove(e));
     canvas.addEventListener('pointerup',()=>this.pointerUp());
@@ -59,12 +60,13 @@ export class LayoutEditor {
   hit(point){return [...this.getLayout().equipment].reverse().find(item=>{if(!movable(item)||item.type==='processLine')return false;const wide=['stackerCrane','asrs'].includes(item.type)?72:['dock','source','sink'].includes(item.type)?52:42,tall=['stackerCrane','asrs'].includes(item.type)?54:42;return Math.abs(point.x-item.x)<wide&&Math.abs(point.y-item.y)<tall;});}
   hitPort(point,tolerance=13,excludeId=null){let best=null;for(const item of [...this.getLayout().equipment].reverse()){if(!movable(item)||item.type==='processLine'||item.id===excludeId)continue;for(const [port,anchor] of Object.entries(equipmentPorts(item))){const distance=Math.hypot(point.x-anchor.x,point.y-anchor.y);if(distance<=tolerance&&(!best||distance<best.distance))best={item,port,anchor,distance};}}return best;}
   hitEdge(point,tolerance=12){const layout=this.getLayout(),byId=new Map(layout.equipment.map(item=>[item.id,item])),edges=layout.cadSchematic?.edges||[];let best=null;edges.forEach((edge,index)=>{const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)return;const points=edgeRoute(connectionAnchor(from,edge.fromPort),connectionAnchor(to,edge.toPort),edge),distance=Math.min(...points.slice(1).map((p,i)=>segmentDistance(point,points[i],p)));if(distance<=tolerance&&(!best||distance<best.distance))best={edge,index,distance};});return best;}
-  selectEdge(index,context=null){this.renderer.setSelectedEdge(index);this.onEdgeSelect?.(Number.isInteger(index)?this.getLayout().cadSchematic.edges[index]:null,index,context);this.onChange(false);}
+  selectEdge(index,context=null){this.selectedEdgeIndex=Number.isInteger(index)?index:null;this.renderer.setSelectedEdge(this.selectedEdgeIndex);this.onEdgeSelect?.(this.selectedEdgeIndex!==null?this.getLayout().cadSchematic.edges[this.selectedEdgeIndex]:null,this.selectedEdgeIndex,context);this.onChange(false);}
   pointerDown(event){const p=this.worldPoint(event),hit=this.hit(p);
     if(event.button===1||event.shiftKey){event.preventDefault();this.canvas.setPointerCapture(event.pointerId);const raw=this.canvasPoint(event);this.pan={raw,start:{...this.view}};this.canvas.classList.add('panning');return;}
     if(event.button!==0)return;
     if(this.placementType){const {item,insertion}=this.addAt(this.placementType,p);this.placementType=null;this.canvas.classList.remove('placing');this.renderer.setPlacementPreview(null,null);if(insertion){this.setConnectionMode(false);this.onModeChange?.({connecting:false,sourceId:null,placement:null,insertion,item});}else this.setConnectionMode(true);return;}
     if(this.connecting){const portHit=this.hitPort(p);if(!portHit)return;this.canvas.setPointerCapture(event.pointerId);this.connectionDrag={fromId:portHit.item.id,fromPort:portHit.port,start:portHit.anchor,current:p};this.renderer.setConnectionPreview({from:portHit.anchor,to:p});this.onSelect(portHit.item);this.onModeChange?.({connecting:true,sourceId:portHit.item.id,fromPort:portHit.port,placement:null});this.onChange(false);return;}
+    const selectedEdgeHit=this.enabled&&this.selectedEdgeIndex!==null?this.hitEdge(p,14):null;if(isSelectedEdgeHit(this.selectedEdgeIndex,selectedEdgeHit)){this.clearSelection();this.selectEdge(selectedEdgeHit.index);this.canvas.setPointerCapture(event.pointerId);this.edgeDrag={start:p,edge:selectedEdgeHit.edge,offset:{x:Number(selectedEdgeHit.edge.routeOffset?.x)||0,y:Number(selectedEdgeHit.edge.routeOffset?.y)||0}};return;}
     const edgeHit=this.enabled&&!hit?this.hitEdge(p):null;if(edgeHit){this.clearSelection();this.selectEdge(edgeHit.index);this.canvas.setPointerCapture(event.pointerId);this.edgeDrag={start:p,edge:edgeHit.edge,offset:{x:Number(edgeHit.edge.routeOffset?.x)||0,y:Number(edgeHit.edge.routeOffset?.y)||0}};return;}
     if(this.enabled&&!hit){this.selectEdge(null);this.clearSelection();this.canvas.setPointerCapture(event.pointerId);this.marquee={start:p,current:p};this.renderer.setMarquee({x:p.x,y:p.y,w:0,h:0});return;}
     this.selectEdge(null);

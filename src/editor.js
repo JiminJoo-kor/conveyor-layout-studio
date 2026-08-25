@@ -13,11 +13,12 @@ export class LayoutEditor {
   setEnabled(value){this.enabled=value;this.canvas.classList.toggle('editing',value);}
   canvasPoint(event){const rect=this.canvas.getBoundingClientRect(),sx=this.canvas.width/rect.width,sy=this.canvas.height/rect.height;return{x:(event.clientX-rect.left)*sx,y:(event.clientY-rect.top)*sy};}
   worldPoint(event){const p=this.canvasPoint(event);return{x:(p.x-this.view.x)/this.view.zoom,y:(p.y-this.view.y)/this.view.zoom};}
-  hit(point){return [...this.getLayout().equipment].reverse().find(item=>movable(item)&&Math.abs(point.x-item.x)<38&&Math.abs(point.y-item.y)<38);}
-  pointerDown(event){if(!this.enabled&&event.button!==1&&!event.shiftKey)return;this.canvas.setPointerCapture(event.pointerId);const p=this.worldPoint(event),hit=this.hit(p);
-    if(event.button===1||event.shiftKey){event.preventDefault();const raw=this.canvasPoint(event);this.pan={raw,start:{...this.view}};this.canvas.classList.add('panning');return;}
+  hit(point){return [...this.getLayout().equipment].reverse().find(item=>{if(!movable(item)||item.type==='processLine')return false;const wide=['stackerCrane','asrs'].includes(item.type)?72:['dock','source','sink'].includes(item.type)?52:42,tall=['stackerCrane','asrs'].includes(item.type)?54:42;return Math.abs(point.x-item.x)<wide&&Math.abs(point.y-item.y)<tall;});}
+  pointerDown(event){const p=this.worldPoint(event),hit=this.hit(p);
+    if(event.button===1||event.shiftKey){event.preventDefault();this.canvas.setPointerCapture(event.pointerId);const raw=this.canvasPoint(event);this.pan={raw,start:{...this.view}};this.canvas.classList.add('panning');return;}
+    if(event.button!==0)return;
     this.renderer.setSelected(hit?.id||null);this.onSelect(hit||null);
-    if(hit)this.drag={item:hit,dx:p.x-hit.x,dy:p.y-hit.y};this.onChange(false);
+    if(this.enabled&&hit){this.canvas.setPointerCapture(event.pointerId);this.drag={item:hit,dx:p.x-hit.x,dy:p.y-hit.y};}this.onChange(false);
   }
   pointerMove(event){if(!this.enabled&&!this.pan)return;if(this.pan){const p=this.canvasPoint(event);this.view.x=this.pan.start.x+p.x-this.pan.raw.x;this.view.y=this.pan.start.y+p.y-this.pan.raw.y;this.renderer.setView(this.view);this.onChange(false);return;}
     if(this.drag){const p=this.worldPoint(event);this.drag.item.x=Math.round((p.x-this.drag.dx)/10)*10;this.drag.item.y=Math.round((p.y-this.drag.dy)/10)*10;this.onSelect(this.drag.item);this.onChange(false);}

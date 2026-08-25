@@ -29,10 +29,12 @@ function editorChanged(rebuild) {
   renderer.draw(engine.state);
 }
 function selectEquipment(item) {
+  const changed=selectedEquipment?.id!==item?.id;
   selectedEquipment=item;
   for(const id of ['propName','propX','propY']) $(id).disabled=!item;
   $('deleteEquipment').disabled=!item||!item.id.includes('-custom-');
   $('propName').value=item?.name||'';$('propX').value=item?.x??'';$('propY').value=item?.y??'';
+  if(changed&&layout.displayMode==='cad')renderCadEquipmentParameters(item?.source?.origin==='dxf'?item.id:null);
 }
 function updateDashboard() {
   const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
@@ -86,12 +88,13 @@ function renderCadCandidates(){
   const host=$('cadCandidates');
   host.innerHTML=pendingCadCandidates.length?`<div class="candidate-actions"><button data-cad-action="approve-all">모두 승인</button><button data-cad-action="discard-all">모두 제외</button></div>`+pendingCadCandidates.map(item=>`<div class="candidate-card"><span>${item.name}</span><small>${item.type} · 신뢰도 ${Math.round(item.confidence*100)}%</small><button data-cad-action="approve" data-id="${item.id}">승인</button><button data-cad-action="discard" data-id="${item.id}">제외</button></div>`).join(''):'<span>검수할 후보가 없습니다.</span>';
 }
-function renderCadEquipmentParameters(){
+function renderCadEquipmentParameters(selectedId=selectedEquipment?.id){
   const items=layout.equipment.filter(item=>item.source?.origin==='dxf'&&item.reviewStatus==='approved'),counts={};
   for(const item of items)counts[item.type]=(counts[item.type]||0)+1;
   const active=items.length>0;$('defaultEquipmentControls').hidden=active;$('dynamicEquipmentControls').hidden=!active;cadParameterSection.hidden=!active;
   const groups=Object.entries(Object.groupBy?Object.groupBy(items,item=>item.type):items.reduce((result,item)=>((result[item.type]??=[]).push(item),result),{}));
-  cadParameterSection.innerHTML=active?`<h2>레이아웃 설비 파라미터</h2><p class="equipment-counts">${Object.entries(counts).map(([type,count])=>`${type.toUpperCase()} ${count}대`).join(' · ')}</p>`+groups.map(([type,equipment])=>`<div class="equipment-type-group"><h3>${type.toUpperCase()} <small>${equipment.length}대</small></h3>${equipment.map(item=>`<details class="equipment-parameter-card"><summary>${item.name}</summary>${parameterFieldsFor(item).map(field=>`<label>${field.label}<span><input type="number" step="0.1" data-equipment-id="${item.id}" data-parameter="${field.key}" value="${field.value}"></span></label>`).join('')}</details>`).join('')}</div>`).join(''):'';
+  cadParameterSection.innerHTML=active?`<h2>레이아웃 설비 파라미터</h2><p class="equipment-counts">${selectedId?'선택 설비의 파라미터가 펼쳐졌습니다 · ':''}${Object.entries(counts).map(([type,count])=>`${type.toUpperCase()} ${count}대`).join(' · ')}</p>`+groups.map(([type,equipment])=>`<div class="equipment-type-group"><h3>${type.toUpperCase()} <small>${equipment.length}대</small></h3>${equipment.map(item=>`<details class="equipment-parameter-card${item.id===selectedId?' selected':''}" data-parameter-card="${item.id}" ${item.id===selectedId?'open':''}><summary>${item.name}</summary>${parameterFieldsFor(item).map(field=>`<label>${field.label}<span><input type="number" step="0.1" data-equipment-id="${item.id}" data-parameter="${field.key}" value="${field.value}"></span></label>`).join('')}</details>`).join('')}</div>`).join(''):'';
+  if(selectedId)requestAnimationFrame(()=>cadParameterSection.querySelector(`[data-parameter-card="${CSS.escape(selectedId)}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'}));
 }
 cadParameterSection.addEventListener('change',event=>{const input=event.target.closest('[data-equipment-id]');if(!input)return;const item=layout.equipment.find(entry=>entry.id===input.dataset.equipmentId);if(item)item.parameters[input.dataset.parameter]=Number(input.value);});
 $('cadCandidates').addEventListener('click',event=>{

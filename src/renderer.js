@@ -106,6 +106,7 @@ export class LayoutRenderer {
     const c=this.ctx;
     for(const item of this.layout.equipment.filter(x=>!isNodeConveyor(x)&&this.isVisible(x))) {
       if(item.type==='processLine')continue;
+      if(item.id===this.selectedId&&item.source?.origin==='dxf'){const w=['stackerCrane','asrs'].includes(item.type)?154:['dock','source','sink'].includes(item.type)?112:96,h=['stackerCrane','asrs'].includes(item.type)?116:82;c.save();c.fillStyle='rgba(255,77,157,.13)';c.strokeStyle=COLORS.pink;c.lineWidth=3;c.setLineDash([7,4]);c.fillRect(item.x-w/2,item.y-h/2,w,h);c.strokeRect(item.x-w/2,item.y-h/2,w,h);c.setLineDash([]);c.restore();}
       if(item.type==='robot'&&!item.source?.origin) {
         c.beginPath(); c.arc(item.x,item.y,27,0,Math.PI*2); c.fillStyle=state.robot.phase==='idle'?'#6f2530':COLORS.orange; c.fill();
         c.strokeStyle=state.robot.phase==='idle'?'#b54555':COLORS.yellow; c.stroke(); c.fillStyle='#fff'; c.font='bold 11px monospace'; c.fillText(state.robot.phase.toUpperCase(),item.x-18,item.y+4);

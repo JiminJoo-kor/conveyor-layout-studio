@@ -32,7 +32,7 @@ function selectEquipment(item) {
   const changed=selectedEquipment?.id!==item?.id;
   selectedEquipment=item;
   for(const id of ['propName','propX','propY']) $(id).disabled=!item;
-  $('deleteEquipment').disabled=!item||!item.id.includes('-custom-');
+  $('deleteEquipment').disabled=!item;
   $('propName').value=item?.name||'';$('propX').value=item?.x??'';$('propY').value=item?.y??'';
   if(changed&&layout.displayMode==='cad')renderCadEquipmentParameters(item?.source?.origin==='dxf'?item.id:null);
 }
@@ -112,7 +112,7 @@ $('cadCandidates').addEventListener('click',event=>{
 });
 document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener('click',()=>editor.add(button.dataset.add)));
 $('resetView').addEventListener('click',()=>editor.resetView());
-$('deleteEquipment').addEventListener('click',()=>selectedEquipment&&editor.remove(selectedEquipment.id));
+$('deleteEquipment').addEventListener('click',()=>{if(selectedEquipment&&editor.remove(selectedEquipment.id)){resetEngine();renderCadEquipmentParameters();}});
 for(const id of ['propName','propX','propY']) $(id).addEventListener('change',()=>{if(!selectedEquipment)return;selectedEquipment.name=$('propName').value||selectedEquipment.name;selectedEquipment.x=Number($('propX').value);selectedEquipment.y=Number($('propY').value);renderer.draw(engine.state);});
 $('layoutFile').addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;

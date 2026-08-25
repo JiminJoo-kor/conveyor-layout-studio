@@ -36,6 +36,14 @@ export function equipmentPorts(item,distance=44){
   return{left:rotate(-distance,0),right:rotate(distance,0),top:rotate(0,-distance),bottom:rotate(0,distance)};
 }
 
+export function equipmentDirectionControls(item,distance=64){
+  if(!item||!Number.isFinite(item.x)||!Number.isFinite(item.y))return[];
+  const vertical=Math.abs(Math.sin((Number(item.rotation)||0)*Math.PI/180))>.7;
+  return vertical
+    ?[{direction:'up',label:'↑',x:item.x,y:item.y-distance},{direction:'down',label:'↓',x:item.x,y:item.y+distance}]
+    :[{direction:'left',label:'←',x:item.x-distance,y:item.y},{direction:'right',label:'→',x:item.x+distance,y:item.y}];
+}
+
 export function connectionAnchor(item,port){return port&&equipmentPorts(item)[port]||{x:item.x,y:item.y};}
 
 export function closestPortPair(from,to){

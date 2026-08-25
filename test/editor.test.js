@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { insertEquipmentIntoNearestEdge, isSelectedEdgeHit, itemsInRect, refreshEquipmentConnections, removeConnection, removeEquipmentAndReconnect, snapUnit } from '../src/editor.js';
+import { insertEquipmentIntoNearestEdge, isSelectedEdgeHit, itemsInRect, refreshEquipmentConnections, removeConnection, removeEquipmentAndReconnect, setEquipmentFlowDirection, snapUnit } from '../src/editor.js';
 
 test('중간 설비를 삭제하면 이전 설비와 다음 설비를 자동 연결한다',()=>{
   const layout={equipment:[{id:'a'},{id:'middle'},{id:'b'}],cadSchematic:{lanes:[{nodes:[{id:'a'},{id:'middle'},{id:'b'}]}],inboundBranches:[],edges:[{from:'a',to:'middle',kind:'flow'},{from:'middle',to:'b',kind:'transfer'}]}};
@@ -10,6 +10,13 @@ test('중간 설비를 삭제하면 이전 설비와 다음 설비를 자동 연
 test('분기 설비 삭제 시 기존 입출력을 중복 없이 우회 연결한다',()=>{
   const layout={equipment:[{id:'a'},{id:'x'},{id:'b'},{id:'c'}],cadSchematic:{lanes:[],inboundBranches:[],edges:[{from:'a',to:'x',kind:'flow'},{from:'x',to:'b',kind:'flow'},{from:'x',to:'c',kind:'flow'},{from:'a',to:'b',kind:'flow'}]}};
   removeEquipmentAndReconnect(layout,'x');assert.equal(layout.cadSchematic.edges.filter(edge=>edge.from==='a'&&edge.to==='b').length,1);assert.ok(layout.cadSchematic.edges.some(edge=>edge.from==='a'&&edge.to==='c'));
+});
+
+test('설비 방향 버튼은 선택 방향에 맞게 양옆 연결 흐름을 뒤집는다',()=>{
+  const layout={equipment:[{id:'left',x:0,y:0},{id:'cv',x:100,y:0,rotation:0},{id:'right',x:200,y:0}],cadSchematic:{edges:[{from:'cv',to:'left',fromPort:'left',toPort:'right'},{from:'right',to:'cv',fromPort:'left',toPort:'right'}]}};
+  assert.equal(setEquipmentFlowDirection(layout,'cv','right'),2);
+  assert.deepEqual(layout.cadSchematic.edges.map(edge=>[edge.from,edge.to]),[['left','cv'],['cv','right']]);
+  assert.equal(layout.equipment[1].parameters.flowDirection,'right');
 });
 
 test('기존 연결선 위에 설비를 놓으면 원래 선을 두 연결로 분할한다',()=>{

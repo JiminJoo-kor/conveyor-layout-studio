@@ -1,6 +1,6 @@
 const COLORS = { bg:'#071019', panel:'#0c1824', line:'#17334a', cyan:'#00d4ff', green:'#00ff88', yellow:'#ffd166', orange:'#ff7139', pink:'#ff4d9d', text:'#9fc5dd' };
 const FLOW_COLORS=['#00d4ff','#00ff88','#ffd166','#ff4d9d','#ff7139','#a78bfa','#38bdf8','#fb7185'];
-import { connectionAnchor, edgeRoute, equipmentPorts, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from './route.js';
+import { connectionAnchor, edgeRoute, equipmentDirectionControls, equipmentPorts, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from './route.js';
 
 export const isNodeConveyor = item => item.type === 'conveyor' && Array.isArray(item.nodes);
 export const laneTitleAnchor = nodes => nodes.find(node=>node.type==='dock'||node.type==='sink'||node.type==='source')||nodes[0];
@@ -74,12 +74,15 @@ export class LayoutRenderer {
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     if(this.layout.displayMode!=='cad')this.drawConnections();
     this.drawEquipment(state);
+    this.drawDirectionControls();
     this.drawConnectionPreview();
     this.drawMarquee();
     this.drawPlacementPreview();
     if(this.layout.displayMode==='cad'){const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cadTokens=(state.cadTokens||[]).filter(token=>(this.flowFilter==='all'||token.flowKey===this.flowFilter)&&shouldDrawCadToken(token,nodes.get(token.nodeId)));this.drawCadFlow({...state,cadTokens});}
     c.restore();
   }
+
+  drawDirectionControls(){if(!this.selectedId)return;const item=this.layout.equipment.find(node=>node.id===this.selectedId);if(!item||item.type==='processLine')return;const c=this.ctx,active=item.parameters?.flowDirection;for(const control of equipmentDirectionControls(item)){c.save();c.beginPath();c.arc(control.x,control.y,13,0,Math.PI*2);c.fillStyle=active===control.direction?'rgba(0,255,136,.95)':'rgba(5,18,29,.96)';c.strokeStyle=active===control.direction?COLORS.green:COLORS.yellow;c.lineWidth=2;c.fill();c.stroke();c.fillStyle=active===control.direction?'#05231a':'#fff2a8';c.font='bold 15px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(control.label,control.x,control.y+1);c.restore();}}
 
   drawMarquee(){if(!this.marquee)return;const {x,y,w,h}=this.marquee,c=this.ctx;c.save();c.fillStyle='rgba(0,212,255,.1)';c.strokeStyle=COLORS.cyan;c.lineWidth=1.5;c.setLineDash([6,4]);c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);c.restore();}
 

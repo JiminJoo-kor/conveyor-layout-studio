@@ -25,6 +25,8 @@ export function refreshEquipmentConnections(layout,id){
   return changed;
 }
 
+export function removeConnection(layout,index){const edges=layout.cadSchematic?.edges;if(!edges||!Number.isInteger(index)||index<0||index>=edges.length)return false;edges.splice(index,1);return true;}
+
 export function removeEquipmentAndReconnect(layout,id){
   const index=layout.equipment.findIndex(item=>item.id===id);if(index<0)return false;
   const schematic=layout.cadSchematic,edges=schematic?.edges||[],incoming=edges.filter(edge=>edge.to===id),outgoing=edges.filter(edge=>edge.from===id),remaining=edges.filter(edge=>edge.from!==id&&edge.to!==id),priority={flow:0,handoff:1,forking:2,warehouse:3,transfer:4};
@@ -35,16 +37,16 @@ export function removeEquipmentAndReconnect(layout,id){
 }
 
 export class LayoutEditor {
-  constructor(canvas, renderer, getLayout, onChange, onSelect, onConnect, onModeChange) {
-    this.canvas=canvas;this.renderer=renderer;this.getLayout=getLayout;this.onChange=onChange;this.onSelect=onSelect;this.onConnect=onConnect;this.onModeChange=onModeChange;
+  constructor(canvas, renderer, getLayout, onChange, onSelect, onConnect, onModeChange, onEdgeSelect) {
+    this.canvas=canvas;this.renderer=renderer;this.getLayout=getLayout;this.onChange=onChange;this.onSelect=onSelect;this.onConnect=onConnect;this.onModeChange=onModeChange;this.onEdgeSelect=onEdgeSelect;
     this.enabled=false;this.drag=null;this.pan=null;this.marquee=null;this.selectedIds=new Set();this.connecting=false;this.connectionSource=null;this.placementType=null;this.view={zoom:1,x:0,y:0};
     canvas.addEventListener('pointerdown',e=>this.pointerDown(e));
     canvas.addEventListener('pointermove',e=>this.pointerMove(e));
     canvas.addEventListener('pointerup',()=>this.pointerUp());
     canvas.addEventListener('pointerleave',()=>this.pointerUp());
     canvas.addEventListener('wheel',e=>this.wheel(e),{passive:false});
-    canvas.addEventListener('contextmenu',e=>{if(this.placementType||this.connecting){e.preventDefault();this.cancelModes();}});
-    canvas.ownerDocument.addEventListener('keydown',e=>{if(e.key==='Escape'){this.cancelModes();this.clearSelection();}});
+    canvas.addEventListener('contextmenu',e=>{if(this.placementType||this.connecting){e.preventDefault();this.cancelModes();return;}if(!this.enabled)return;const hit=this.hitEdge(this.worldPoint(e));if(hit){e.preventDefault();this.selectEdge(hit.index,{x:e.clientX,y:e.clientY});}else this.selectEdge(null);});
+    canvas.ownerDocument.addEventListener('keydown',e=>{if(e.key==='Escape'){this.cancelModes();this.clearSelection();this.selectEdge(null);}});
   }
   setEnabled(value){this.enabled=value;this.canvas.classList.toggle('editing',value);}
   setConnectionMode(value,sourceId=null){this.connecting=value;this.connectionSource=value?sourceId:null;this.renderer.setConnectionMode(value,this.connectionSource);this.onModeChange?.({connecting:value,sourceId:this.connectionSource,placement:this.placementType});this.onChange(false);}
@@ -54,12 +56,16 @@ export class LayoutEditor {
   canvasPoint(event){const rect=this.canvas.getBoundingClientRect(),sx=this.canvas.width/rect.width,sy=this.canvas.height/rect.height;return{x:(event.clientX-rect.left)*sx,y:(event.clientY-rect.top)*sy};}
   worldPoint(event){const p=this.canvasPoint(event);return{x:(p.x-this.view.x)/this.view.zoom,y:(p.y-this.view.y)/this.view.zoom};}
   hit(point){return [...this.getLayout().equipment].reverse().find(item=>{if(!movable(item)||item.type==='processLine')return false;const wide=['stackerCrane','asrs'].includes(item.type)?72:['dock','source','sink'].includes(item.type)?52:42,tall=['stackerCrane','asrs'].includes(item.type)?54:42;return Math.abs(point.x-item.x)<wide&&Math.abs(point.y-item.y)<tall;});}
+  hitEdge(point,tolerance=12){const layout=this.getLayout(),byId=new Map(layout.equipment.map(item=>[item.id,item])),edges=layout.cadSchematic?.edges||[];let best=null;edges.forEach((edge,index)=>{const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)return;const points=orthogonalRoute(connectionAnchor(from,edge.fromPort),connectionAnchor(to,edge.toPort)),distance=Math.min(...points.slice(1).map((p,i)=>segmentDistance(point,points[i],p)));if(distance<=tolerance&&(!best||distance<best.distance))best={edge,index,distance};});return best;}
+  selectEdge(index,context=null){this.renderer.setSelectedEdge(index);this.onEdgeSelect?.(Number.isInteger(index)?this.getLayout().cadSchematic.edges[index]:null,index,context);this.onChange(false);}
   pointerDown(event){const p=this.worldPoint(event),hit=this.hit(p);
     if(event.button===1||event.shiftKey){event.preventDefault();this.canvas.setPointerCapture(event.pointerId);const raw=this.canvasPoint(event);this.pan={raw,start:{...this.view}};this.canvas.classList.add('panning');return;}
     if(event.button!==0)return;
     if(this.placementType){const {item,insertion}=this.addAt(this.placementType,p);this.placementType=null;this.canvas.classList.remove('placing');this.renderer.setPlacementPreview(null,null);if(insertion){this.setConnectionMode(false);this.onModeChange?.({connecting:false,sourceId:null,placement:null,insertion,item});}else this.setConnectionMode(true,item.id);return;}
     if(this.connecting){if(!hit)return;if(!this.connectionSource){this.connectionSource=hit.id;this.renderer.setConnectionMode(true,hit.id);this.onSelect(hit);this.onChange(false);return;}if(hit.id!==this.connectionSource&&this.onConnect?.(this.connectionSource,hit.id)){this.setConnectionMode(false);this.onSelect(hit);}return;}
-    if(this.enabled&&!hit){this.clearSelection();this.canvas.setPointerCapture(event.pointerId);this.marquee={start:p,current:p};this.renderer.setMarquee({x:p.x,y:p.y,w:0,h:0});return;}
+    const edgeHit=this.enabled&&!hit?this.hitEdge(p):null;if(edgeHit){this.clearSelection();this.selectEdge(edgeHit.index);return;}
+    if(this.enabled&&!hit){this.selectEdge(null);this.clearSelection();this.canvas.setPointerCapture(event.pointerId);this.marquee={start:p,current:p};this.renderer.setMarquee({x:p.x,y:p.y,w:0,h:0});return;}
+    this.selectEdge(null);
     if(hit){if(!this.selectedIds.has(hit.id)){this.selectedIds=new Set([hit.id]);this.renderer.setMultiSelected([hit.id]);this.onSelect(hit);}else this.onSelect(this.selectedIds.size===1?hit:null);}
     else this.clearSelection();
     if(this.enabled&&hit){this.canvas.setPointerCapture(event.pointerId);const items=this.getLayout().equipment.filter(item=>this.selectedIds.has(item.id));this.drag={start:p,items:items.map(item=>({item,x:item.x,y:item.y}))};}this.onChange(false);
@@ -73,4 +79,5 @@ export class LayoutEditor {
   resetView(){this.view={zoom:1,x:0,y:0};this.renderer.setView(this.view);this.onChange(false);}
   addAt(type,point){const layout=this.getLayout(),count=layout.equipment.filter(item=>item.type===type).length+1,cad=layout.displayMode==='cad',defaults={forklift:{speed:1.5,loadTime:8,unloadTime:8,loadCapacity:1500},forkingDevice:{forkTime:4,strokeDistance:1.5,loadCapacity:1000}},labels={forklift:'지게차',forkingDevice:'포킹장치'},item={id:`${type}-custom-${Date.now()}`,type,name:`새 ${labels[type]||type} ${count}`,x:Math.round(point.x/10)*10,y:Math.round(point.y/10)*10,rotation:0,parameters:{...(defaults[type]||{})},...(cad?{source:{origin:'dxf',inferred:false,reason:'manual-add'},reviewStatus:'approved'}:{})};layout.equipment.push(item);const insertion=insertEquipmentIntoNearestEdge(layout,item);this.selectedIds=new Set([item.id]);this.renderer.setSelected(item.id);this.onSelect(item);this.onChange(true);return {item,insertion};}
   remove(id){const layout=this.getLayout();if(!removeEquipmentAndReconnect(layout,id))return false;this.renderer.setSelected(null);this.onSelect(null);this.onChange(true);return true;}
+  removeEdge(index){if(!removeConnection(this.getLayout(),index))return false;this.selectEdge(null);this.onChange(true);return true;}
 }

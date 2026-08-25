@@ -10,8 +10,9 @@ const $ = id => document.getElementById(id);
 let layout = cloneLayout(defaultLayout), engine = new SimulationEngine(layout, defaultParams);
 let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, frame = null, last = 0;
 let selectedEquipment = null;
+let selectedConnectionIndex = null;
 let pendingCadCandidates = [];
-const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment, connectEquipment, editorModeChanged);
+const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment, connectEquipment, editorModeChanged, selectConnection);
 const cadParameterSection=document.createElement('section');cadParameterSection.id='cadEquipmentParameters';cadParameterSection.className='cad-parameter-section';cadParameterSection.hidden=true;
 $('dynamicEquipmentControls').append(cadParameterSection);
 
@@ -39,6 +40,8 @@ function selectEquipment(item) {
   $('propName').value=item?.name||'';$('propX').value=item?.x??'';$('propY').value=item?.y??'';$('propRotation').value=item?.rotation??0;
   if(changed&&layout.displayMode==='cad')renderCadEquipmentParameters(item?.source?.origin==='dxf'?item.id:null);
 }
+function selectConnection(edge,index,context){selectedConnectionIndex=edge&&Number.isInteger(index)?index:null;$('deleteConnection').disabled=selectedConnectionIndex===null;const menu=$('edgeContextMenu');if(context&&edge){menu.hidden=false;menu.style.left=`${Math.min(context.x,window.innerWidth-130)}px`;menu.style.top=`${Math.min(context.y,window.innerHeight-50)}px`;}else menu.hidden=true;if(edge){const from=layout.equipment.find(item=>item.id===edge.from),to=layout.equipment.find(item=>item.id===edge.to);$('connectionHint').hidden=false;$('connectionHint').textContent=`연결선 선택: ${from?.name||edge.from} → ${to?.name||edge.to}`;}}
+function deleteSelectedConnection(){if(selectedConnectionIndex===null)return;if(editor.removeEdge(selectedConnectionIndex)){selectedConnectionIndex=null;$('deleteConnection').disabled=true;$('edgeContextMenu').hidden=true;$('connectionHint').hidden=false;$('connectionHint').textContent='연결선을 삭제했습니다.';resetEngine();}}
 function updateDashboard() {
   const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
   $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
@@ -117,6 +120,7 @@ document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener(
 $('connectEquipment').addEventListener('click',()=>{const active=!editor.connecting;editor.setConnectionMode(active,active?selectedEquipment?.id:null);$('connectEquipment').classList.toggle('active',active);$('connectionHint').hidden=!active;$('connectionHint').textContent=selectedEquipment?`${selectedEquipment.name}에서 연결할 대상 설비를 클릭하세요.`:'시작 설비를 클릭한 다음 도착 설비를 클릭하세요.';});
 $('resetView').addEventListener('click',()=>editor.resetView());
 $('deleteEquipment').addEventListener('click',()=>{if(selectedEquipment&&editor.remove(selectedEquipment.id)){resetEngine();renderCadEquipmentParameters();}});
+$('deleteConnection').addEventListener('click',deleteSelectedConnection);$('contextDeleteConnection').addEventListener('click',deleteSelectedConnection);document.addEventListener('pointerdown',event=>{if(!event.target.closest('#edgeContextMenu')&&!event.target.closest('#layoutCanvas'))$('edgeContextMenu').hidden=true;});
 for(const id of ['propName','propX','propY','propRotation']) $(id).addEventListener('change',()=>{if(!selectedEquipment)return;selectedEquipment.name=$('propName').value||selectedEquipment.name;selectedEquipment.x=Number($('propX').value);selectedEquipment.y=Number($('propY').value);selectedEquipment.rotation=((Number($('propRotation').value)||0)%360+360)%360;$('propRotation').value=selectedEquipment.rotation;refreshEquipmentConnections(layout,selectedEquipment.id);renderer.draw(engine.state);});
 function rotateSelected(delta){if(!selectedEquipment)return;selectedEquipment.rotation=((Number(selectedEquipment.rotation)||0)+delta+360)%360;$('propRotation').value=selectedEquipment.rotation;refreshEquipmentConnections(layout,selectedEquipment.id);renderer.draw(engine.state);}
 $('rotateLeft').addEventListener('click',()=>rotateSelected(-90));$('rotateRight').addEventListener('click',()=>rotateSelected(90));

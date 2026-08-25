@@ -10,7 +10,7 @@ export class LayoutRenderer {
     this.view = { zoom: 1, x: 0, y: 0 };
     this.backgroundImage = null;
     this.selectedId = null;
-    this.selectedIds=new Set();this.marquee=null;this.connectionMode=false;this.connectionSourceId=null;this.placementPreview={type:null,point:null};
+    this.selectedIds=new Set();this.selectedEdgeIndex=null;this.marquee=null;this.connectionMode=false;this.connectionSourceId=null;this.placementPreview={type:null,point:null};
     this.setLayout(layout);
   }
 
@@ -19,6 +19,7 @@ export class LayoutRenderer {
   setMultiSelected(ids=[]) { this.selectedIds=new Set(ids);this.selectedId=ids.length===1?ids[0]:null; }
   isSelected(id){return this.selectedIds.has(id)||this.selectedId===id;}
   setMarquee(rect){this.marquee=rect;}
+  setSelectedEdge(index=null){this.selectedEdgeIndex=Number.isInteger(index)?index:null;}
   setConnectionMode(value,sourceId=null){this.connectionMode=value;this.connectionSourceId=sourceId;}
   setPlacementPreview(type,point){this.placementPreview={type,point};}
   async setBackground(source) {
@@ -81,7 +82,7 @@ export class LayoutRenderer {
     for(const lane of schematic.lanes||[]){const nodes=lane.nodes.map(node=>nodeMap.get(node.id)||node).filter(Boolean);if(!nodes.length)continue;const label=nodeMap.get(lane.labelId),anchor=label||nodes[0];c.fillStyle=COLORS.text;c.font='11px monospace';const direction=lane.direction==='inbound'?'입고 → 창고':lane.direction==='warehouse-outbound'?'창고 → 공정':'출고 방향';c.fillText(`${lane.name}  ·  ${direction}`,anchor.x,anchor.y-18);}
     for(const branch of schematic.inboundBranches||[]){const truck=nodeMap.get(branch.nodeIds?.[0]);if(!truck)continue;c.fillStyle=COLORS.green;c.font='10px monospace';c.fillText(`${branch.name} 입고 · 트럭 → AS/RS`,truck.x,truck.y-27);}
     for(const vehicle of nodeMap.values()){const route=vehicle.shuttleRoute;if(!route)continue;const routePoints=route.points||[route.start,route.end];c.strokeStyle='rgba(0,255,136,.72)';c.lineWidth=2;c.setLineDash([8,5]);c.beginPath();routePoints.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();c.setLineDash([]);for(const point of [route.start,route.end])for(const dy of [-12,12]){c.beginPath();c.arc(point.x,point.y+dy,4,0,Math.PI*2);c.fillStyle=dy<0?'#ff4d4d':'#00f29a';c.fill();c.strokeStyle='#d8f3ff';c.stroke();}const mid=pointOnRoute(routePoints,.5);c.fillStyle=COLORS.green;c.beginPath();c.arc(mid.x,mid.y,5,0,Math.PI*2);c.fill();}
-    for(const edge of schematic.edges||[]){if(this.layout.cadViewMode==='hybrid'&&edge.kind==='flow')continue;const fromNode=nodeMap.get(edge.from),toNode=nodeMap.get(edge.to);if(!fromNode||!toNode)continue;const from=connectionAnchor(fromNode,edge.fromPort),to=connectionAnchor(toNode,edge.toPort),transfer=edge.kind==='transfer',warehouse=edge.kind==='warehouse',forking=edge.kind==='forking',distance=Math.hypot(to.x-from.x,to.y-from.y);if(this.layout.cadViewMode==='hybrid'&&distance>260)continue;c.strokeStyle=transfer?'rgba(255,113,57,.75)':warehouse||forking?'rgba(0,255,136,.58)':'rgba(0,212,255,.48)';c.lineWidth=transfer?3:warehouse?5:3;c.setLineDash(transfer?[7,5]:[]);const points=orthogonalRoute(from,to);c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();const arrow=routeArrow(points);c.setLineDash([]);if(arrow){const {x,y,angle}=arrow;c.fillStyle=transfer?COLORS.orange:warehouse||forking?COLORS.green:COLORS.cyan;c.beginPath();c.moveTo(x+Math.cos(angle)*9,y+Math.sin(angle)*9);c.lineTo(x+Math.cos(angle+2.55)*8,y+Math.sin(angle+2.55)*8);c.lineTo(x+Math.cos(angle-2.55)*8,y+Math.sin(angle-2.55)*8);c.closePath();c.fill();}}
+    for(const [edgeIndex,edge] of (schematic.edges||[]).entries()){if(this.layout.cadViewMode==='hybrid'&&edge.kind==='flow')continue;const fromNode=nodeMap.get(edge.from),toNode=nodeMap.get(edge.to);if(!fromNode||!toNode)continue;const from=connectionAnchor(fromNode,edge.fromPort),to=connectionAnchor(toNode,edge.toPort),transfer=edge.kind==='transfer',warehouse=edge.kind==='warehouse',forking=edge.kind==='forking',selected=edgeIndex===this.selectedEdgeIndex,distance=Math.hypot(to.x-from.x,to.y-from.y);if(this.layout.cadViewMode==='hybrid'&&distance>260)continue;c.strokeStyle=selected?COLORS.pink:transfer?'rgba(255,113,57,.75)':warehouse||forking?'rgba(0,255,136,.58)':'rgba(0,212,255,.48)';c.lineWidth=selected?7:transfer?3:warehouse?5:3;c.setLineDash(transfer?[7,5]:[]);const points=orthogonalRoute(from,to);c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();const arrow=routeArrow(points);c.setLineDash([]);if(arrow){const {x,y,angle}=arrow;c.fillStyle=selected?COLORS.pink:transfer?COLORS.orange:warehouse||forking?COLORS.green:COLORS.cyan;c.beginPath();c.moveTo(x+Math.cos(angle)*9,y+Math.sin(angle)*9);c.lineTo(x+Math.cos(angle+2.55)*8,y+Math.sin(angle+2.55)*8);c.lineTo(x+Math.cos(angle-2.55)*8,y+Math.sin(angle-2.55)*8);c.closePath();c.fill();}}
     c.setLineDash([]);c.restore();
   }
 

@@ -66,6 +66,10 @@ test('건축 배경은 제외하고 물류설비 레이어는 유지한다',()=>
   assert.equal(geometry.length,1);assert.equal(geometry[0].layer,'CV');
 });
 
+test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{
+  const fields=parameterFieldsFor({type:'stackerCrane',parameters:{travelSpeed:2.5}}),byKey=Object.fromEntries(fields.map(field=>[field.key,field.value]));assert.equal(byKey.levels,4);assert.equal(byKey.rows,3);assert.equal(byKey.columns,4);assert.equal(byKey.productTypes,3);
+});
+
 test('포킹장치를 일반 컨베이어가 아닌 ASRS 이송장치로 분류한다',()=>{
   const fork=classifyCadEntity({entityType:'TEXT',text:'포킹장치',layer:'3'}),hp=classifyCadEntity({entityType:'TEXT',text:'H/P',layer:'3'}),turntable=classifyCadEntity({entityType:'CIRCLE',radius:1200,layer:'0'});assert.equal(fork.type,'forkingDevice');assert.equal(fork.parameters.forkTime,4);assert.equal(hp.type,'handoffPoint');assert.equal(hp.parameters.transferTime,2);assert.equal(turntable.type,'turntable');assert.equal(turntable.parameters.rotationTime,6);
 });

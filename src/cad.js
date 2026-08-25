@@ -9,13 +9,13 @@ export const logisticsEquipmentCatalog = [
   { type:'turntable', label:'턴테이블', keywords:['TURN TABLE','TURNTABLE','ROTARY TABLE','턴테이블','회전테이블'], defaults:{ rotationTime:6, positions:2 } },
   { type:'handoffPoint', label:'H/P', keywords:['H/P','HANDOFF POINT','HANDOVER POINT'], defaults:{ transferTime:2, bufferCapacity:1 } },
   { type:'forkingDevice', label:'포킹장치', keywords:['포킹장치','FORKING DEVICE','TELESCOPIC FORK','PUSH PULL'], defaults:{ forkTime:4, strokeDistance:1.5, loadCapacity:1000 } },
-  { type:'stackerCrane', label:'스태커 크레인', keywords:['STACKER CRANE','STACKER','STK','RACK MASTER','ASRS CRANE','S/C','스태커','스테커','크레인'], defaults:{ travelSpeed:2.5, liftSpeed:1, acceleration:0.5, loadCapacity:1000, levels:1 } },
+  { type:'stackerCrane', label:'스태커 크레인', keywords:['STACKER CRANE','STACKER','STK','RACK MASTER','ASRS CRANE','S/C','스태커','스테커','크레인'], defaults:{ travelSpeed:2.5, liftSpeed:1, acceleration:0.5, loadCapacity:1000, levels:4, rows:3, columns:4, productTypes:3 } },
   { type:'shuttle', label:'셔틀', keywords:['SHUTTLE','MINILOAD'], defaults:{ speed:2, acceleration:1 } },
   { type:'agv', label:'AGV', keywords:['AGV','GUIDED VEHICLE'], defaults:{ speed:1.2, chargeThreshold:20 } },
   { type:'amr', label:'AMR', keywords:['AMR','MOBILE ROBOT'], defaults:{ speed:1.5, chargeThreshold:20 } },
   { type:'sorter', label:'소터', keywords:['SORTER','CROSSBELT','SHOE SORTER'], defaults:{ speed:1.8, destinations:2 } },
   { type:'lift', label:'리프트', keywords:['LIFT','ELEVATOR','VRC','HOIST'], defaults:{ cycleTime:15, levels:2 } },
-  { type:'asrs', label:'자동창고', keywords:['ASRS','AS/RS','RACK','STORAGE'], defaults:{ rows:1, columns:1, levels:1 } },
+  { type:'asrs', label:'자동창고', keywords:['ASRS','AS/RS','RACK','STORAGE'], defaults:{ rows:3, columns:4, levels:4, productTypes:3 } },
   { type:'robot', label:'로봇', keywords:['ROBOT','ARM','PALLETIZER','DEPALLETIZER'], defaults:{ pickTime:2, placeTime:2 } },
   { type:'station', label:'작업 스테이션', keywords:['STATION','WORKCELL','INSPECTION','PACKING'], defaults:{ processTime:30, operators:1 } },
   { type:'buffer', label:'버퍼', keywords:['BUFFER','QUEUE','ACCUMULATION'], defaults:{ capacity:4 } },
@@ -25,12 +25,12 @@ export const logisticsEquipmentCatalog = [
 export const equipmentParameterLabels = {
   injectionInterval:'투입 간격(초)',batchSize:'1회 투입 수량',dischargeTime:'배출 시간(초)',speed:'속도',capacity:'용량',
   cycleTime:'사이클타임(초)',directions:'분기 수',rotationTime:'회전시간(초)',positions:'정지 위치 수',acceleration:'가속도',chargeThreshold:'충전 기준(%)',destinations:'목적지 수',
-  levels:'층수',rows:'행',columns:'열',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'길이',
+  levels:'적재 층수',rows:'랙 깊이(행)',columns:'베이 수(열)',productTypes:'물품 구분 수',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'길이',
   travelSpeed:'주행 속도(m/s)',liftSpeed:'승강 속도(m/s)',loadCapacity:'적재 하중(kg)',lineSpeed:'라인 속도(m/min)',pitch:'차체 피치(m)',bufferCapacity:'라인 버퍼 수',transferTime:'H/P 이재시간(초)',forkTime:'포킹 동작시간(초)',strokeDistance:'포크 스트로크(m)',truckCapacity:'트럭 적재 수량',departureTime:'트럭 교대시간(초)'
   ,shuttleDistance:'AGV 편도 거리(m)',loadTime:'적재 시간(초)',unloadTime:'하역 시간(초)'
 };
 
-export function parameterFieldsFor(item){return Object.entries(item.parameters||{}).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}
+export function parameterFieldsFor(item){const storage=['asrs','stackerCrane'].includes(item.type),defaults=storage?{levels:4,rows:3,columns:4,productTypes:3}:{},parameters={...defaults,...item.parameters};return Object.entries(parameters).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}
 
 const normalized = value => String(value || '').toUpperCase().replace(/[_-]+/g,' ');
 

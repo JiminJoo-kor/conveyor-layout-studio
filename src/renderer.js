@@ -1,5 +1,5 @@
 const COLORS = { bg:'#071019', panel:'#0c1824', line:'#17334a', cyan:'#00d4ff', green:'#00ff88', yellow:'#ffd166', orange:'#ff7139', pink:'#ff4d9d', text:'#9fc5dd' };
-import { orthogonalRoute, pointOnRoute, routeLength } from './route.js';
+import { connectionAnchor, equipmentPorts, orthogonalRoute, pointOnRoute, routeLength } from './route.js';
 
 export const isNodeConveyor = item => item.type === 'conveyor' && Array.isArray(item.nodes);
 
@@ -10,13 +10,14 @@ export class LayoutRenderer {
     this.view = { zoom: 1, x: 0, y: 0 };
     this.backgroundImage = null;
     this.selectedId = null;
-    this.connectionMode=false;this.connectionSourceId=null;
+    this.connectionMode=false;this.connectionSourceId=null;this.placementPreview={type:null,point:null};
     this.setLayout(layout);
   }
 
   setView(view) { this.view = { ...this.view, ...view }; }
   setSelected(id) { this.selectedId = id; }
   setConnectionMode(value,sourceId=null){this.connectionMode=value;this.connectionSourceId=sourceId;}
+  setPlacementPreview(type,point){this.placementPreview={type,point};}
   async setBackground(source) {
     if (!source) { this.backgroundImage = null; return; }
     const image = new Image();
@@ -50,6 +51,7 @@ export class LayoutRenderer {
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     if(this.layout.displayMode!=='cad')this.drawConnections();
     this.drawEquipment(state);
+    this.drawPlacementPreview();
     if(this.layout.displayMode==='cad')this.drawCadFlow(state);
     c.restore();
   }
@@ -73,7 +75,7 @@ export class LayoutRenderer {
     for(const lane of schematic.lanes||[]){const nodes=lane.nodes.map(node=>nodeMap.get(node.id)||node).filter(Boolean);if(!nodes.length)continue;const label=nodeMap.get(lane.labelId),anchor=label||nodes[0];c.fillStyle=COLORS.text;c.font='11px monospace';const direction=lane.direction==='inbound'?'입고 → 창고':lane.direction==='warehouse-outbound'?'창고 → 공정':'출고 방향';c.fillText(`${lane.name}  ·  ${direction}`,anchor.x,anchor.y-18);}
     for(const branch of schematic.inboundBranches||[]){const truck=nodeMap.get(branch.nodeIds?.[0]);if(!truck)continue;c.fillStyle=COLORS.green;c.font='10px monospace';c.fillText(`${branch.name} 입고 · 트럭 → AS/RS`,truck.x,truck.y-27);}
     for(const vehicle of nodeMap.values()){const route=vehicle.shuttleRoute;if(!route)continue;const routePoints=route.points||[route.start,route.end];c.strokeStyle='rgba(0,255,136,.72)';c.lineWidth=2;c.setLineDash([8,5]);c.beginPath();routePoints.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();c.setLineDash([]);for(const point of [route.start,route.end])for(const dy of [-12,12]){c.beginPath();c.arc(point.x,point.y+dy,4,0,Math.PI*2);c.fillStyle=dy<0?'#ff4d4d':'#00f29a';c.fill();c.strokeStyle='#d8f3ff';c.stroke();}const mid=pointOnRoute(routePoints,.5);c.fillStyle=COLORS.green;c.beginPath();c.arc(mid.x,mid.y,5,0,Math.PI*2);c.fill();}
-    for(const edge of schematic.edges||[]){if(this.layout.cadViewMode==='hybrid'&&edge.kind==='flow')continue;const from=nodeMap.get(edge.from),to=nodeMap.get(edge.to);if(!from||!to)continue;const transfer=edge.kind==='transfer',warehouse=edge.kind==='warehouse',forking=edge.kind==='forking',distance=Math.hypot(to.x-from.x,to.y-from.y);if(this.layout.cadViewMode==='hybrid'&&distance>260)continue;c.strokeStyle=transfer?'rgba(255,113,57,.75)':warehouse||forking?'rgba(0,255,136,.58)':'rgba(0,212,255,.48)';c.lineWidth=transfer?3:warehouse?5:3;c.setLineDash(transfer?[7,5]:[]);const points=orthogonalRoute(from,to);c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();const segment=points[Math.max(1,points.length-2)],angle=Math.atan2(to.y-segment.y,to.x-segment.x),x=segment.x+(to.x-segment.x)*.68,y=segment.y+(to.y-segment.y)*.68;c.setLineDash([]);c.fillStyle=transfer?COLORS.orange:warehouse||forking?COLORS.green:COLORS.cyan;c.beginPath();c.moveTo(x+Math.cos(angle)*9,y+Math.sin(angle)*9);c.lineTo(x+Math.cos(angle+2.55)*8,y+Math.sin(angle+2.55)*8);c.lineTo(x+Math.cos(angle-2.55)*8,y+Math.sin(angle-2.55)*8);c.closePath();c.fill();}
+    for(const edge of schematic.edges||[]){if(this.layout.cadViewMode==='hybrid'&&edge.kind==='flow')continue;const fromNode=nodeMap.get(edge.from),toNode=nodeMap.get(edge.to);if(!fromNode||!toNode)continue;const from=connectionAnchor(fromNode,edge.fromPort),to=connectionAnchor(toNode,edge.toPort),transfer=edge.kind==='transfer',warehouse=edge.kind==='warehouse',forking=edge.kind==='forking',distance=Math.hypot(to.x-from.x,to.y-from.y);if(this.layout.cadViewMode==='hybrid'&&distance>260)continue;c.strokeStyle=transfer?'rgba(255,113,57,.75)':warehouse||forking?'rgba(0,255,136,.58)':'rgba(0,212,255,.48)';c.lineWidth=transfer?3:warehouse?5:3;c.setLineDash(transfer?[7,5]:[]);const points=orthogonalRoute(from,to);c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();const segment=points[Math.max(1,points.length-2)],angle=Math.atan2(to.y-segment.y,to.x-segment.x),x=segment.x+(to.x-segment.x)*.68,y=segment.y+(to.y-segment.y)*.68;c.setLineDash([]);c.fillStyle=transfer?COLORS.orange:warehouse||forking?COLORS.green:COLORS.cyan;c.beginPath();c.moveTo(x+Math.cos(angle)*9,y+Math.sin(angle)*9);c.lineTo(x+Math.cos(angle+2.55)*8,y+Math.sin(angle+2.55)*8);c.lineTo(x+Math.cos(angle-2.55)*8,y+Math.sin(angle-2.55)*8);c.closePath();c.fill();}
     c.setLineDash([]);c.restore();
   }
 
@@ -125,8 +127,10 @@ export class LayoutRenderer {
         c.fillStyle='#d8f3ff';c.font='10px monospace';c.fillText(item.type.toUpperCase().slice(0,6),item.x-Math.min(23,w/3),item.y+4);
       }
     }
-    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId,angle=(item.rotation||0)*Math.PI/180,rotate=point=>({x:item.x+point.x*Math.cos(angle)-point.y*Math.sin(angle),y:item.y+point.x*Math.sin(angle)+point.y*Math.cos(angle)});c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of [{x:-44,y:0},{x:44,y:0},{x:0,y:-44},{x:0,y:44}].map(rotate)){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
+    if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId;c.save();c.fillStyle=active?COLORS.yellow:COLORS.cyan;c.strokeStyle='#061019';c.lineWidth=2;for(const point of Object.values(equipmentPorts(item))){c.beginPath();c.arc(point.x,point.y,active?7:5,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
   }
+
+  drawPlacementPreview(){const {type,point}=this.placementPreview;if(!type||!point)return;const c=this.ctx;c.save();c.globalAlpha=.62;c.fillStyle='#17334a';c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.setLineDash([6,4]);c.fillRect(point.x-34,point.y-22,68,44);c.strokeRect(point.x-34,point.y-22,68,44);c.setLineDash([]);c.fillStyle='#fff';c.font='10px monospace';c.fillText(type.toUpperCase(),point.x-25,point.y+4);c.restore();}
 
   drawRotatedCadSymbol(item,state){const c=this.ctx;c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.translate(-item.x,-item.y);const drawn=this.drawCadSymbol(item,state);c.restore();return drawn;}
 
@@ -143,7 +147,7 @@ export class LayoutRenderer {
 
   drawCadFlow(state){
     const c=this.ctx,conveyors=this.layout.equipment.filter(item=>item.type==='conveyor'&&item.source?.origin==='dxf');
-    if(state.cadTokens){const nodes=new Map(this.layout.equipment.filter(item=>item.source?.origin==='dxf').map(item=>[item.id,item]));for(const token of state.cadTokens){const from=nodes.get(token.edge?.from||token.nodeId),to=nodes.get(token.edge?.to||token.nodeId);if(!from||!to)continue;const point=pointOnRoute(orthogonalRoute(from,to),token.edge?token.progress:0),x=point.x,y=point.y;c.fillStyle=COLORS.yellow;c.strokeStyle='#fff2a8';c.fillRect(x-7,y-7,14,14);c.strokeRect(x-7,y-7,14,14);}return;}
+    if(state.cadTokens){const nodes=new Map(this.layout.equipment.filter(item=>item.source?.origin==='dxf').map(item=>[item.id,item]));for(const token of state.cadTokens){const fromNode=nodes.get(token.edge?.from||token.nodeId),toNode=nodes.get(token.edge?.to||token.nodeId);if(!fromNode||!toNode)continue;const from=connectionAnchor(fromNode,token.edge?.fromPort),to=connectionAnchor(toNode,token.edge?.toPort),point=pointOnRoute(orthogonalRoute(from,to),token.edge?token.progress:0),x=point.x,y=point.y;c.fillStyle=COLORS.yellow;c.strokeStyle='#fff2a8';c.fillRect(x-7,y-7,14,14);c.strokeRect(x-7,y-7,14,14);}return;}
     conveyors.forEach((item,index)=>{const length=Math.max(48,item.length||item.width||160),speed=Math.max(.2,item.parameters?.speed||item.parameters?.lineSpeed/20||.5),progress=((state.t*speed*32+index*29)%length)-length/2;
       c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=COLORS.yellow;c.strokeStyle='#fff2a8';c.lineWidth=1;c.fillRect(progress-7,-7,14,14);c.strokeRect(progress-7,-7,14,14);c.restore();
     });

@@ -4,13 +4,14 @@ import { LayoutRenderer } from './renderer.js';
 import { LayoutEditor } from './editor.js';
 import { analyzeCadFile, parameterFieldsFor } from './cad.js';
 import { buildSimulationReport } from './report.js';
+import { closestPortPair } from './route.js';
 
 const $ = id => document.getElementById(id);
 let layout = cloneLayout(defaultLayout), engine = new SimulationEngine(layout, defaultParams);
 let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, frame = null, last = 0;
 let selectedEquipment = null;
 let pendingCadCandidates = [];
-const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment, connectEquipment);
+const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment, connectEquipment, editorModeChanged);
 const cadParameterSection=document.createElement('section');cadParameterSection.id='cadEquipmentParameters';cadParameterSection.className='cad-parameter-section';cadParameterSection.hidden=true;
 $('dynamicEquipmentControls').append(cadParameterSection);
 
@@ -28,7 +29,8 @@ function editorChanged(rebuild) {
   if (rebuild) renderer.setLayout(layout);
   renderer.draw(engine.state);
 }
-function connectEquipment(fromId,toId){if(fromId===toId)return false;layout.cadSchematic??={lanes:[],inboundBranches:[],edges:[]};layout.cadSchematic.edges??=[];if(layout.cadSchematic.edges.some(edge=>edge.from===fromId&&edge.to===toId))return false;const from=layout.equipment.find(item=>item.id===fromId),to=layout.equipment.find(item=>item.id===toId);if(!from||!to)return false;const mobile=['agv','amr','shuttle'].includes(from.type)||['agv','amr','shuttle'].includes(to.type);layout.cadSchematic.edges.push({from:fromId,to:toId,kind:mobile?'transfer':'flow',manual:true});$('connectEquipment').classList.remove('active');$('connectionHint').hidden=false;$('connectionHint').textContent=`연결 완료: ${from.name} → ${to.name}`;renderer.setLayout(layout);resetEngine();return true;}
+function editorModeChanged(mode){$('connectEquipment').classList.toggle('active',mode.connecting);if(mode.placement){$('connectionHint').hidden=false;$('connectionHint').textContent=`${mode.placement.toUpperCase()} 배치 위치를 클릭하세요. Esc 또는 우클릭으로 취소할 수 있습니다.`;}else if(mode.connecting){const source=layout.equipment.find(item=>item.id===mode.sourceId);$('connectionHint').hidden=false;$('connectionHint').textContent=source?`${source.name}에서 이어질 대상 설비를 클릭하세요. 가장 가까운 포트를 자동 선택합니다.`:'시작 설비를 클릭한 다음 도착 설비를 클릭하세요.';}else if(!$('connectionHint').textContent.startsWith('연결 완료'))$('connectionHint').hidden=true;}
+function connectEquipment(fromId,toId){if(fromId===toId)return false;layout.cadSchematic??={lanes:[],inboundBranches:[],edges:[]};layout.cadSchematic.edges??=[];if(layout.cadSchematic.edges.some(edge=>edge.from===fromId&&edge.to===toId))return false;const from=layout.equipment.find(item=>item.id===fromId),to=layout.equipment.find(item=>item.id===toId);if(!from||!to)return false;const mobile=['agv','amr','shuttle'].includes(from.type)||['agv','amr','shuttle'].includes(to.type),ports=closestPortPair(from,to);layout.cadSchematic.edges.push({from:fromId,to:toId,kind:mobile?'transfer':'flow',fromPort:ports.fromPort,toPort:ports.toPort,manual:true});$('connectEquipment').classList.remove('active');$('connectionHint').hidden=false;$('connectionHint').textContent=`연결 완료: ${from.name} ${ports.fromPort} → ${to.name} ${ports.toPort}`;renderer.setLayout(layout);resetEngine();return true;}
 function selectEquipment(item) {
   const changed=selectedEquipment?.id!==item?.id;
   selectedEquipment=item;
@@ -111,7 +113,7 @@ $('cadCandidates').addEventListener('click',event=>{
   if(action==='approve'||action==='approve-all'){$('cadStatusTitle').textContent='설비 반영 완료';$('cadStatusText').textContent=`${selected.length}개 설비를 레이아웃에 배치했습니다. 편집 모드에서 위치와 파라미터를 보정할 수 있습니다.`;}
   else if(action==='discard-all'){$('cadStatusTitle').textContent='후보 제외 완료';$('cadStatusText').textContent='분석 후보를 모두 제외했습니다.';}
 });
-document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener('click',()=>{const item=editor.add(button.dataset.add);$('connectEquipment').classList.add('active');$('connectionHint').hidden=false;$('connectionHint').textContent=`${item.name}의 연결 포트가 표시되었습니다. 물류가 이동할 다음 설비를 클릭하세요.`;}));
+document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener('click',()=>editor.beginPlacement(button.dataset.add)));
 $('connectEquipment').addEventListener('click',()=>{const active=!editor.connecting;editor.setConnectionMode(active,active?selectedEquipment?.id:null);$('connectEquipment').classList.toggle('active',active);$('connectionHint').hidden=!active;$('connectionHint').textContent=selectedEquipment?`${selectedEquipment.name}에서 연결할 대상 설비를 클릭하세요.`:'시작 설비를 클릭한 다음 도착 설비를 클릭하세요.';});
 $('resetView').addEventListener('click',()=>editor.resetView());
 $('deleteEquipment').addEventListener('click',()=>{if(selectedEquipment&&editor.remove(selectedEquipment.id)){resetEngine();renderCadEquipmentParameters();}});

@@ -2,6 +2,8 @@ import { closestPortPair, connectionAnchor, connectionKind, orthogonalRoute } fr
 
 const movable = item => Number.isFinite(item?.x) && Number.isFinite(item?.y);
 
+export function itemsInRect(items,start,end){const left=Math.min(start.x,end.x),right=Math.max(start.x,end.x),top=Math.min(start.y,end.y),bottom=Math.max(start.y,end.y);return items.filter(item=>movable(item)&&item.type!=='processLine'&&item.x>=left&&item.x<=right&&item.y>=top&&item.y<=bottom);}
+
 const segmentDistance=(point,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;if(!length)return Math.hypot(point.x-a.x,point.y-a.y);const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/length)),x=a.x+t*dx,y=a.y+t*dy;return Math.hypot(point.x-x,point.y-y);};
 
 export function insertEquipmentIntoNearestEdge(layout,item,maxDistance=58){
@@ -35,19 +37,20 @@ export function removeEquipmentAndReconnect(layout,id){
 export class LayoutEditor {
   constructor(canvas, renderer, getLayout, onChange, onSelect, onConnect, onModeChange) {
     this.canvas=canvas;this.renderer=renderer;this.getLayout=getLayout;this.onChange=onChange;this.onSelect=onSelect;this.onConnect=onConnect;this.onModeChange=onModeChange;
-    this.enabled=false;this.drag=null;this.pan=null;this.connecting=false;this.connectionSource=null;this.placementType=null;this.view={zoom:1,x:0,y:0};
+    this.enabled=false;this.drag=null;this.pan=null;this.marquee=null;this.selectedIds=new Set();this.connecting=false;this.connectionSource=null;this.placementType=null;this.view={zoom:1,x:0,y:0};
     canvas.addEventListener('pointerdown',e=>this.pointerDown(e));
     canvas.addEventListener('pointermove',e=>this.pointerMove(e));
     canvas.addEventListener('pointerup',()=>this.pointerUp());
     canvas.addEventListener('pointerleave',()=>this.pointerUp());
     canvas.addEventListener('wheel',e=>this.wheel(e),{passive:false});
     canvas.addEventListener('contextmenu',e=>{if(this.placementType||this.connecting){e.preventDefault();this.cancelModes();}});
-    canvas.ownerDocument.addEventListener('keydown',e=>{if(e.key==='Escape')this.cancelModes();});
+    canvas.ownerDocument.addEventListener('keydown',e=>{if(e.key==='Escape'){this.cancelModes();this.clearSelection();}});
   }
   setEnabled(value){this.enabled=value;this.canvas.classList.toggle('editing',value);}
   setConnectionMode(value,sourceId=null){this.connecting=value;this.connectionSource=value?sourceId:null;this.renderer.setConnectionMode(value,this.connectionSource);this.onModeChange?.({connecting:value,sourceId:this.connectionSource,placement:this.placementType});this.onChange(false);}
   beginPlacement(type){this.placementType=type;this.setConnectionMode(false);this.canvas.classList.add('placing');this.renderer.setPlacementPreview(type,null);this.onModeChange?.({connecting:false,sourceId:null,placement:type});this.onChange(false);}
   cancelModes(){this.placementType=null;this.canvas.classList.remove('placing');this.renderer.setPlacementPreview(null,null);this.setConnectionMode(false);}
+  clearSelection(){this.selectedIds.clear();this.renderer.setMultiSelected([]);this.renderer.setMarquee(null);this.onSelect(null);this.onChange(false);}
   canvasPoint(event){const rect=this.canvas.getBoundingClientRect(),sx=this.canvas.width/rect.width,sy=this.canvas.height/rect.height;return{x:(event.clientX-rect.left)*sx,y:(event.clientY-rect.top)*sy};}
   worldPoint(event){const p=this.canvasPoint(event);return{x:(p.x-this.view.x)/this.view.zoom,y:(p.y-this.view.y)/this.view.zoom};}
   hit(point){return [...this.getLayout().equipment].reverse().find(item=>{if(!movable(item)||item.type==='processLine')return false;const wide=['stackerCrane','asrs'].includes(item.type)?72:['dock','source','sink'].includes(item.type)?52:42,tall=['stackerCrane','asrs'].includes(item.type)?54:42;return Math.abs(point.x-item.x)<wide&&Math.abs(point.y-item.y)<tall;});}
@@ -56,15 +59,18 @@ export class LayoutEditor {
     if(event.button!==0)return;
     if(this.placementType){const {item,insertion}=this.addAt(this.placementType,p);this.placementType=null;this.canvas.classList.remove('placing');this.renderer.setPlacementPreview(null,null);if(insertion){this.setConnectionMode(false);this.onModeChange?.({connecting:false,sourceId:null,placement:null,insertion,item});}else this.setConnectionMode(true,item.id);return;}
     if(this.connecting){if(!hit)return;if(!this.connectionSource){this.connectionSource=hit.id;this.renderer.setConnectionMode(true,hit.id);this.onSelect(hit);this.onChange(false);return;}if(hit.id!==this.connectionSource&&this.onConnect?.(this.connectionSource,hit.id)){this.setConnectionMode(false);this.onSelect(hit);}return;}
-    this.renderer.setSelected(hit?.id||null);this.onSelect(hit||null);
-    if(this.enabled&&hit){this.canvas.setPointerCapture(event.pointerId);this.drag={item:hit,dx:p.x-hit.x,dy:p.y-hit.y};}this.onChange(false);
+    if(this.enabled&&!hit){this.clearSelection();this.canvas.setPointerCapture(event.pointerId);this.marquee={start:p,current:p};this.renderer.setMarquee({x:p.x,y:p.y,w:0,h:0});return;}
+    if(hit){if(!this.selectedIds.has(hit.id)){this.selectedIds=new Set([hit.id]);this.renderer.setMultiSelected([hit.id]);this.onSelect(hit);}else this.onSelect(this.selectedIds.size===1?hit:null);}
+    else this.clearSelection();
+    if(this.enabled&&hit){this.canvas.setPointerCapture(event.pointerId);const items=this.getLayout().equipment.filter(item=>this.selectedIds.has(item.id));this.drag={start:p,items:items.map(item=>({item,x:item.x,y:item.y}))};}this.onChange(false);
   }
   pointerMove(event){if(this.placementType){this.renderer.setPlacementPreview(this.placementType,this.worldPoint(event));this.onChange(false);return;}if(!this.enabled&&!this.pan)return;if(this.pan){const p=this.canvasPoint(event);this.view.x=this.pan.start.x+p.x-this.pan.raw.x;this.view.y=this.pan.start.y+p.y-this.pan.raw.y;this.renderer.setView(this.view);this.onChange(false);return;}
-    if(this.drag){const p=this.worldPoint(event);this.drag.item.x=Math.round((p.x-this.drag.dx)/10)*10;this.drag.item.y=Math.round((p.y-this.drag.dy)/10)*10;refreshEquipmentConnections(this.getLayout(),this.drag.item.id);this.onSelect(this.drag.item);this.onChange(false);}
+    if(this.marquee){const p=this.worldPoint(event),start=this.marquee.start;this.marquee.current=p;this.renderer.setMarquee({x:Math.min(start.x,p.x),y:Math.min(start.y,p.y),w:Math.abs(p.x-start.x),h:Math.abs(p.y-start.y)});this.onChange(false);return;}
+    if(this.drag){const p=this.worldPoint(event),dx=Math.round((p.x-this.drag.start.x)/10)*10,dy=Math.round((p.y-this.drag.start.y)/10)*10;for(const entry of this.drag.items){entry.item.x=entry.x+dx;entry.item.y=entry.y+dy;refreshEquipmentConnections(this.getLayout(),entry.item.id);}this.onSelect(this.drag.items.length===1?this.drag.items[0].item:null);this.onChange(false);}
   }
-  pointerUp(){if(this.drag)this.onChange(true);this.drag=null;this.pan=null;this.canvas.classList.remove('panning');}
+  pointerUp(){if(this.marquee){const selected=itemsInRect(this.getLayout().equipment,this.marquee.start,this.marquee.current),ids=selected.map(item=>item.id);this.selectedIds=new Set(ids);this.renderer.setMultiSelected(ids);this.renderer.setMarquee(null);this.onSelect(selected.length===1?selected[0]:null);this.onModeChange?.({connecting:false,placement:null,selectionCount:ids.length});this.marquee=null;this.onChange(false);}if(this.drag)this.onChange(true);this.drag=null;this.pan=null;this.canvas.classList.remove('panning');}
   wheel(event){event.preventDefault();const before=this.worldPoint(event),factor=event.deltaY<0?1.12:.88;this.view.zoom=Math.max(.2,Math.min(8,this.view.zoom*factor));const raw=this.canvasPoint(event);this.view.x=raw.x-before.x*this.view.zoom;this.view.y=raw.y-before.y*this.view.zoom;this.renderer.setView(this.view);this.onChange(false);}
   resetView(){this.view={zoom:1,x:0,y:0};this.renderer.setView(this.view);this.onChange(false);}
-  addAt(type,point){const layout=this.getLayout(),count=layout.equipment.filter(item=>item.type===type).length+1,cad=layout.displayMode==='cad',defaults={forklift:{speed:1.5,loadTime:8,unloadTime:8,loadCapacity:1500},forkingDevice:{forkTime:4,strokeDistance:1.5,loadCapacity:1000}},labels={forklift:'지게차',forkingDevice:'포킹장치'},item={id:`${type}-custom-${Date.now()}`,type,name:`새 ${labels[type]||type} ${count}`,x:Math.round(point.x/10)*10,y:Math.round(point.y/10)*10,rotation:0,parameters:{...(defaults[type]||{})},...(cad?{source:{origin:'dxf',inferred:false,reason:'manual-add'},reviewStatus:'approved'}:{})};layout.equipment.push(item);const insertion=insertEquipmentIntoNearestEdge(layout,item);this.renderer.setSelected(item.id);this.onSelect(item);this.onChange(true);return {item,insertion};}
+  addAt(type,point){const layout=this.getLayout(),count=layout.equipment.filter(item=>item.type===type).length+1,cad=layout.displayMode==='cad',defaults={forklift:{speed:1.5,loadTime:8,unloadTime:8,loadCapacity:1500},forkingDevice:{forkTime:4,strokeDistance:1.5,loadCapacity:1000}},labels={forklift:'지게차',forkingDevice:'포킹장치'},item={id:`${type}-custom-${Date.now()}`,type,name:`새 ${labels[type]||type} ${count}`,x:Math.round(point.x/10)*10,y:Math.round(point.y/10)*10,rotation:0,parameters:{...(defaults[type]||{})},...(cad?{source:{origin:'dxf',inferred:false,reason:'manual-add'},reviewStatus:'approved'}:{})};layout.equipment.push(item);const insertion=insertEquipmentIntoNearestEdge(layout,item);this.selectedIds=new Set([item.id]);this.renderer.setSelected(item.id);this.onSelect(item);this.onChange(true);return {item,insertion};}
   remove(id){const layout=this.getLayout();if(!removeEquipmentAndReconnect(layout,id))return false;this.renderer.setSelected(null);this.onSelect(null);this.onChange(true);return true;}
 }

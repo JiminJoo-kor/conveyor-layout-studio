@@ -10,12 +10,15 @@ export class LayoutRenderer {
     this.view = { zoom: 1, x: 0, y: 0 };
     this.backgroundImage = null;
     this.selectedId = null;
-    this.connectionMode=false;this.connectionSourceId=null;this.placementPreview={type:null,point:null};
+    this.selectedIds=new Set();this.marquee=null;this.connectionMode=false;this.connectionSourceId=null;this.placementPreview={type:null,point:null};
     this.setLayout(layout);
   }
 
   setView(view) { this.view = { ...this.view, ...view }; }
-  setSelected(id) { this.selectedId = id; }
+  setSelected(id) { this.selectedId=id;this.selectedIds=new Set(id?[id]:[]); }
+  setMultiSelected(ids=[]) { this.selectedIds=new Set(ids);this.selectedId=ids.length===1?ids[0]:null; }
+  isSelected(id){return this.selectedIds.has(id)||this.selectedId===id;}
+  setMarquee(rect){this.marquee=rect;}
   setConnectionMode(value,sourceId=null){this.connectionMode=value;this.connectionSourceId=sourceId;}
   setPlacementPreview(type,point){this.placementPreview={type,point};}
   async setBackground(source) {
@@ -51,10 +54,13 @@ export class LayoutRenderer {
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     if(this.layout.displayMode!=='cad')this.drawConnections();
     this.drawEquipment(state);
+    this.drawMarquee();
     this.drawPlacementPreview();
     if(this.layout.displayMode==='cad')this.drawCadFlow(state);
     c.restore();
   }
+
+  drawMarquee(){if(!this.marquee)return;const {x,y,w,h}=this.marquee,c=this.ctx;c.save();c.fillStyle='rgba(0,212,255,.1)';c.strokeStyle=COLORS.cyan;c.lineWidth=1.5;c.setLineDash([6,4]);c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);c.restore();}
 
   drawDxfGeometry(){
     const c=this.ctx,geometry=this.layout.dxfGeometry||[];if(!geometry.length)return;
@@ -110,11 +116,11 @@ export class LayoutRenderer {
     const c=this.ctx;
     for(const item of this.layout.equipment.filter(x=>!isNodeConveyor(x)&&this.isVisible(x))) {
       if(item.type==='processLine')continue;
-      if(item.id===this.selectedId&&item.source?.origin==='dxf'){const w=['stackerCrane','asrs'].includes(item.type)?194:['dock','source','sink'].includes(item.type)?112:96,h=['stackerCrane','asrs'].includes(item.type)?150:82;c.save();c.fillStyle='rgba(255,77,157,.13)';c.strokeStyle=COLORS.pink;c.lineWidth=3;c.setLineDash([7,4]);c.fillRect(item.x-w/2,item.y-h/2,w,h);c.strokeRect(item.x-w/2,item.y-h/2,w,h);c.setLineDash([]);c.restore();}
+      if(this.isSelected(item.id)&&item.source?.origin==='dxf'){const w=['stackerCrane','asrs'].includes(item.type)?194:['dock','source','sink'].includes(item.type)?112:96,h=['stackerCrane','asrs'].includes(item.type)?150:82;c.save();c.fillStyle='rgba(255,77,157,.13)';c.strokeStyle=COLORS.pink;c.lineWidth=3;c.setLineDash([7,4]);c.fillRect(item.x-w/2,item.y-h/2,w,h);c.strokeRect(item.x-w/2,item.y-h/2,w,h);c.setLineDash([]);c.restore();}
       if(item.type==='robot'&&!item.source?.origin) {
         c.beginPath(); c.arc(item.x,item.y,27,0,Math.PI*2); c.fillStyle=state.robot.phase==='idle'?'#6f2530':COLORS.orange; c.fill();
         c.strokeStyle=state.robot.phase==='idle'?'#b54555':COLORS.yellow; c.stroke(); c.fillStyle='#fff'; c.font='bold 11px monospace'; c.fillText(state.robot.phase.toUpperCase(),item.x-18,item.y+4);
-        if(item.id===this.selectedId){c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.strokeRect(item.x-34,item.y-34,68,68);}
+        if(this.isSelected(item.id)){c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.strokeRect(item.x-34,item.y-34,68,68);}
       } else if(item.nodeId) {
         const pos=this.nodePositions.get(item.nodeId); if(!pos) continue;
         const busy=Boolean(state.locks[item.id]); c.fillStyle=busy?COLORS.pink:COLORS.text; c.font='10px monospace'; c.fillText(item.type==='station'?'WORK':'FORK',pos.x+18,pos.y+76);
@@ -122,7 +128,7 @@ export class LayoutRenderer {
         continue;
       } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
         const long=['conveyor','processLine'].includes(item.type),schematicMax=this.layout.cadViewMode==='schematic'?78:500,w=long?Math.max(24,Math.min(schematicMax,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
-        c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=state.locks[item.id]?COLORS.pink:'#17334a';c.strokeStyle=item.id===this.selectedId?COLORS.yellow:COLORS.cyan;c.lineWidth=item.id===this.selectedId?2:1;
+        c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle=state.locks[item.id]?COLORS.pink:'#17334a';c.strokeStyle=this.isSelected(item.id)?COLORS.yellow:COLORS.cyan;c.lineWidth=this.isSelected(item.id)?2:1;
         c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);if(long){for(let roller=-w/2+10;roller<w/2;roller+=14){c.beginPath();c.arc(roller,0,3,0,Math.PI*2);c.stroke();}}c.restore();
         c.font='9px monospace';const label=String(item.name||item.type).replace(/\s+/g,' ').slice(0,18),labelWidth=Math.min(150,Math.max(42,c.measureText(label).width+12)),labelY=item.y+Math.abs(Math.sin((item.rotation||0)*Math.PI/180))*w/2+Math.abs(Math.cos((item.rotation||0)*Math.PI/180))*h/2+14;c.fillStyle='rgba(5,18,29,.9)';c.fillRect(item.x-labelWidth/2,labelY-10,labelWidth,14);c.fillStyle='#d8f3ff';c.textAlign='center';c.fillText(label,item.x,labelY);c.textAlign='start';
       }
@@ -136,7 +142,7 @@ export class LayoutRenderer {
 
   drawCadSymbol(item,state){
     if(!Number.isFinite(item.x)||!Number.isFinite(item.y))return false;const c=this.ctx,compact=this.layout.cadViewMode==='hybrid';
-    if(['stackerCrane','asrs'].includes(item.type)){const p=item.parameters||{},levels=Math.max(1,Math.round(Number(p.levels)||4)),rows=Math.max(1,Math.round(Number(p.rows)||3)),columns=Math.max(1,Math.round(Number(p.columns)||4)),productTypes=Math.max(1,Math.round(Number(p.productTypes)||3)),w=compact?76:178,h=compact?66:132,zones=Object.entries(state?.asrs?.zones||{}),drawColumns=Math.min(columns,10),drawLevels=Math.min(levels,8),rackLeft=-w*.46,rackTop=-h*.43,rackWidth=w*.78,rackHeight=h*.62,cellW=rackWidth/drawColumns,cellH=rackHeight/drawLevels,palette=['rgba(0,212,255,.35)','rgba(0,255,136,.35)','rgba(255,210,63,.38)','rgba(255,77,157,.35)','rgba(255,113,57,.35)'];c.save();c.translate(item.x,item.y);c.fillStyle='#0d2530';c.strokeStyle=COLORS.green;c.lineWidth=1;c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);for(let row=0;row<drawLevels;row++)for(let column=0;column<drawColumns;column++){const zoneIndex=Math.min(productTypes-1,Math.floor(row/drawLevels*productTypes));c.fillStyle=palette[zoneIndex%palette.length];c.fillRect(rackLeft+column*cellW,rackTop+row*cellH,cellW,cellH);c.strokeStyle='rgba(216,243,255,.35)';c.strokeRect(rackLeft+column*cellW,rackTop+row*cellH,cellW,cellH);}c.strokeStyle=COLORS.orange;c.lineWidth=compact?2:3;c.beginPath();c.moveTo(w*.38,rackTop);c.lineTo(w*.38,rackTop+rackHeight);c.stroke();c.fillStyle=COLORS.orange;c.fillRect(w*.38-3,-3,6,6);c.fillStyle='#d8f3ff';c.font=`${compact?6:8}px monospace`;c.fillText(`${levels}층 × ${columns}열 × ${rows}행 · ${productTypes}품목`,-w*.46,h*.31);c.fillStyle='#9ec9d8';c.fillText(`총 재고 ${state?.asrs?.inventory||0} / ${state?.asrs?.capacity||levels*rows*columns}`,-w*.46,h*.44);if(!compact&&item.id===this.selectedId&&zones.length){const panelX=w/2+7,panelW=92,panelH=16+zones.length*13;c.fillStyle='rgba(5,18,29,.95)';c.strokeStyle='rgba(0,255,136,.55)';c.fillRect(panelX,-panelH/2,panelW,panelH);c.strokeRect(panelX,-panelH/2,panelW,panelH);c.fillStyle=COLORS.green;c.font='7px monospace';c.fillText('품목별 재고',panelX+7,-panelH/2+11);zones.slice(0,8).forEach(([name,zone],index)=>{c.fillStyle=palette[index%palette.length].replace('.35','.9').replace('.38','.9');c.fillRect(panelX+7,-panelH/2+17+index*13,6,6);c.fillStyle='#d8f3ff';c.fillText(`${name.replace(' 라인','').slice(0,7)} ${zone.inventory}/${zone.capacity}`,panelX+17,-panelH/2+23+index*13);});}c.restore();return true;}
+    if(['stackerCrane','asrs'].includes(item.type)){const p=item.parameters||{},levels=Math.max(1,Math.round(Number(p.levels)||4)),rows=Math.max(1,Math.round(Number(p.rows)||3)),columns=Math.max(1,Math.round(Number(p.columns)||4)),productTypes=Math.max(1,Math.round(Number(p.productTypes)||3)),w=compact?76:178,h=compact?66:132,zones=Object.entries(state?.asrs?.zones||{}),drawColumns=Math.min(columns,10),drawLevels=Math.min(levels,8),rackLeft=-w*.46,rackTop=-h*.43,rackWidth=w*.78,rackHeight=h*.62,cellW=rackWidth/drawColumns,cellH=rackHeight/drawLevels,palette=['rgba(0,212,255,.35)','rgba(0,255,136,.35)','rgba(255,210,63,.38)','rgba(255,77,157,.35)','rgba(255,113,57,.35)'];c.save();c.translate(item.x,item.y);c.fillStyle='#0d2530';c.strokeStyle=COLORS.green;c.lineWidth=1;c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);for(let row=0;row<drawLevels;row++)for(let column=0;column<drawColumns;column++){const zoneIndex=Math.min(productTypes-1,Math.floor(row/drawLevels*productTypes));c.fillStyle=palette[zoneIndex%palette.length];c.fillRect(rackLeft+column*cellW,rackTop+row*cellH,cellW,cellH);c.strokeStyle='rgba(216,243,255,.35)';c.strokeRect(rackLeft+column*cellW,rackTop+row*cellH,cellW,cellH);}c.strokeStyle=COLORS.orange;c.lineWidth=compact?2:3;c.beginPath();c.moveTo(w*.38,rackTop);c.lineTo(w*.38,rackTop+rackHeight);c.stroke();c.fillStyle=COLORS.orange;c.fillRect(w*.38-3,-3,6,6);c.fillStyle='#d8f3ff';c.font=`${compact?6:8}px monospace`;c.fillText(`${levels}층 × ${columns}열 × ${rows}행 · ${productTypes}품목`,-w*.46,h*.31);c.fillStyle='#9ec9d8';c.fillText(`총 재고 ${state?.asrs?.inventory||0} / ${state?.asrs?.capacity||levels*rows*columns}`,-w*.46,h*.44);if(!compact&&this.isSelected(item.id)&&zones.length){const panelX=w/2+7,panelW=92,panelH=16+zones.length*13;c.fillStyle='rgba(5,18,29,.95)';c.strokeStyle='rgba(0,255,136,.55)';c.fillRect(panelX,-panelH/2,panelW,panelH);c.strokeRect(panelX,-panelH/2,panelW,panelH);c.fillStyle=COLORS.green;c.font='7px monospace';c.fillText('품목별 재고',panelX+7,-panelH/2+11);zones.slice(0,8).forEach(([name,zone],index)=>{c.fillStyle=palette[index%palette.length].replace('.35','.9').replace('.38','.9');c.fillRect(panelX+7,-panelH/2+17+index*13,6,6);c.fillStyle='#d8f3ff';c.fillText(`${name.replace(' 라인','').slice(0,7)} ${zone.inventory}/${zone.capacity}`,panelX+17,-panelH/2+23+index*13);});}c.restore();return true;}
     if(item.type==='handoffPoint'){const w=compact?22:38,h=compact?26:42;c.save();c.translate(item.x,item.y);c.fillStyle='#17334a';c.strokeStyle=COLORS.cyan;c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);c.fillStyle='#d8f3ff';c.font=`${compact?7:9}px monospace`;c.fillText('H/P',compact?-7:-9,3);c.restore();return true;}
     if(item.type==='turntable'){const radius=compact?14:24,angle=(state?.t||0)*Math.PI/3;c.save();c.translate(item.x,item.y);c.fillStyle='#17334a';c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.beginPath();c.arc(0,0,radius,0,Math.PI*2);c.fill();c.stroke();c.rotate(angle);c.strokeStyle=COLORS.green;c.beginPath();c.moveTo(-radius+4,0);c.lineTo(radius-4,0);c.stroke();c.fillStyle='#d8f3ff';c.font=`${compact?6:8}px monospace`;c.fillText('TT',-5,3);c.restore();return true;}
     if(item.type==='forkingDevice'){const w=compact?32:58,h=compact?18:28;c.save();c.translate(item.x,item.y);c.fillStyle='#0d3928';c.strokeStyle=COLORS.green;c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);c.lineWidth=2;for(const dy of [-5,5]){c.beginPath();c.moveTo(-w/2-12,dy);c.lineTo(w/2+12,dy);c.stroke();}c.fillStyle=COLORS.green;c.font=`${compact?7:9}px monospace`;c.fillText('FORK',compact?-9:-12,3);c.restore();return true;}

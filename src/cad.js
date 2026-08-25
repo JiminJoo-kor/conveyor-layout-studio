@@ -8,6 +8,7 @@ export const logisticsEquipmentCatalog = [
   { type:'diverter', label:'디버터', keywords:['DIV','DIVERTER','MERGE','SORT GATE'], defaults:{ cycleTime:1.5, directions:2 } },
   { type:'turntable', label:'턴테이블', keywords:['TURN TABLE','TURNTABLE','ROTARY TABLE','턴테이블','회전테이블'], defaults:{ rotationTime:6, positions:2 } },
   { type:'handoffPoint', label:'H/P', keywords:['H/P','HANDOFF POINT','HANDOVER POINT'], defaults:{ transferTime:2, bufferCapacity:1 } },
+  { type:'forklift', label:'지게차', keywords:['FORKLIFT','LIFT TRUCK','FORK TRUCK','지게차'], defaults:{ speed:1.5, loadTime:8, unloadTime:8, loadCapacity:1500 } },
   { type:'forkingDevice', label:'포킹장치', keywords:['포킹장치','FORKING DEVICE','TELESCOPIC FORK','PUSH PULL'], defaults:{ forkTime:4, strokeDistance:1.5, loadCapacity:1000 } },
   { type:'stackerCrane', label:'스태커 크레인', keywords:['STACKER CRANE','STACKER','STK','RACK MASTER','ASRS CRANE','S/C','스태커','스테커','크레인'], defaults:{ travelSpeed:2.5, liftSpeed:1, acceleration:0.5, loadCapacity:1000, levels:4, rows:3, columns:4, productTypes:3 } },
   { type:'shuttle', label:'셔틀', keywords:['SHUTTLE','MINILOAD'], defaults:{ speed:2, acceleration:1 } },

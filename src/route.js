@@ -8,6 +8,10 @@ export function routeLength(points){
   return points.slice(1).reduce((sum,point,index)=>sum+Math.hypot(point.x-points[index].x,point.y-points[index].y),0);
 }
 
+export function routeArrow(points,ratio=.62){
+  const segments=points.slice(1).map((to,index)=>{const from=points[index];return{from,to,length:Math.hypot(to.x-from.x,to.y-from.y)};}).filter(segment=>segment.length>1),segment=segments.sort((a,b)=>b.length-a.length)[0];if(!segment)return null;return{x:segment.from.x+(segment.to.x-segment.from.x)*ratio,y:segment.from.y+(segment.to.y-segment.from.y)*ratio,angle:Math.atan2(segment.to.y-segment.from.y,segment.to.x-segment.from.x)};
+}
+
 export function pointOnRoute(points,progress){
   const total=Math.max(1,routeLength(points));let remaining=Math.max(0,Math.min(1,progress))*total;
   for(let index=1;index<points.length;index++){
@@ -33,7 +37,7 @@ export function closestPortPair(from,to){
 
 export function connectionKind(from,to,fallback='flow'){
   const types=new Set([from?.type,to?.type]);
-  if([...types].some(type=>['agv','amr','shuttle'].includes(type)))return 'transfer';
+  if([...types].some(type=>['agv','amr','shuttle','forklift'].includes(type)))return 'transfer';
   if(types.has('stackerCrane')||types.has('asrs'))return 'warehouse';
   if(types.has('forkingDevice'))return 'forking';
   if(types.has('handoffPoint'))return 'handoff';

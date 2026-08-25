@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { closestPortPair, connectionAnchor, orthogonalRoute, pointOnRoute, routeLength } from '../src/route.js';
+import { closestPortPair, connectionAnchor, connectionKind, orthogonalRoute, pointOnRoute, routeLength } from '../src/route.js';
 
 test('대각선 설비 사이 물류는 직교 꺾임 경로를 따라 이동한다',()=>{
   const points=orthogonalRoute({x:0,y:0},{x:100,y:100});
@@ -10,4 +10,8 @@ test('대각선 설비 사이 물류는 직교 꺾임 경로를 따라 이동한
 
 test('설비 연결 시 가장 가까운 회전 포트를 자동 선택한다',()=>{
   const from={x:0,y:0,rotation:0},to={x:200,y:0,rotation:90},pair=closestPortPair(from,to);assert.equal(pair.fromPort,'right');assert.ok(['left','right'].includes(pair.toPort));const anchor=connectionAnchor(from,pair.fromPort);assert.deepEqual(anchor,{x:44,y:0});
+});
+
+test('연결 설비 특성에 따라 흐름 종류와 색상 의미를 분류한다',()=>{
+  assert.equal(connectionKind({type:'conveyor'},{type:'conveyor'},'warehouse'),'flow');assert.equal(connectionKind({type:'conveyor'},{type:'forkingDevice'}),'forking');assert.equal(connectionKind({type:'forkingDevice'},{type:'stackerCrane'}),'warehouse');assert.equal(connectionKind({type:'conveyor'},{type:'amr'}),'transfer');
 });

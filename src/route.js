@@ -30,3 +30,12 @@ export function closestPortPair(from,to){
   for(const [fromPort,a] of Object.entries(fromPorts))for(const [toPort,b] of Object.entries(toPorts)){const distance=Math.hypot(a.x-b.x,a.y-b.y);if(!best||distance<best.distance)best={fromPort,toPort,distance};}
   return best;
 }
+
+export function connectionKind(from,to,fallback='flow'){
+  const types=new Set([from?.type,to?.type]);
+  if([...types].some(type=>['agv','amr','shuttle'].includes(type)))return 'transfer';
+  if(types.has('stackerCrane')||types.has('asrs'))return 'warehouse';
+  if(types.has('forkingDevice'))return 'forking';
+  if(types.has('handoffPoint'))return 'handoff';
+  return ['transfer','warehouse','forking','handoff'].includes(fallback)?'flow':fallback;
+}

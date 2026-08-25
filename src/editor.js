@@ -1,4 +1,4 @@
-import { closestPortPair, connectionAnchor, orthogonalRoute } from './route.js';
+import { closestPortPair, connectionAnchor, connectionKind, orthogonalRoute } from './route.js';
 
 const movable = item => Number.isFinite(item?.x) && Number.isFinite(item?.y);
 
@@ -8,10 +8,10 @@ export function insertEquipmentIntoNearestEdge(layout,item,maxDistance=58){
   const schematic=layout.cadSchematic,edges=schematic?.edges||[],byId=new Map(layout.equipment.map(node=>[node.id,node]));let nearest=null;
   edges.forEach((edge,index)=>{const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to||edge.from===item.id||edge.to===item.id)return;const points=orthogonalRoute(connectionAnchor(from,edge.fromPort),connectionAnchor(to,edge.toPort)),distance=Math.min(...points.slice(1).map((point,i)=>segmentDistance(item,points[i],point)));if(!nearest||distance<nearest.distance)nearest={edge,index,from,to,distance};});
   if(!nearest||nearest.distance>maxDistance)return null;
-  const firstPorts=closestPortPair(nearest.from,item),secondPorts=closestPortPair(item,nearest.to),base={kind:nearest.edge.kind||'flow',manual:true,autoInserted:item.id};
+  const firstPorts=closestPortPair(nearest.from,item),secondPorts=closestPortPair(item,nearest.to),base={manual:true,autoInserted:item.id};
   schematic.edges.splice(nearest.index,1,
-    {...base,from:nearest.edge.from,to:item.id,fromPort:nearest.edge.fromPort||firstPorts.fromPort,toPort:firstPorts.toPort},
-    {...base,from:item.id,to:nearest.edge.to,fromPort:secondPorts.fromPort,toPort:nearest.edge.toPort||secondPorts.toPort});
+    {...base,kind:connectionKind(nearest.from,item,nearest.edge.kind),from:nearest.edge.from,to:item.id,fromPort:nearest.edge.fromPort||firstPorts.fromPort,toPort:firstPorts.toPort},
+    {...base,kind:connectionKind(item,nearest.to,nearest.edge.kind),from:item.id,to:nearest.edge.to,fromPort:secondPorts.fromPort,toPort:nearest.edge.toPort||secondPorts.toPort});
   for(const lane of schematic.lanes||[]){const index=(lane.nodes||[]).findIndex(node=>node.id===nearest.edge.from);if(index>=0&&lane.nodes[index+1]?.id===nearest.edge.to)lane.nodes.splice(index+1,0,item);}
   for(const branch of schematic.inboundBranches||[]){const index=(branch.nodeIds||[]).indexOf(nearest.edge.from);if(index>=0&&branch.nodeIds[index+1]===nearest.edge.to)branch.nodeIds.splice(index+1,0,item.id);}
   return {replaced:nearest.edge,edges:schematic.edges.slice(nearest.index,nearest.index+2),distance:nearest.distance};

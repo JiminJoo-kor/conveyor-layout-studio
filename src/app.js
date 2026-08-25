@@ -4,7 +4,7 @@ import { LayoutRenderer } from './renderer.js';
 import { LayoutEditor } from './editor.js';
 import { analyzeCadFile, parameterFieldsFor } from './cad.js';
 import { buildSimulationReport } from './report.js';
-import { closestPortPair } from './route.js';
+import { closestPortPair, connectionKind } from './route.js';
 
 const $ = id => document.getElementById(id);
 let layout = cloneLayout(defaultLayout), engine = new SimulationEngine(layout, defaultParams);
@@ -30,7 +30,7 @@ function editorChanged(rebuild) {
   renderer.draw(engine.state);
 }
 function editorModeChanged(mode){$('connectEquipment').classList.toggle('active',mode.connecting);if(mode.insertion){$('connectionHint').hidden=false;$('connectionHint').textContent=`자동 삽입 완료: 기존 연결선을 제거하고 ${mode.item.name} 양옆으로 다시 연결했습니다.`;}else if(mode.placement){$('connectionHint').hidden=false;$('connectionHint').textContent=`${mode.placement.toUpperCase()} 배치 위치를 클릭하세요. 기존 연결선 위에 놓으면 선 사이에 자동 삽입됩니다.`;}else if(mode.connecting){const source=layout.equipment.find(item=>item.id===mode.sourceId);$('connectionHint').hidden=false;$('connectionHint').textContent=source?`${source.name}에서 이어질 대상 설비를 클릭하세요. 양옆 포트 중 가장 가까운 조합으로 연결합니다.`:'시작 설비와 도착 설비를 클릭하세요. 연결은 양옆 포트만 사용합니다.';}else if(!$('connectionHint').textContent.startsWith('연결 완료')&&!$('connectionHint').textContent.startsWith('자동 삽입 완료'))$('connectionHint').hidden=true;}
-function connectEquipment(fromId,toId){if(fromId===toId)return false;layout.cadSchematic??={lanes:[],inboundBranches:[],edges:[]};layout.cadSchematic.edges??=[];if(layout.cadSchematic.edges.some(edge=>edge.from===fromId&&edge.to===toId))return false;const from=layout.equipment.find(item=>item.id===fromId),to=layout.equipment.find(item=>item.id===toId);if(!from||!to)return false;const mobile=['agv','amr','shuttle'].includes(from.type)||['agv','amr','shuttle'].includes(to.type),ports=closestPortPair(from,to);layout.cadSchematic.edges.push({from:fromId,to:toId,kind:mobile?'transfer':'flow',fromPort:ports.fromPort,toPort:ports.toPort,manual:true});$('connectEquipment').classList.remove('active');$('connectionHint').hidden=false;$('connectionHint').textContent=`연결 완료: ${from.name} ${ports.fromPort} → ${to.name} ${ports.toPort}`;renderer.setLayout(layout);resetEngine();return true;}
+function connectEquipment(fromId,toId){if(fromId===toId)return false;layout.cadSchematic??={lanes:[],inboundBranches:[],edges:[]};layout.cadSchematic.edges??=[];if(layout.cadSchematic.edges.some(edge=>edge.from===fromId&&edge.to===toId))return false;const from=layout.equipment.find(item=>item.id===fromId),to=layout.equipment.find(item=>item.id===toId);if(!from||!to)return false;const ports=closestPortPair(from,to),kind=connectionKind(from,to);layout.cadSchematic.edges.push({from:fromId,to:toId,kind,fromPort:ports.fromPort,toPort:ports.toPort,manual:true});$('connectEquipment').classList.remove('active');$('connectionHint').hidden=false;$('connectionHint').textContent=`연결 완료: ${from.name} ${ports.fromPort} → ${to.name} ${ports.toPort}`;renderer.setLayout(layout);resetEngine();return true;}
 function selectEquipment(item) {
   const changed=selectedEquipment?.id!==item?.id;
   selectedEquipment=item;

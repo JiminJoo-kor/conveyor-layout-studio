@@ -14,7 +14,7 @@ test('분기 설비 삭제 시 기존 입출력을 중복 없이 우회 연결�
 
 test('기존 연결선 위에 설비를 놓으면 원래 선을 두 연결로 분할한다',()=>{
   const layout={equipment:[{id:'a',x:0,y:0,rotation:0},{id:'b',x:300,y:0,rotation:0},{id:'new',x:150,y:10,rotation:0}],cadSchematic:{lanes:[{nodes:[{id:'a'},{id:'b'}]}],inboundBranches:[{nodeIds:['a','b']}],edges:[{from:'a',to:'b',kind:'warehouse',fromPort:'right',toPort:'left'}]}};
-  const result=insertEquipmentIntoNearestEdge(layout,layout.equipment[2]);assert.ok(result);assert.equal(layout.cadSchematic.edges.length,2);assert.deepEqual(layout.cadSchematic.edges.map(edge=>[edge.from,edge.to]),[['a','new'],['new','b']]);assert.ok(layout.cadSchematic.edges.every(edge=>edge.kind==='warehouse'&&edge.autoInserted==='new'));assert.deepEqual(layout.cadSchematic.lanes[0].nodes.map(node=>node.id),['a','new','b']);assert.deepEqual(layout.cadSchematic.inboundBranches[0].nodeIds,['a','new','b']);
+  const result=insertEquipmentIntoNearestEdge(layout,layout.equipment[2]);assert.ok(result);assert.equal(layout.cadSchematic.edges.length,2);assert.deepEqual(layout.cadSchematic.edges.map(edge=>[edge.from,edge.to]),[['a','new'],['new','b']]);assert.ok(layout.cadSchematic.edges.every(edge=>edge.kind==='flow'&&edge.autoInserted==='new'));assert.deepEqual(layout.cadSchematic.lanes[0].nodes.map(node=>node.id),['a','new','b']);assert.deepEqual(layout.cadSchematic.inboundBranches[0].nodeIds,['a','new','b']);
 });
 
 test('연결선에서 먼 위치에 놓은 설비는 자동 삽입하지 않는다',()=>{

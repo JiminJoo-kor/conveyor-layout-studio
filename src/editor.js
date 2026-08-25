@@ -1,5 +1,14 @@
 const movable = item => Number.isFinite(item?.x) && Number.isFinite(item?.y);
 
+export function removeEquipmentAndReconnect(layout,id){
+  const index=layout.equipment.findIndex(item=>item.id===id);if(index<0)return false;
+  const schematic=layout.cadSchematic,edges=schematic?.edges||[],incoming=edges.filter(edge=>edge.to===id),outgoing=edges.filter(edge=>edge.from===id),remaining=edges.filter(edge=>edge.from!==id&&edge.to!==id),priority={flow:0,handoff:1,forking:2,warehouse:3,transfer:4};
+  for(const before of incoming)for(const after of outgoing){if(before.from===after.to||remaining.some(edge=>edge.from===before.from&&edge.to===after.to))continue;const kind=(priority[before.kind||'flow']>=priority[after.kind||'flow']?before.kind:after.kind)||'flow';remaining.push({from:before.from,to:after.to,kind,manual:true,autoBypass:id});}
+  layout.equipment.splice(index,1);
+  if(schematic){schematic.edges=remaining;for(const lane of schematic.lanes||[])lane.nodes=(lane.nodes||[]).filter(node=>node.id!==id);schematic.inboundBranches=(schematic.inboundBranches||[]).map(branch=>({...branch,nodeIds:(branch.nodeIds||[]).filter(nodeId=>nodeId!==id)})).filter(branch=>branch.nodeIds.length);if(schematic.warehouseId===id)schematic.warehouseId=null;}
+  return true;
+}
+
 export class LayoutEditor {
   constructor(canvas, renderer, getLayout, onChange, onSelect, onConnect) {
     this.canvas=canvas;this.renderer=renderer;this.getLayout=getLayout;this.onChange=onChange;this.onSelect=onSelect;this.onConnect=onConnect;
@@ -29,5 +38,5 @@ export class LayoutEditor {
   wheel(event){event.preventDefault();const before=this.worldPoint(event),factor=event.deltaY<0?1.12:.88;this.view.zoom=Math.max(.2,Math.min(8,this.view.zoom*factor));const raw=this.canvasPoint(event);this.view.x=raw.x-before.x*this.view.zoom;this.view.y=raw.y-before.y*this.view.zoom;this.renderer.setView(this.view);this.onChange(false);}
   resetView(){this.view={zoom:1,x:0,y:0};this.renderer.setView(this.view);this.onChange(false);}
   add(type){const layout=this.getLayout(),count=layout.equipment.filter(item=>item.type===type).length+1,cad=layout.displayMode==='cad',item={id:`${type}-custom-${Date.now()}`,type,name:`새 ${type} ${count}`,x:layout.canvas.width/2,y:layout.canvas.height/2,parameters:{},...(cad?{source:{origin:'dxf',inferred:false,reason:'manual-add'},reviewStatus:'approved'}:{})};layout.equipment.push(item);this.renderer.setSelected(item.id);this.onSelect(item);this.onChange(true);this.setConnectionMode(true,item.id);return item;}
-  remove(id){const layout=this.getLayout(),index=layout.equipment.findIndex(item=>item.id===id);if(index<0)return false;layout.equipment.splice(index,1);const schematic=layout.cadSchematic;if(schematic){schematic.edges=(schematic.edges||[]).filter(edge=>edge.from!==id&&edge.to!==id);for(const lane of schematic.lanes||[])lane.nodes=(lane.nodes||[]).filter(node=>node.id!==id);schematic.inboundBranches=(schematic.inboundBranches||[]).map(branch=>({...branch,nodeIds:(branch.nodeIds||[]).filter(nodeId=>nodeId!==id)})).filter(branch=>branch.nodeIds.length);if(schematic.warehouseId===id)schematic.warehouseId=null;}this.renderer.setSelected(null);this.onSelect(null);this.onChange(true);return true;}
+  remove(id){const layout=this.getLayout();if(!removeEquipmentAndReconnect(layout,id))return false;this.renderer.setSelected(null);this.onSelect(null);this.onChange(true);return true;}
 }

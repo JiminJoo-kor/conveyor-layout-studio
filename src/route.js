@@ -7,8 +7,10 @@ export function orthogonalRoute(from,to){
 export function edgeRoute(from,to,edge={}){
   const offset=edge.routeOffset||{x:0,y:0};
   if(Math.abs(from.y-to.y)<=8){const y=(from.y+to.y)/2+(Number(offset.y)||0);if(Math.abs(y-from.y)<=1)return[{x:from.x,y:from.y},{x:to.x,y:to.y}];return[{x:from.x,y:from.y},{x:from.x,y},{x:to.x,y},{x:to.x,y:to.y}];}
-  const x=from.x+(to.x-from.x)*.55+(Number(offset.x)||0);
-  return[{x:from.x,y:from.y},{x,y:from.y},{x,y:to.y},{x:to.x,y:to.y}];
+  const x=from.x+(to.x-from.x)*.55+(Number(offset.x)||0),yOffset=Number(offset.y)||0;
+  if(!yOffset)return[{x:from.x,y:from.y},{x,y:from.y},{x,y:to.y},{x:to.x,y:to.y}];
+  const y=from.y+yOffset;
+  return[{x:from.x,y:from.y},{x:from.x,y},{x,y},{x,y:to.y},{x:to.x,y:to.y}];
 }
 
 export function routeLength(points){

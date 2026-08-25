@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { equipmentOperationProgress, isNodeConveyor, mobileEquipmentRoute } from '../src/renderer.js';
+import { equipmentOperationProgress, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -92,6 +92,10 @@ test('포킹장치는 출력 1 분기 비율을 기본 50%로 제공한다',()=>
 
 test('컨베이어는 화면 크기와 분리된 실제 길이 파라미터를 제공한다',()=>{
   const fields=parameterFieldsFor({type:'conveyor',length:90,parameters:{speed:.5,beltWidth:2,cargoLength:3,cargoWidth:2}}),length=fields.find(field=>field.key==='length'),speed=fields.find(field=>field.key==='speed');assert.equal(length.value,5);assert.equal(length.label,'실제 길이(m)');assert.equal(speed.label,'속도(m/s)');assert.equal(fields.some(field=>['beltWidth','cargoLength','cargoWidth'].includes(field.key)),false);
+});
+
+test('라인 제목은 DXF 텍스트가 아니라 이동 가능한 트럭 설비를 따라간다',()=>{
+  const text={id:'label',type:'processLine',x:10,y:10},conveyor={id:'cv',type:'conveyor',x:100,y:100},truck={id:'truck',type:'dock',x:200,y:100};assert.equal(laneTitleAnchor([text,conveyor,truck]),truck);truck.x=350;assert.equal(laneTitleAnchor([text,conveyor,truck]).x,350);
 });
 
 test('포킹장치를 일반 컨베이어가 아닌 ASRS 이송장치로 분류한다',()=>{

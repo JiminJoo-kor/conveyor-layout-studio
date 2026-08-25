@@ -99,7 +99,7 @@ test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 �
 });
 
 test('포킹장치는 출력 1 분기 비율을 기본 50%로 제공한다',()=>{
-  const fields=parameterFieldsFor({type:'forkingDevice',parameters:{forkTime:3}}),ratio=fields.find(field=>field.key==='output1Ratio');assert.equal(ratio.value,50);assert.equal(ratio.min,0);assert.equal(ratio.max,100);
+  const fields=parameterFieldsFor({type:'forkingDevice',parameters:{forkTime:3,distributionEnabled:true,distributionFlowKeys:['트림 라인']}}),ratio=fields.find(field=>field.key==='output1Ratio');assert.equal(ratio.value,50);assert.equal(ratio.min,0);assert.equal(ratio.max,100);assert.equal(fields.some(field=>['distributionEnabled','distributionFlowKeys'].includes(field.key)),false);
 });
 
 test('컨베이어는 화면 크기와 분리된 실제 길이 파라미터를 제공한다',()=>{

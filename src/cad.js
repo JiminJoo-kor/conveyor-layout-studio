@@ -24,6 +24,7 @@ export const equipmentParameterLabels = {
   cycleTime:'사이클타임(초)',directions:'분기 수',acceleration:'가속도',chargeThreshold:'충전 기준(%)',destinations:'목적지 수',
   levels:'층수',rows:'행',columns:'열',pickTime:'PICK(초)',placeTime:'PLACE(초)',processTime:'처리시간(초)',operators:'작업자 수',length:'길이',
   travelSpeed:'주행 속도(m/s)',liftSpeed:'승강 속도(m/s)',loadCapacity:'적재 하중(kg)',lineSpeed:'라인 속도(m/min)',pitch:'차체 피치(m)',bufferCapacity:'라인 버퍼 수'
+  ,shuttleDistance:'AGV 편도 거리(m)',loadTime:'적재 시간(초)',unloadTime:'하역 시간(초)'
 };
 
 export function parameterFieldsFor(item){return Object.entries(item.parameters||{}).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value}));}
@@ -104,7 +105,7 @@ export function normalizeSchematicPositions(candidates,schematic,width=1200){
     if(schematic.warehouseId)positionById.set(schematic.warehouseId,{x:warehouseX,y:warehouseY});
     for(const bridge of candidates.filter(item=>['agv','amr'].includes(item.type))){const incoming=schematic.edges.find(edge=>edge.to===bridge.id),outgoing=schematic.edges.find(edge=>edge.from===bridge.id),from=positionById.get(incoming?.from),to=positionById.get(outgoing?.to),fromIsWarehouse=incoming?.from===schematic.warehouseId,endpoint=fromIsWarehouse?to:from;if(from&&to&&endpoint)positionById.set(bridge.id,{x:(from.x+to.x)/2,y:endpoint.y});}
     candidates.filter(item=>!positionById.has(item.id)).forEach((item,index)=>positionById.set(item.id,{x:80+(index%8)*120,y:600+Math.floor(index/8)*80}));
-    return candidates.map(item=>{const originalPosition={x:item.x,y:item.y},normalizedPosition=positionById.get(item.id)||originalPosition;return{...item,originalPosition,normalizedPosition,...normalizedPosition};});
+    return candidates.map(item=>{const originalPosition={x:item.x,y:item.y},normalizedPosition=positionById.get(item.id)||originalPosition;if(['agv','amr'].includes(item.type)){const incoming=schematic.edges.find(edge=>edge.to===item.id),outgoing=schematic.edges.find(edge=>edge.from===item.id),from=positionById.get(incoming?.from),to=positionById.get(outgoing?.to),endpoint=incoming?.from===schematic.warehouseId?to:from,warehouse=positionById.get(schematic.warehouseId);if(endpoint&&warehouse){const startX=Math.min(endpoint.x,warehouse.x)+38,endX=Math.max(endpoint.x,warehouse.x)-38,distance=Math.max(30,endX-startX);return{...item,originalPosition,normalizedPosition,...normalizedPosition,shuttleRoute:{start:{x:startX,y:endpoint.y},end:{x:endX,y:endpoint.y},axis:'horizontal'},parameters:{...item.parameters,shuttleDistance:Number((distance/20).toFixed(1)),loadTime:Number(item.parameters?.loadTime||2),unloadTime:Number(item.parameters?.unloadTime||2)}};}}return{...item,originalPosition,normalizedPosition,...normalizedPosition};});
   }
   const visible=candidates.filter(item=>item.type!=='processLine'),xs=visible.map(item=>item.x),ys=visible.map(item=>item.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spanX=Math.max(1,maxX-minX),spanY=Math.max(1,maxY-minY),scale=Math.min((width-160)/spanX,560/spanY),offsetX=(width-spanX*scale)/2,offsetY=45;
   return candidates.map(item=>{const originalPosition={x:item.x,y:item.y},normalizedPosition={x:offsetX+(item.x-minX)*scale,y:offsetY+(item.y-minY)*scale};return {...item,originalPosition,normalizedPosition,...normalizedPosition};});

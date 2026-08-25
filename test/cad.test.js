@@ -99,6 +99,7 @@ test('입고·창고·AGV 단절 구간을 방향 그래프로 구성한다',()=
   assert.ok(schematic.edges.some(edge=>edge.to==='agv'));assert.ok(schematic.edges.some(edge=>edge.from==='agv'));
   assert.equal(schematic.inferredEquipment.length,2);assert.ok(schematic.inferredEquipment.every(item=>item.type==='agv'&&item.source.inferred));
   assert.ok(!edgeIds.some(id=>id.startsWith('label-')));
+  const positioned=normalizeSchematicPositions([...items,...schematic.inferredEquipment],schematic,1200);assert.ok(positioned.filter(item=>['agv','amr'].includes(item.type)).every(item=>item.shuttleRoute?.axis==='horizontal'));
 });
 
 test('약식 배치에서도 DXF의 상대 방향과 굴곡을 보존한다',()=>{

@@ -68,6 +68,7 @@ export class LayoutRenderer {
     const c=this.ctx,schematic=this.layout.cadSchematic;if(!schematic)return;const nodeMap=new Map(this.layout.equipment.filter(item=>item.source?.origin==='dxf').map(item=>[item.id,item]));
     c.save();
     for(const lane of schematic.lanes||[]){const nodes=lane.nodes.map(node=>nodeMap.get(node.id)||node).filter(Boolean);if(!nodes.length)continue;const label=nodeMap.get(lane.labelId),anchor=label||nodes[0];c.fillStyle=COLORS.text;c.font='11px monospace';const direction=lane.direction==='inbound'?'입고 → 창고':lane.direction==='warehouse-outbound'?'창고 → 공정':'출고 방향';c.fillText(`${lane.name}  ·  ${direction}`,anchor.x,anchor.y-18);}
+    for(const vehicle of nodeMap.values()){const route=vehicle.shuttleRoute;if(!route)continue;c.strokeStyle='rgba(0,255,136,.72)';c.lineWidth=2;c.setLineDash([8,5]);c.beginPath();c.moveTo(route.start.x,route.start.y);c.lineTo(route.end.x,route.end.y);c.stroke();c.setLineDash([]);for(const x of [route.start.x,route.end.x])for(const dy of [-12,12]){c.beginPath();c.arc(x,route.start.y+dy,4,0,Math.PI*2);c.fillStyle=dy<0?'#ff4d4d':'#00f29a';c.fill();c.strokeStyle='#d8f3ff';c.stroke();}const mid=(route.start.x+route.end.x)/2;c.fillStyle=COLORS.green;c.beginPath();c.moveTo(mid-12,route.start.y-5);c.lineTo(mid,route.start.y);c.lineTo(mid-12,route.start.y+5);c.fill();c.beginPath();c.moveTo(mid+12,route.start.y-5);c.lineTo(mid,route.start.y);c.lineTo(mid+12,route.start.y+5);c.fill();}
     for(const edge of schematic.edges||[]){if(this.layout.cadViewMode==='hybrid'&&edge.kind==='flow')continue;const from=nodeMap.get(edge.from),to=nodeMap.get(edge.to);if(!from||!to)continue;const transfer=edge.kind==='transfer',warehouse=edge.kind==='warehouse',distance=Math.hypot(to.x-from.x,to.y-from.y);if(this.layout.cadViewMode==='hybrid'&&distance>260)continue;c.strokeStyle=transfer?'rgba(255,113,57,.75)':warehouse?'rgba(0,255,136,.58)':'rgba(0,212,255,.48)';c.lineWidth=transfer?3:5;c.setLineDash(transfer?[7,5]:[]);const points=warehouse&&Math.abs(from.y-to.y)>8?[from,{x:(from.x+to.x)/2,y:from.y},{x:(from.x+to.x)/2,y:to.y},to]:[from,to];c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();const segment=points[Math.max(1,points.length-2)],angle=Math.atan2(to.y-segment.y,to.x-segment.x),x=segment.x+(to.x-segment.x)*.68,y=segment.y+(to.y-segment.y)*.68;c.setLineDash([]);c.fillStyle=transfer?COLORS.orange:warehouse?COLORS.green:COLORS.cyan;c.beginPath();c.moveTo(x+Math.cos(angle)*9,y+Math.sin(angle)*9);c.lineTo(x+Math.cos(angle+2.55)*8,y+Math.sin(angle+2.55)*8);c.lineTo(x+Math.cos(angle-2.55)*8,y+Math.sin(angle-2.55)*8);c.closePath();c.fill();}
     c.setLineDash([]);c.restore();
   }
@@ -110,7 +111,7 @@ export class LayoutRenderer {
       } else if(item.nodeId) {
         const pos=this.nodePositions.get(item.nodeId); if(!pos) continue;
         const busy=Boolean(state.locks[item.id]); c.fillStyle=busy?COLORS.pink:COLORS.text; c.font='10px monospace'; c.fillText(item.type==='station'?'WORK':'FORK',pos.x+18,pos.y+76);
-      } else if(item.source?.origin==='dxf'&&this.drawCadSymbol(item)) {
+      } else if(item.source?.origin==='dxf'&&this.drawCadSymbol(item,state)) {
         continue;
       } else if(Number.isFinite(item.x)&&Number.isFinite(item.y)) {
         const long=['conveyor','processLine'].includes(item.type),w=long?Math.max(24,Math.min(500,item.length||item.width||60)):Math.max(32,Math.min(120,item.width||60)),h=long?Math.max(10,Math.min(36,item.height||14)):Math.max(24,Math.min(90,item.height||40));
@@ -121,11 +122,11 @@ export class LayoutRenderer {
     }
   }
 
-  drawCadSymbol(item){
+  drawCadSymbol(item,state){
     if(!Number.isFinite(item.x)||!Number.isFinite(item.y))return false;const c=this.ctx,compact=this.layout.cadViewMode==='hybrid';
     if(['stackerCrane','asrs'].includes(item.type)){const w=compact?46:104,h=compact?34:76;c.save();c.translate(item.x,item.y);c.strokeStyle=COLORS.green;c.fillStyle='#0d2530';c.lineWidth=1;c.fillRect(-w/2,-h/2,w,h);c.strokeRect(-w/2,-h/2,w,h);for(const x of [-w*.34,-w*.22,w*.22,w*.34]){c.beginPath();c.moveTo(x,-h*.4);c.lineTo(x,h*.4);c.stroke();}c.strokeStyle=COLORS.orange;c.lineWidth=compact?2:3;c.beginPath();c.moveTo(0,-h*.42);c.lineTo(0,h*.42);c.stroke();c.fillStyle=COLORS.orange;c.fillRect(-4,-4,8,8);c.fillStyle='#d8f3ff';c.font=`${compact?7:9}px monospace`;c.fillText(item.type==='asrs'?'AS/RS':'STACKER',compact?-15:-25,3);c.restore();return true;}
     if(['source','sink','dock'].includes(item.type)){c.save();c.translate(item.x,item.y);c.fillStyle='#17334a';c.strokeStyle=COLORS.cyan;c.fillRect(-42,-20,58,40);c.strokeRect(-42,-20,58,40);c.fillRect(16,-13,24,33);c.strokeRect(16,-13,24,33);c.beginPath();c.arc(-25,23,6,0,Math.PI*2);c.arc(25,23,6,0,Math.PI*2);c.stroke();c.fillStyle='#d8f3ff';c.font='9px monospace';c.fillText(item.type==='source'?'입고':'출고',-13,4);c.restore();return true;}
-    if(['amr','agv'].includes(item.type)){const half=compact?11:22;c.save();c.translate(item.x,item.y);c.rotate(Math.PI/4);c.fillStyle='#15374a';c.strokeStyle=COLORS.yellow;c.fillRect(-half,-half,half*2,half*2);c.strokeRect(-half,-half,half*2,half*2);c.rotate(-Math.PI/4);c.fillStyle='#fff';c.font=`${compact?7:9}px monospace`;c.fillText(item.type.toUpperCase(),compact?-7:-10,3);c.restore();return true;}
+    if(['amr','agv'].includes(item.type)){const half=compact?11:18,route=item.shuttleRoute,speed=Math.max(.2,Number(item.parameters?.speed||1.2));let x=item.x,y=item.y;if(route){const distance=Math.max(1,route.end.x-route.start.x),phase=((state?.t||0)*speed*28)%(distance*2),progress=phase<=distance?phase:distance*2-phase;x=route.start.x+progress;y=route.start.y;}c.save();c.translate(x,y);c.fillStyle='#15374a';c.strokeStyle=COLORS.yellow;c.fillRect(-half,-half*.7,half*2,half*1.4);c.strokeRect(-half,-half*.7,half*2,half*1.4);c.fillStyle='#fff';c.font=`${compact?7:9}px monospace`;c.fillText(item.type.toUpperCase(),compact?-7:-10,3);c.restore();return true;}
     return false;
   }
 

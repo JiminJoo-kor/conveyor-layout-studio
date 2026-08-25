@@ -67,7 +67,7 @@ test('건축 배경은 제외하고 물류설비 레이어는 유지한다',()=>
 });
 
 test('포킹장치를 일반 컨베이어가 아닌 ASRS 이송장치로 분류한다',()=>{
-  const fork=classifyCadEntity({entityType:'TEXT',text:'포킹장치',layer:'3'});assert.equal(fork.type,'forkingDevice');assert.equal(fork.parameters.forkTime,4);
+  const fork=classifyCadEntity({entityType:'TEXT',text:'포킹장치',layer:'3'}),hp=classifyCadEntity({entityType:'TEXT',text:'H/P',layer:'3'});assert.equal(fork.type,'forkingDevice');assert.equal(fork.parameters.forkTime,4);assert.equal(hp.type,'handoffPoint');assert.equal(hp.parameters.transferTime,2);
 });
 
 test('여러 도면이 섞이면 컨베이어가 많은 주요 물류 군집을 선택한다',()=>{
@@ -95,7 +95,7 @@ test('입고·창고·AGV 단절 구간을 방향 그래프로 구성한다',()=
   const labels=['트림 라인','화이날 라인','도어 라인'].map((name,index)=>({id:`label-${index}`,type:'processLine',name,x:30,y:100+index*100}));
   const items=[...labels,
     {id:'in',type:'source',x:50,y:300},{id:'door-cv-1',type:'conveyor',x:230,y:300},{id:'agv',type:'agv',x:360,y:300},{id:'door-cv-2',type:'conveyor',x:500,y:300},
-    {id:'final-cv',type:'conveyor',x:420,y:200},{id:'trim-cv',type:'conveyor',x:420,y:100},{id:'fork',type:'forkingDevice',x:610,y:300},{id:'asrs',type:'stackerCrane',x:700,y:200,confidence:.95}
+    {id:'final-cv',type:'conveyor',x:420,y:200},{id:'trim-cv',type:'conveyor',x:420,y:100},{id:'hp-line',type:'handoffPoint',x:580,y:300},{id:'fork',type:'forkingDevice',x:610,y:300},{id:'hp-asrs',type:'handoffPoint',x:650,y:300},{id:'asrs',type:'stackerCrane',x:700,y:200,confidence:.95}
   ];
   const schematic=buildSchematicLayout(items),edgeIds=schematic.edges.flatMap(edge=>[edge.from,edge.to]);
   assert.equal(schematic.lanes.length,3);assert.equal(schematic.edges.filter(edge=>edge.kind==='warehouse').length,3);
@@ -103,7 +103,7 @@ test('입고·창고·AGV 단절 구간을 방향 그래프로 구성한다',()=
   assert.ok(schematic.edges.some(edge=>edge.to==='agv'));assert.ok(schematic.edges.some(edge=>edge.from==='agv'));
   assert.equal(schematic.inferredEquipment.length,2);assert.ok(schematic.inferredEquipment.every(item=>item.type==='agv'&&item.source.inferred));
   assert.ok(!edgeIds.some(id=>id.startsWith('label-')));
-  const positioned=normalizeSchematicPositions([...items,...schematic.inferredEquipment],schematic,1200),fork=positioned.find(item=>item.id==='fork');assert.ok(positioned.filter(item=>['agv','amr'].includes(item.type)).every(item=>item.shuttleRoute?.axis==='horizontal'));assert.equal(fork.x,995);assert.ok([125,245,475].includes(fork.y));assert.ok(schematic.edges.some(edge=>edge.kind==='forking'&&(edge.from==='fork'||edge.to==='fork')));
+  const positioned=normalizeSchematicPositions([...items,...schematic.inferredEquipment],schematic,1200),fork=positioned.find(item=>item.id==='fork'),lineHp=positioned.find(item=>item.id==='hp-line'),asrsHp=positioned.find(item=>item.id==='hp-asrs');assert.ok(positioned.filter(item=>['agv','amr'].includes(item.type)).every(item=>item.shuttleRoute?.axis==='horizontal'));assert.equal(fork.x,980);assert.ok([125,245,475].includes(fork.y));assert.equal(lineHp.x,925);assert.equal(asrsHp.x,1040);assert.ok(schematic.edges.some(edge=>edge.kind==='forking'&&(edge.from==='fork'||edge.to==='fork')));
 });
 
 test('약식 배치에서도 DXF의 상대 방향과 굴곡을 보존한다',()=>{

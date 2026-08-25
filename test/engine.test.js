@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
-import { CadFlowEngine, SimulationEngine, conveyorCargoCapacity, validateParams } from '../src/engine.js';
+import { CadFlowEngine, SimulationEngine, cadDuration, conveyorCargoCapacity, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
 
 test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
   const result = validateLayout(defaultLayout);
@@ -63,6 +63,10 @@ test('설비 사이 연결선 길이는 UPH와 CT에 영향을 주지 않는다'
 
 test('컨베이어 길이와 속도가 설비 처리 CT에 반영된다',()=>{
   const run=(length,speed)=>{const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{length,speed}},{id:'out',type:'sink',x:200,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}},{injectA:20,simDuration:60});for(let i=0;i<1200;i++)engine.step(.05);return engine.getKpis().cycleTime;};assert.ok(run(20,1)>run(10,2));
+});
+
+test('동일한 컨베이어 길이와 속도는 도형 크기와 잔여 lineSpeed에 관계없이 같은 CT를 갖는다',()=>{
+  const layout={cadSource:{units:'mm'}},a={type:'conveyor',length:40,parameters:{length:5,speed:.5,lineSpeed:120},source:{origin:'dxf',parameterLengthUnit:'m'}},b={type:'conveyor',length:400,parameters:{length:5,speed:.5},source:{origin:'dxf',parameterLengthUnit:'m'}},missing={type:'conveyor',length:400,parameters:{speed:.5},source:{origin:'dxf'}};assert.equal(equipmentSpeedMetersPerSecond(a),.5);assert.equal(cadDuration(a,layout),cadDuration(b,layout));assert.equal(equipmentLengthMeters(missing,layout),5);assert.equal(cadDuration(missing,layout),cadDuration(b,layout));
 });
 
 test('컨베이어 물류 길이에 따라 동시 적재 가능 수량을 계산한다',()=>{

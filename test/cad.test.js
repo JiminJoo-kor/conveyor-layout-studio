@@ -82,6 +82,10 @@ test('턴테이블 진행률은 물품 작업시간에 동기화된다',()=>{
   const item={id:'tt',type:'turntable',parameters:{rotationTime:8}},token={nodeId:'tt',edge:null,nodeEnteredAt:2,operationDuration:8};assert.equal(equipmentOperationProgress(item,{t:6,cadTokens:[token]}).progress,.5);
 });
 
+test('같은 컨베이어의 여러 물류는 각자 진입 시각 기준 진행률을 사용한다',()=>{
+  const item={id:'cv',type:'conveyor',parameters:{}},older={nodeId:'cv',edge:null,nodeEnteredAt:0,operationDuration:10},newer={nodeId:'cv',edge:null,nodeEnteredAt:5,operationDuration:10},state={t:7,cadTokens:[older,newer]};assert.equal(equipmentOperationProgress(item,state,older).progress,.7);assert.equal(equipmentOperationProgress(item,state,newer).progress,.2);
+});
+
 test('ASRS 재고 비율을 랙 점등 셀 수로 변환한다',()=>{
   assert.equal(asrsOccupiedSlots(0,64),0);assert.equal(asrsOccupiedSlots(16,64),4);assert.equal(asrsOccupiedSlots(64,64),16);
 });

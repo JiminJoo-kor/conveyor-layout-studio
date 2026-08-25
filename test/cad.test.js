@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { asrsOccupiedSlots, equipmentOperationProgress, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute } from '../src/renderer.js';
+import { asrsOccupiedSlots, asrsRackCells, equipmentOperationProgress, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute } from '../src/renderer.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -88,6 +88,10 @@ test('같은 컨베이어의 여러 물류는 각자 진입 시각 기준 진행
 
 test('ASRS 재고 비율을 랙 점등 셀 수로 변환한다',()=>{
   assert.equal(asrsOccupiedSlots(0,64),0);assert.equal(asrsOccupiedSlots(16,64),4);assert.equal(asrsOccupiedSlots(64,64),16);
+});
+
+test('ASRS는 품목별 실제 CELL 수와 재고 상태를 그대로 표시한다',()=>{
+  const racks=asrsRackCells({cellCount:64,zones:{트림:{inventory:2,capacity:64},화이날:{inventory:1,capacity:64},도어:{inventory:0,capacity:64}}});assert.equal(racks.length,3);assert.ok(racks.every(rack=>rack.cells.length===64));assert.deepEqual(racks.map(rack=>rack.cells.filter(Boolean).length),[2,1,0]);
 });
 
 test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{

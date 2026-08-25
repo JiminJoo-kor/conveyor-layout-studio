@@ -20,11 +20,12 @@ const inputKeys = ['injectA','injectB','injectC','conv2Speed','conv1Speed','pick
 function readParams() {
   return { useA:$('useA').checked, useB:$('useB').checked, ...Object.fromEntries(inputKeys.map(key=>[key,Number($(key).value)])) };
 }
+function syncFlowView(){const select=$('flowView'),current=select.value||'all',names=Object.keys(engine.state?.asrs?.zones||{});select.replaceChildren(new Option('전체 물류','all'),...names.map(name=>new Option(`${name}만`,name)));select.value=names.includes(current)?current:'all';renderer.setFlowFilter(select.value);}
 function resetEngine() {
   const params=readParams(), check=validateParams(params);
   $('validation').textContent=check.errors.join(' ');
   if(!check.valid) return false;
-  engine=layout.displayMode==='cad'&&layout.equipment.some(item=>item.source?.origin==='dxf')?new CadFlowEngine(layout,params):new SimulationEngine(layout,params); renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
+  engine=layout.displayMode==='cad'&&layout.equipment.some(item=>item.source?.origin==='dxf')?new CadFlowEngine(layout,params):new SimulationEngine(layout,params);syncFlowView();renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
 }
 function editorChanged(rebuild) {
   if (rebuild) renderer.setLayout(layout);
@@ -74,6 +75,7 @@ function format(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return `${Strin
 function download(name,text,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
 
 $('runBtn').addEventListener('click',toggleRun);
+$('flowView').addEventListener('change',()=>{renderer.setFlowFilter($('flowView').value);renderer.draw(engine.state);});
 $('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(frame);resetEngine();$('runBtn').textContent='시뮬레이션 시작';});
 $('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify(layout,null,2)));
 $('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hidden;$('editorTools').hidden=!active;editor.setEnabled(active);$('editorToggle').textContent=active?'편집 종료':'편집 모드';});
@@ -131,4 +133,4 @@ $('layoutFile').addEventListener('change',async event=>{
   catch(error){$('validation').textContent='레이아웃 불러오기 실패: '+error.message;} finally{event.target.value='';}
 });
 inputKeys.forEach(key=>$(key).value=defaultParams[key]); $('useA').checked=defaultParams.useA;$('useB').checked=defaultParams.useB;
-$('layoutName').textContent=layout.name;renderer.draw(engine.state);updateDashboard();renderEvents();
+$('layoutName').textContent=layout.name;syncFlowView();renderer.draw(engine.state);updateDashboard();renderEvents();

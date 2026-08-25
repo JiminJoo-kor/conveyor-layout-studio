@@ -4,6 +4,7 @@ import { connectionAnchor, edgeRoute, equipmentPorts, orthogonalRoute, pointOnRo
 export const isNodeConveyor = item => item.type === 'conveyor' && Array.isArray(item.nodes);
 export const laneTitleAnchor = nodes => nodes.find(node=>node.type==='dock'||node.type==='sink'||node.type==='source')||nodes[0];
 export const asrsOccupiedSlots=(inventory,capacity,slots=16)=>Math.min(slots,Math.ceil(slots*Math.max(0,Number(inventory)||0)/Math.max(1,Number(capacity)||1)));
+export const asrsRackCells=asrs=>Object.entries(asrs?.zones||{}).map(([name,zone])=>({name,capacity:Math.max(1,Number(zone.capacity)||Number(asrs.cellCount)||1),inventory:Math.max(0,Number(zone.inventory)||0),cells:Array.from({length:Math.max(1,Number(zone.capacity)||Number(asrs.cellCount)||1)},(_,index)=>index<Math.max(0,Number(zone.inventory)||0))}));
 
 export function mobileEquipmentRoute(layout,item){
   const edges=layout.cadSchematic?.edges||[],byId=new Map(layout.equipment.map(node=>[node.id,node])),incoming=edges.find(edge=>edge.to===item.id),outgoing=edges.find(edge=>edge.from===item.id),before=byId.get(incoming?.from),after=byId.get(outgoing?.to);
@@ -22,7 +23,7 @@ export class LayoutRenderer {
     this.view = { zoom: 1, x: 0, y: 0 };
     this.backgroundImage = null;
     this.selectedId = null;
-    this.selectedIds=new Set();this.selectedEdgeIndex=null;this.marquee=null;this.connectionMode=false;this.connectionSourceId=null;this.connectionPreview=null;this.placementPreview={type:null,point:null};
+    this.selectedIds=new Set();this.selectedEdgeIndex=null;this.marquee=null;this.connectionMode=false;this.connectionSourceId=null;this.connectionPreview=null;this.placementPreview={type:null,point:null};this.flowFilter='all';
     this.setLayout(layout);
   }
 
@@ -35,6 +36,7 @@ export class LayoutRenderer {
   setConnectionMode(value,sourceId=null){this.connectionMode=value;this.connectionSourceId=sourceId;}
   setConnectionPreview(preview){this.connectionPreview=preview;}
   setPlacementPreview(type,point){this.placementPreview={type,point};}
+  setFlowFilter(flowKey='all'){this.flowFilter=flowKey||'all';}
   async setBackground(source) {
     if (!source) { this.backgroundImage = null; return; }
     const image = new Image();
@@ -71,7 +73,7 @@ export class LayoutRenderer {
     this.drawConnectionPreview();
     this.drawMarquee();
     this.drawPlacementPreview();
-    if(this.layout.displayMode==='cad')this.drawCadFlow(state);
+    if(this.layout.displayMode==='cad')this.drawCadFlow(this.flowFilter==='all'?state:{...state,cadTokens:(state.cadTokens||[]).filter(token=>token.flowKey===this.flowFilter)});
     c.restore();
   }
 
@@ -152,7 +154,7 @@ export class LayoutRenderer {
     if(this.connectionMode){for(const item of this.layout.equipment.filter(x=>x.type!=='processLine'&&Number.isFinite(x.x)&&Number.isFinite(x.y)&&this.isVisible(x))){const active=item.id===this.connectionSourceId,ports=equipmentPorts(item);c.save();c.strokeStyle='#061019';c.lineWidth=2;for(const [name,point] of Object.entries(ports)){c.fillStyle=active?COLORS.yellow:['right','bottom'].includes(name)?COLORS.green:COLORS.cyan;c.beginPath();c.arc(point.x,point.y,active?7:6,0,Math.PI*2);c.fill();c.stroke();}c.restore();}}
   }
 
-  drawAsrsOccupancy(item,state){const asrs=state?.asrs;if(!asrs||asrs.equipmentId!==item.id)return;const c=this.ctx,zones=Object.entries(asrs.zones||{}),slots=16,cellW=7,cellH=7,gap=2,palette=[COLORS.cyan,COLORS.green,COLORS.yellow,COLORS.pink];c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);const startX=-74,startY=-48;c.fillStyle='rgba(5,18,29,.9)';c.fillRect(startX-3,startY-4,slots*(cellW+gap)+6,Math.max(1,zones.length)*(cellH+gap)+19);zones.slice(0,5).forEach(([name,zone],row)=>{const filled=asrsOccupiedSlots(zone.inventory,zone.capacity,slots);for(let column=0;column<slots;column++){const x=startX+column*(cellW+gap),y=startY+row*(cellH+gap);c.fillStyle=column<filled?palette[row%palette.length]:'#17334a';c.fillRect(x,y,cellW,cellH);c.strokeStyle=column<filled?'rgba(255,255,255,.55)':'rgba(159,197,221,.25)';c.strokeRect(x,y,cellW,cellH);}});c.fillStyle='#d8f3ff';c.font='7px monospace';c.fillText(`랙 재고 ${asrs.inventory}/${asrs.capacity}`,startX,startY+Math.max(1,zones.length)*(cellH+gap)+8);c.restore();}
+  drawAsrsOccupancy(item,state){const asrs=state?.asrs;if(!asrs||asrs.equipmentId!==item.id)return;const c=this.ctx,p=item.parameters||{},columns=Math.max(1,Math.round(Number(p.columns)||asrs.columns||8)),levels=Math.max(1,Math.round(Number(p.levels)||asrs.levels||4)),rows=Math.max(1,Math.round(Number(p.rows)||asrs.rows||2)),allZones=asrsRackCells(asrs),zones=this.flowFilter==='all'?allZones:allZones.filter(zone=>zone.name===this.flowFilter),palette=[COLORS.cyan,COLORS.green,COLORS.yellow,COLORS.pink,COLORS.orange],panelW=176,panelH=132,startX=-82,startY=-55,gridW=116,zoneGap=3,usableH=88,zoneH=Math.max(10,(usableH-zoneGap*Math.max(0,zones.length-1))/Math.max(1,zones.length)),gridRows=levels*rows,cellW=gridW/columns,cellH=zoneH/gridRows;c.save();c.translate(item.x,item.y);c.rotate((item.rotation||0)*Math.PI/180);c.fillStyle='rgba(5,18,29,.96)';c.strokeStyle=COLORS.green;c.fillRect(-panelW/2,-panelH/2,panelW,panelH);c.strokeRect(-panelW/2,-panelH/2,panelW,panelH);zones.forEach((zone,zoneIndex)=>{const y0=startY+zoneIndex*(zoneH+zoneGap),color=palette[(allZones.findIndex(entry=>entry.name===zone.name)+palette.length)%palette.length];for(let index=0;index<zone.cells.length;index++){const column=index%columns,row=Math.floor(index/columns),x=startX+column*cellW,y=y0+row*cellH;c.fillStyle=zone.cells[index]?color:'#132b3d';c.fillRect(x+.6,y+.6,Math.max(1,cellW-1.2),Math.max(1,cellH-1.2));c.strokeStyle=zone.cells[index]?'rgba(255,255,255,.5)':'rgba(159,197,221,.22)';c.strokeRect(x+.6,y+.6,Math.max(1,cellW-1.2),Math.max(1,cellH-1.2));}c.fillStyle=color;c.font='7px monospace';c.fillText(`${zone.name.replace(' 라인','').slice(0,7)}`,startX+gridW+5,y0+8);c.fillStyle='#d8f3ff';c.fillText(`${zone.inventory}/${zone.capacity}`,startX+gridW+5,y0+17);});c.fillStyle='#d8f3ff';c.font='7px monospace';c.fillText(`${levels}층 × ${columns}열 × ${rows}행 · ${allZones.length}품목`,startX,startY+usableH+13);c.fillStyle='#9ec9d8';c.fillText(this.flowFilter==='all'?`총 재고 ${asrs.inventory}/${asrs.capacity}`:`${this.flowFilter}만 표시`,startX,startY+usableH+23);c.restore();}
 
   drawConnectionPreview(){if(!this.connectionPreview)return;const {from,to,valid}=this.connectionPreview,c=this.ctx,points=orthogonalRoute(from,to);c.save();c.strokeStyle=valid?COLORS.green:COLORS.yellow;c.lineWidth=3;c.setLineDash(valid?[]:[7,5]);c.beginPath();points.forEach((point,index)=>index?c.lineTo(point.x,point.y):c.moveTo(point.x,point.y));c.stroke();c.setLineDash([]);c.fillStyle=valid?COLORS.green:COLORS.yellow;c.beginPath();c.arc(to.x,to.y,7,0,Math.PI*2);c.fill();c.restore();}
 

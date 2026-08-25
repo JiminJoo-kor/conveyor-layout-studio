@@ -4,6 +4,7 @@ export const defaultLayout = {
   schemaVersion: layoutSchemaVersion,
   id: 'conveyor-line-r1',
   name: 'Conveyor Robot Line R1',
+  cargoSpec: { length: 1.2, width: 0.8 },
   canvas: { width: 1200, height: 430, grid: 20 },
   equipment: [
     {

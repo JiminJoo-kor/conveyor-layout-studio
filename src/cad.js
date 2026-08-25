@@ -3,7 +3,7 @@ import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeom
 export const logisticsEquipmentCatalog = [
   { type:'source', label:'투입구', keywords:['INFEED','INPUT','SOURCE','FEEDER','투입'], defaults:{ injectionInterval:30, batchSize:1 } },
   { type:'sink', label:'배출구', keywords:['OUTFEED','OUTPUT','DISCHARGE','EXIT','배출'], defaults:{ dischargeTime:5, capacity:1 } },
-  { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ length:5, cargoLength:1.2, cargoWidth:.8, speed:.5 } },
+  { type:'conveyor', label:'컨베이어', keywords:['CONV','CONVEYOR','CV','BELT','ROLLER'], defaults:{ length:5, speed:.5 } },
   { type:'processLine', label:'공정 라인', keywords:['DOOR LINE','FINAL LINE','TRIM LINE','도어 라인','화이날 라인','트림 라인'], defaults:{ lineSpeed:20, pitch:5, bufferCapacity:1 } },
   { type:'diverter', label:'디버터', keywords:['DIV','DIVERTER','MERGE','SORT GATE'], defaults:{ cycleTime:1.5, directions:2 } },
   { type:'turntable', label:'턴테이블', keywords:['TURN TABLE','TURNTABLE','ROTARY TABLE','턴테이블','회전테이블'], defaults:{ rotationTime:6, positions:2 } },
@@ -31,7 +31,7 @@ export const equipmentParameterLabels = {
   ,shuttleDistance:'AGV 편도 거리(m)',loadTime:'적재 시간(초)',unloadTime:'하역 시간(초)',output1Ratio:'출력 1 분기 비율(%)',cargoLength:'물류 길이(m)',cargoWidth:'물류 폭(m)'
 };
 
-export function parameterFieldsFor(item){const defaultsByType={conveyor:{length:5,cargoLength:1.2,cargoWidth:.8,speed:.5},asrs:{levels:4,rows:3,columns:4,productTypes:3},stackerCrane:{levels:4,rows:3,columns:4,productTypes:3},agv:{speed:1.2,shuttleDistance:5,loadTime:2,unloadTime:2},amr:{speed:1.5,shuttleDistance:5,loadTime:2,unloadTime:2},turntable:{rotationTime:6,positions:2},forkingDevice:{forkTime:4,strokeDistance:1.5,loadCapacity:1000,output1Ratio:50}},parameters={...(defaultsByType[item.type]||{}),...item.parameters};if(item.type==='conveyor'){delete parameters.beltWidth;delete parameters.capacity;}return Object.entries(parameters).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value,...(key==='output1Ratio'?{min:0,max:100}:['length','cargoLength','cargoWidth'].includes(key)?{min:.1}:{} )}));}
+export function parameterFieldsFor(item){const defaultsByType={conveyor:{length:5,speed:.5},asrs:{levels:4,rows:3,columns:4,productTypes:3},stackerCrane:{levels:4,rows:3,columns:4,productTypes:3},agv:{speed:1.2,shuttleDistance:5,loadTime:2,unloadTime:2},amr:{speed:1.5,shuttleDistance:5,loadTime:2,unloadTime:2},turntable:{rotationTime:6,positions:2},forkingDevice:{forkTime:4,strokeDistance:1.5,loadCapacity:1000,output1Ratio:50}},parameters={...(defaultsByType[item.type]||{}),...item.parameters};if(item.type==='conveyor'){delete parameters.beltWidth;delete parameters.capacity;delete parameters.cargoLength;delete parameters.cargoWidth;}return Object.entries(parameters).map(([key,value])=>({key,label:equipmentParameterLabels[key]||key,value,...(key==='output1Ratio'?{min:0,max:100}:key==='length'?{min:.1}:{} )}));}
 
 const normalized = value => String(value || '').toUpperCase().replace(/[_-]+/g,' ');
 

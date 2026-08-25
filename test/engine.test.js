@@ -66,7 +66,7 @@ test('컨베이어 길이와 속도가 설비 처리 CT에 반영된다',()=>{
 });
 
 test('컨베이어 물류 길이에 따라 동시 적재 가능 수량을 계산한다',()=>{
-  const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,cargoLength:2.5,cargoWidth:1}};assert.equal(conveyorCargoCapacity(conveyor,{}),4);conveyor.parameters.cargoLength=4;assert.equal(conveyorCargoCapacity(conveyor,{}),2);
+  const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10}},layout={cargoSpec:{length:2.5,width:1}};assert.equal(conveyorCargoCapacity(conveyor,layout),4);layout.cargoSpec.length=4;assert.equal(conveyorCargoCapacity(conveyor,layout),2);
 });
 
 test('포킹장치는 설정 비율에 따라 두 출력으로 물품을 분기한다',()=>{

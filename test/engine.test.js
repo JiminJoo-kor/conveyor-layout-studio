@@ -57,6 +57,14 @@ test('CAD 흐름 그래프에서 실제 완료 기준 UPH와 CT를 계산한다'
   assert.equal(kpis.mode,'cad');assert.ok(kpis.throughput>0);assert.ok(kpis.cycleTime>0);
 });
 
+test('설비 사이 연결선 길이는 UPH와 CT에 영향을 주지 않는다',()=>{
+  const makeLayout=x=>({equipment:[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'cv',type:'conveyor',x,y:0,length:100,source:{origin:'dxf'},parameters:{length:10,speed:2}},{id:'out',type:'sink',x:x*2,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}}),run=x=>{const engine=new CadFlowEngine(makeLayout(x),{injectA:2,simDuration:40});for(let i=0;i<800;i++)engine.step(.05);return engine.getKpis();},near=run(100),far=run(10000);assert.equal(far.throughput,near.throughput);assert.equal(far.cycleTime,near.cycleTime);
+});
+
+test('컨베이어 길이와 속도가 설비 처리 CT에 반영된다',()=>{
+  const run=(length,speed)=>{const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{length,speed}},{id:'out',type:'sink',x:200,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}},{injectA:20,simDuration:60});for(let i=0;i<1200;i++)engine.step(.05);return engine.getKpis().cycleTime;};assert.ok(run(20,1)>run(10,2));
+});
+
 test('출고 트럭은 설정 수량이 적재되면 출발한다',()=>{
   const equipment=[{id:'asrs',type:'stackerCrane',x:0,y:0,source:{origin:'dxf'},parameters:{rows:1,columns:10,levels:1}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{speed:10}},{id:'amr',type:'amr',x:200,y:0,source:{origin:'dxf'},parameters:{speed:10,shuttleDistance:1,loadTime:.1,unloadTime:.1}},{id:'truck',type:'dock',x:300,y:0,source:{origin:'dxf'},parameters:{dockRole:'outbound',truckCapacity:2,processTime:.1}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'asrs',to:'cv'},{from:'cv',to:'amr'},{from:'amr',to:'truck'}]}},{injectA:1,simDuration:30});for(let i=0;i<600;i++)engine.step(.05);assert.ok(engine.state.outboundTrucks.truck.departures>0);assert.ok(engine.state.events.some(event=>event.type==='truck-departed'));
 });

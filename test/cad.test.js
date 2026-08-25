@@ -90,6 +90,10 @@ test('포킹장치는 출력 1 분기 비율을 기본 50%로 제공한다',()=>
   const fields=parameterFieldsFor({type:'forkingDevice',parameters:{forkTime:3}}),ratio=fields.find(field=>field.key==='output1Ratio');assert.equal(ratio.value,50);assert.equal(ratio.min,0);assert.equal(ratio.max,100);
 });
 
+test('컨베이어는 화면 크기와 분리된 실제 길이 파라미터를 제공한다',()=>{
+  const fields=parameterFieldsFor({type:'conveyor',length:90,parameters:{speed:.5}}),length=fields.find(field=>field.key==='length');assert.equal(length.value,5);assert.equal(length.label,'실제 길이(m)');assert.equal(length.min,.1);
+});
+
 test('포킹장치를 일반 컨베이어가 아닌 ASRS 이송장치로 분류한다',()=>{
   const fork=classifyCadEntity({entityType:'TEXT',text:'포킹장치',layer:'3'}),hp=classifyCadEntity({entityType:'TEXT',text:'H/P',layer:'3'}),turntable=classifyCadEntity({entityType:'CIRCLE',radius:1200,layer:'0'});assert.equal(fork.type,'forkingDevice');assert.equal(fork.parameters.forkTime,4);assert.equal(hp.type,'handoffPoint');assert.equal(hp.parameters.transferTime,2);assert.equal(turntable.type,'turntable');assert.equal(turntable.parameters.rotationTime,6);
 });

@@ -56,3 +56,7 @@ test('CAD 흐름 그래프에서 실제 완료 기준 UPH와 CT를 계산한다'
   const engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}},{injectA:2,simDuration:20});for(let i=0;i<400;i++)engine.step(.05);const kpis=engine.getKpis();
   assert.equal(kpis.mode,'cad');assert.ok(kpis.throughput>0);assert.ok(kpis.cycleTime>0);
 });
+
+test('출고 트럭은 설정 수량이 적재되면 출발한다',()=>{
+  const equipment=[{id:'asrs',type:'stackerCrane',x:0,y:0,source:{origin:'dxf'},parameters:{rows:1,columns:10,levels:1}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{speed:10}},{id:'amr',type:'amr',x:200,y:0,source:{origin:'dxf'},parameters:{speed:10,shuttleDistance:1,loadTime:.1,unloadTime:.1}},{id:'truck',type:'dock',x:300,y:0,source:{origin:'dxf'},parameters:{dockRole:'outbound',truckCapacity:2,processTime:.1}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'asrs',to:'cv'},{from:'cv',to:'amr'},{from:'amr',to:'truck'}]}},{injectA:1,simDuration:30});for(let i=0;i<600;i++)engine.step(.05);assert.ok(engine.state.outboundTrucks.truck.departures>0);assert.ok(engine.state.events.some(event=>event.type==='truck-departed'));
+});

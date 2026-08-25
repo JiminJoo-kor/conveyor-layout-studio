@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
-import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, cargoSpec, conveyorCargoCapacity, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
+import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, canEquipmentHandleCargo, cargoSpec, conveyorCargoCapacity, equipmentAvailabilityFactor, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
 
 test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
   const result = validateLayout(defaultLayout);
@@ -75,7 +75,7 @@ test('컨베이어 물류 길이에 따라 동시 적재 가능 수량을 계산
 
 test('mm 물류 규격은 m로 변환되어 컨베이어 용량과 통과시간에 반영된다',()=>{
   const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,speed:1}},layout={cargoSpec:{length:2500,width:1200,unit:'mm'}};
-  assert.deepEqual(cargoSpec(layout),{length:2.5,width:1.2,unit:'m'});
+  assert.deepEqual(cargoSpec(layout),{length:2.5,width:1.2,weight:100,unit:'m'});
   assert.equal(conveyorCargoCapacity(conveyor,layout),4);
   assert.equal(cadDuration(conveyor,layout),12.5);
 });
@@ -139,4 +139,11 @@ test('ASRS 사이클은 목표 열과 층, 상승·하강 속도를 반영한다
   assert.ok(asrsCycleDuration(item,{slotIndex:63,operation:'putaway'})>asrsCycleDuration(item,{slotIndex:0,operation:'putaway'}));
   assert.notEqual(asrsCycleDuration(item,{slotIndex:17,operation:'putaway'}),asrsCycleDuration(item,{slotIndex:17,operation:'retrieval'}));
   assert.ok(acceleratedTravelTime(10,2,1)>0);
+});
+
+test('물류 중량과 설비 허용하중, 가동률·운전효율을 현장 보정에 반영한다',()=>{
+  const layout={cargoSpec:{length:1200,width:800,weight:800,unit:'mm'}},conveyor={type:'conveyor',parameters:{length:5,speed:1,loadCapacity:700,availability:80,efficiency:75}};
+  assert.equal(canEquipmentHandleCargo(conveyor,layout),false);
+  assert.ok(Math.abs(equipmentAvailabilityFactor(conveyor)-.6)<1e-9);
+  assert.ok(Math.abs(cadDuration(conveyor,layout)-(6.2/.6))<1e-9);
 });

@@ -38,7 +38,7 @@ test('DXF 선형 후보에 실제 길이와 회전각을 보존한다',()=>{
 test('투입구와 설비별 파라미터 필드를 생성한다',()=>{
   const source=classifyCadEntity({layer:'MHE_INFEED_01'});
   assert.equal(source.type,'source');assert.equal(source.parameters.injectionInterval,30);
-  const fields=parameterFieldsFor({parameters:source.parameters});assert.equal(fields.length,2);assert.equal(fields[0].label,'투입 간격(초)');
+  const fields=parameterFieldsFor({parameters:source.parameters});assert.equal(fields.length,4);assert.equal(fields[0].label,'투입 간격(초)');assert.equal(fields.find(field=>field.key==='availability').value,100);
 });
 
 test('DXF 원본 선형을 캔버스 좌표의 라인워크로 변환한다',()=>{
@@ -107,7 +107,7 @@ test('ASRS 내부 적재 물류는 사각형 토큰으로 중복 표시하지 �
 });
 
 test('물류 규격은 화면에서도 mm 저장값을 m 크기로 정규화한다',()=>{
-  assert.deepEqual(normalizedCargoSpec({cargoSpec:{length:1200,width:800,unit:'mm'}}),{length:1.2,width:.8,lengthMm:1200,widthMm:800});
+  assert.deepEqual(normalizedCargoSpec({cargoSpec:{length:1200,width:800,unit:'mm'}}),{length:1.2,width:.8,weight:100,lengthMm:1200,widthMm:800});
 });
 
 test('기존 ASRS 후보에도 적재 구조와 물품 구분 설정 필드를 제공한다',()=>{

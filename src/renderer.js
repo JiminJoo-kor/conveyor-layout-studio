@@ -7,6 +7,7 @@ export const laneTitleAnchor = nodes => nodes.find(node=>node.type==='dock'||nod
 export const asrsOccupiedSlots=(inventory,capacity,slots=16)=>Math.min(slots,Math.ceil(slots*Math.max(0,Number(inventory)||0)/Math.max(1,Number(capacity)||1)));
 export const asrsRackCells=asrs=>Object.entries(asrs?.zones||{}).map(([name,zone])=>({name,capacity:Math.max(1,Number(zone.capacity)||Number(asrs.cellCount)||1),inventory:Math.max(0,Number(zone.inventory)||0),cells:Array.from({length:Math.max(1,Number(zone.capacity)||Number(asrs.cellCount)||1)},(_,index)=>index<Math.max(0,Number(zone.inventory)||0))}));
 export const flowColor=(flowKey='',flowIndex)=>{const index=Number.isInteger(flowIndex)?flowIndex:[...String(flowKey)].reduce((sum,char)=>sum+char.codePointAt(0),0);return FLOW_COLORS[Math.abs(index)%FLOW_COLORS.length];};
+export const shouldDrawCadToken=(token,node)=>Boolean(token?.edge)||!['asrs','stackerCrane'].includes(node?.type);
 
 export function mobileEquipmentRoute(layout,item){
   const edges=layout.cadSchematic?.edges||[],byId=new Map(layout.equipment.map(node=>[node.id,node])),incoming=edges.find(edge=>edge.to===item.id),outgoing=edges.find(edge=>edge.from===item.id),before=byId.get(incoming?.from),after=byId.get(outgoing?.to);
@@ -75,7 +76,7 @@ export class LayoutRenderer {
     this.drawConnectionPreview();
     this.drawMarquee();
     this.drawPlacementPreview();
-    if(this.layout.displayMode==='cad')this.drawCadFlow(this.flowFilter==='all'?state:{...state,cadTokens:(state.cadTokens||[]).filter(token=>token.flowKey===this.flowFilter)});
+    if(this.layout.displayMode==='cad'){const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cadTokens=(state.cadTokens||[]).filter(token=>(this.flowFilter==='all'||token.flowKey===this.flowFilter)&&shouldDrawCadToken(token,nodes.get(token.nodeId)));this.drawCadFlow({...state,cadTokens});}
     c.restore();
   }
 

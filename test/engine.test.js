@@ -65,6 +65,10 @@ test('시각적 핸드오버 시간은 다음 설비 readyAt과 CT·UPH를 지�
   const run=length=>{const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2,speed:.5}},{id:'out',type:'sink',x:10000,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({cargoSpec:{length,width:1},equipment,cadSchematic:{edges:[{from:'in',to:'out'}]}},{injectA:2,simDuration:20});for(let i=0;i<400;i++)engine.step(.05);return engine.getKpis();},short=run(.2),long=run(20);assert.equal(long.throughput,short.throughput);assert.equal(long.cycleTime,short.cycleTime);
 });
 
+test('Zero-Delay 핸드오버는 Outfeed와 Infeed 센서를 같은 시각에 발생시킨다',()=>{
+  const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'out',type:'sink',x:10000,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'out'}]}},{injectA:10,simDuration:2});for(let i=0;i<100;i++)engine.step(.02);const outfeed=engine.state.events.find(event=>event.type==='sensor-outfeed'),infeed=engine.state.events.find(event=>event.type==='sensor-infeed');assert.ok(outfeed);assert.ok(infeed);assert.equal(outfeed.t,infeed.t);assert.equal(outfeed.equipmentId,'in');assert.equal(infeed.equipmentId,'out');
+});
+
 test('운전 성능계수는 실제 운동 완료와 CT에 반영된다',()=>{
   const run=performance=>{const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{length:8,speed:2,acceleration:2,deceleration:2,jerk:4,performance}},{id:'out',type:'sink',x:200,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({cargoSpec:{length:1,width:.8,weight:100},equipment,cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}},{injectA:30,simDuration:40});for(let i=0;i<800;i++)engine.step(.05);return engine.getKpis().cycleTime;};assert.ok(run(.5)>run(1));
 });

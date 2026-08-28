@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration } from '../src/kinematics.js';
-import { handoverProgress, handoverVisualSegments, intervalsOverlap, itemVisualLength, OccupancyManager } from '../src/occupancy.js';
+import { handoverProgress, handoverScale, handoverVisualSegments, intervalsOverlap, itemVisualLength, OccupancyManager, rigidHandoverVisualState, smoothedVelocityProgress } from '../src/occupancy.js';
 import { scaleRatioItemVisualSize } from '../src/renderer.js';
 
 test('S-Curve는 jerk로 가속도 변화량을 제한하고 정지까지 FSM을 추적한다',()=>{const motion=new KinematicMotion({targetSpeed:2,acceleration:1,deceleration:1,jerk:2});motion.step(.1,{distance:5});assert.ok(Math.abs(motion.acceleration-.2)<1e-9);assert.equal(motion.state,MotionState.ACCELERATING);for(let i=0;i<1000&&motion.position<5;i++)motion.step(.01,{distance:5});assert.equal(motion.position,5);assert.equal(motion.velocity,0);assert.equal(motion.state,MotionState.STOPPED);});
@@ -17,3 +17,5 @@ test('공통 설비 표시 크기에서 실제 길이 비율대로 물류 크기
 test('점유 관리자는 물류 길이와 안전간격을 포함해 후속 진입을 인터락한다',()=>{const manager=new OccupancyManager();manager.reserve('a','cv',2,1,.2);assert.equal(manager.canOccupy('b','cv',2.9,1,.2),false);assert.equal(manager.canOccupy('b','cv',4,1,.2),true);manager.release('a','cv');assert.equal(manager.canOccupy('b','cv',2.9,1,.2),true);assert.equal(intervalsOverlap({start:0,end:1},{start:1,end:2}),false);});
 
 test('핸드오버는 head 진입부터 tail 이탈까지 양 설비 표시 길이를 연속 분할한다',()=>{assert.equal(handoverProgress(.5,1,1),.5);assert.deepEqual(handoverVisualSegments(.25,100),{sourceLength:75,targetLength:25});assert.deepEqual(handoverVisualSegments(1,100),{sourceLength:0,targetLength:100});});
+test('핸드오버 스케일은 점유 비율을 smoothstep 보간하고 하나의 강체 길이를 유지한다',()=>{assert.deepEqual(handoverScale(0,20,100),{sourceWeight:1,targetWeight:0,scale:20});assert.deepEqual(handoverScale(1,20,100),{sourceWeight:0,targetWeight:1,scale:100});const middle=rigidHandoverVisualState(.5,1,20,100,20,100);assert.equal(middle.visualLength,60);assert.equal(middle.sourceWeight,.5);assert.equal(middle.targetWeight,.5);});
+test('화면 속도 보간 진행률은 양 끝을 보존하고 속도 차이를 연속적으로 누적한다',()=>{assert.equal(smoothedVelocityProgress(0,20,100),0);assert.equal(smoothedVelocityProgress(1,20,100),1);const early=smoothedVelocityProgress(.25,20,100),late=smoothedVelocityProgress(.75,20,100);assert.ok(early>0&&early<.25);assert.ok(late>.5&&late<1);});

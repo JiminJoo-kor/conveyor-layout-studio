@@ -12,3 +12,7 @@ export class OccupancyManager {
 
 export const handoverProgress=(elapsed,itemLength,speed)=>Math.max(0,Math.min(1,elapsed/Math.max(.001,itemLength/Math.max(.001,speed))));
 export const handoverVisualSegments=(progress,visualLength)=>{const entered=Math.max(0,Math.min(1,progress))*visualLength;return{sourceLength:Math.max(0,visualLength-entered),targetLength:entered};};
+export const smoothstep=value=>{const t=Math.max(0,Math.min(1,Number(value)||0));return t*t*(3-2*t);};
+export const handoverScale=(progress,sourceScale,targetScale)=>{const targetWeight=smoothstep(progress),sourceWeight=1-targetWeight;return{sourceWeight,targetWeight,scale:Math.max(.001,sourceScale*sourceWeight+targetScale*targetWeight)};};
+export const smoothedVelocityProgress=(progress,sourceVelocity,targetVelocity)=>{const t=Math.max(0,Math.min(1,Number(progress)||0)),v0=Math.max(.001,Number(sourceVelocity)||.001),v1=Math.max(.001,Number(targetVelocity)||.001),integral=v0*t+(v1-v0)*(t*t*t-.5*t*t*t*t),total=(v0+v1)/2;return Math.max(0,Math.min(1,integral/Math.max(.001,total)));};
+export const rigidHandoverVisualState=(progress,itemPhysicalLength,sourceScale,targetScale,sourceVelocity,targetVelocity)=>{const scaleState=handoverScale(progress,sourceScale,targetScale);return{...scaleState,visualLength:Math.max(1,itemPhysicalLength*scaleState.scale),routeProgress:smoothedVelocityProgress(progress,sourceVelocity,targetVelocity),visualVelocity:sourceVelocity*scaleState.sourceWeight+targetVelocity*scaleState.targetWeight};};

@@ -61,6 +61,14 @@ test('설비 사이 연결선 길이는 UPH와 CT에 영향을 주지 않는다'
   const makeLayout=x=>({equipment:[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'cv',type:'conveyor',x,y:0,length:100,source:{origin:'dxf'},parameters:{length:10,speed:2}},{id:'out',type:'sink',x:x*2,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}}),run=x=>{const engine=new CadFlowEngine(makeLayout(x),{injectA:2,simDuration:40});for(let i=0;i<800;i++)engine.step(.05);return engine.getKpis();},near=run(100),far=run(10000);assert.equal(far.throughput,near.throughput);assert.equal(far.cycleTime,near.cycleTime);
 });
 
+test('시각적 핸드오버 시간은 다음 설비 readyAt과 CT·UPH를 지연하지 않는다',()=>{
+  const run=length=>{const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2,speed:.5}},{id:'out',type:'sink',x:10000,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({cargoSpec:{length,width:1},equipment,cadSchematic:{edges:[{from:'in',to:'out'}]}},{injectA:2,simDuration:20});for(let i=0;i<400;i++)engine.step(.05);return engine.getKpis();},short=run(.2),long=run(20);assert.equal(long.throughput,short.throughput);assert.equal(long.cycleTime,short.cycleTime);
+});
+
+test('운전 성능계수는 실제 운동 완료와 CT에 반영된다',()=>{
+  const run=performance=>{const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{length:8,speed:2,acceleration:2,deceleration:2,jerk:4,performance}},{id:'out',type:'sink',x:200,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({cargoSpec:{length:1,width:.8,weight:100},equipment,cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}},{injectA:30,simDuration:40});for(let i=0;i<800;i++)engine.step(.05);return engine.getKpis().cycleTime;};assert.ok(run(.5)>run(1));
+});
+
 test('컨베이어 길이와 속도가 설비 처리 CT에 반영된다',()=>{
   const run=(length,speed)=>{const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.2}},{id:'cv',type:'conveyor',x:100,y:0,source:{origin:'dxf'},parameters:{length,speed}},{id:'out',type:'sink',x:200,y:0,source:{origin:'dxf'},parameters:{dischargeTime:.2}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'out'}]}},{injectA:20,simDuration:60});for(let i=0;i<1200;i++)engine.step(.05);return engine.getKpis().cycleTime;};assert.ok(run(20,1)>run(10,2));
 });

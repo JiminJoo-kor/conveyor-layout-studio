@@ -87,7 +87,7 @@ export class LayoutRenderer {
     this.drawConnectionPreview();
     this.drawMarquee();
     this.drawPlacementPreview();
-    if(this.layout.displayMode==='cad'){const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cadTokens=(state.cadTokens||[]).filter(token=>(this.flowFilter==='all'||token.flowKey===this.flowFilter)&&shouldDrawCadToken(token,nodes.get(token.nodeId)));this.drawCadFlow({...state,cadTokens});this.drawHandoverOverlay({...state,cadTokens});}
+    if(this.layout.displayMode==='cad'){const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cadTokens=(state.cadTokens||[]).filter(token=>(this.flowFilter==='all'||token.flowKey===this.flowFilter)&&shouldDrawCadToken(token,nodes.get(token.nodeId)));this.drawCadFlow({...state,cadTokens});}
     c.restore();
   }
 
@@ -200,7 +200,6 @@ export class LayoutRenderer {
     if(state.cadTokens){
       const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cargo=normalizedCargoSpec(this.layout),metrics=stableCargoVisualMetrics(this.layout,cargo,this.layout.cadViewMode==='hybrid'?58:78);
       for(const token of state.cadTokens){
-        const handover=this.handoverDescriptor(token,state,nodes,cargo);if(handover?.source&&handover?.target)continue;
         const fromNode=nodes.get(token.edge?.from||token.nodeId),toNode=nodes.get(token.edge?.to||token.nodeId);if(!fromNode||!toNode)continue;
         let point,cargoW=metrics.visualLength,cargoH=metrics.visualWidth,cargoAngle=0,clipItem=null;
         if(!token.edge&&['agv','amr'].includes(fromNode.type)){const route=mobileEquipmentRoute(this.layout,fromNode),operation=equipmentOperationProgress(fromNode,state,token);point=route?pointOnRoute(route.points||[route.start,route.end],operation.progress):{x:fromNode.x,y:fromNode.y};}

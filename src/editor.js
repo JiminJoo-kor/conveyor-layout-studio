@@ -1,10 +1,10 @@
-import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipmentDirectionControls, equipmentPorts } from './route.js';
+import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipmentDirectionControls, equipmentFlowPorts, equipmentPorts } from './route.js';
 
 const movable = item => Number.isFinite(item?.x) && Number.isFinite(item?.y);
 export const snapUnit=value=>Math.round(Number(value)||0);
 export const isSelectedEdgeHit=(selectedIndex,hit)=>Number.isInteger(selectedIndex)&&hit?.index===selectedIndex;
 
-export function setEquipmentFlowDirection(layout,id,direction){const item=layout.equipment.find(node=>node.id===id),edges=layout.cadSchematic?.edges||[];if(!item||!['left','right','up','down'].includes(direction))return 0;item.parameters??={};item.parameters.flowDirection=direction;const horizontal=['left','right'].includes(direction),positive=['right','down'].includes(direction);let changed=0;for(const edge of edges){if(edge.from!==id&&edge.to!==id)continue;const neighbor=layout.equipment.find(node=>node.id===(edge.from===id?edge.to:edge.from));if(!neighbor)continue;const delta=horizontal?neighbor.x-item.x:neighbor.y-item.y,wantsOutgoing=positive?delta>0:delta<0,isOutgoing=edge.from===id;if(wantsOutgoing===isOutgoing)continue;[edge.from,edge.to]=[edge.to,edge.from];[edge.fromPort,edge.toPort]=[edge.toPort,edge.fromPort];changed++;}return changed;}
+export function setEquipmentFlowDirection(layout,id,direction){const item=layout.equipment.find(node=>node.id===id),edges=layout.cadSchematic?.edges||[];if(!item||!['left','right','up','down'].includes(direction))return 0;item.parameters??={};item.parameters.flowDirection=direction;const horizontal=['left','right'].includes(direction),positive=['right','down'].includes(direction),flowPorts=equipmentFlowPorts(item,direction);let changed=0;for(const edge of edges){if(edge.from!==id&&edge.to!==id)continue;const neighbor=layout.equipment.find(node=>node.id===(edge.from===id?edge.to:edge.from));if(!neighbor)continue;const delta=horizontal?neighbor.x-item.x:neighbor.y-item.y,wantsOutgoing=positive?delta>0:delta<0,isOutgoing=edge.from===id;if(wantsOutgoing!==isOutgoing){[edge.from,edge.to]=[edge.to,edge.from];[edge.fromPort,edge.toPort]=[edge.toPort,edge.fromPort];changed++;}if(edge.from===id)edge.fromPort=flowPorts.output;else edge.toPort=flowPorts.input;}return changed;}
 
 export function itemsInRect(items,start,end){const left=Math.min(start.x,end.x),right=Math.max(start.x,end.x),top=Math.min(start.y,end.y),bottom=Math.max(start.y,end.y);return items.filter(item=>movable(item)&&item.type!=='processLine'&&item.x>=left&&item.x<=right&&item.y>=top&&item.y<=bottom);}
 
@@ -24,8 +24,8 @@ export function insertEquipmentIntoNearestEdge(layout,item,maxDistance=58){
 }
 
 export function refreshEquipmentConnections(layout,id){
-  const item=layout.equipment.find(node=>node.id===id);if(!item)return 0;const byId=new Map(layout.equipment.map(node=>[node.id,node]));let changed=0;
-  for(const edge of layout.cadSchematic?.edges||[]){if(edge.from!==id&&edge.to!==id)continue;const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)continue;if(edge.manual&&edge.fromPort&&edge.toPort){changed++;continue;}const ports=closestPortPair(from,to);edge.fromPort=edge.from===id?'right':ports.fromPort;edge.toPort=edge.to===id?'left':ports.toPort;changed++;}
+  const item=layout.equipment.find(node=>node.id===id);if(!item)return 0;const byId=new Map(layout.equipment.map(node=>[node.id,node])),flowPorts=equipmentFlowPorts(item);let changed=0;
+  for(const edge of layout.cadSchematic?.edges||[]){if(edge.from!==id&&edge.to!==id)continue;const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)continue;if(edge.manual&&edge.fromPort&&edge.toPort){if(item.parameters?.flowDirection){if(edge.from===id)edge.fromPort=flowPorts.output;else edge.toPort=flowPorts.input;}changed++;continue;}const ports=closestPortPair(from,to);edge.fromPort=edge.from===id?flowPorts.output:ports.fromPort;edge.toPort=edge.to===id?flowPorts.input:ports.toPort;changed++;}
   return changed;
 }
 

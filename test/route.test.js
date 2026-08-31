@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipmentDirectionControls, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from '../src/route.js';
+import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipmentDirectionControls, equipmentFlowPorts, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from '../src/route.js';
 
 test('대각선 설비 사이 물류는 직교 꺾임 경로를 따라 이동한다',()=>{
   const points=orthogonalRoute({x:0,y:0},{x:100,y:100});
@@ -12,6 +12,7 @@ test('가로 설비는 좌우, 세로 설비는 위아래 방향 버튼을 표�
   assert.deepEqual(equipmentDirectionControls({x:100,y:100,rotation:0}).map(item=>item.direction),['left','right']);
   assert.deepEqual(equipmentDirectionControls({x:100,y:100,rotation:90}).map(item=>item.direction),['up','down']);
 });
+test('회전된 설비도 선택한 화살표 방향을 출력, 반대쪽을 입력 포트로 사용한다',()=>{assert.deepEqual(equipmentFlowPorts({x:0,y:0,rotation:0,parameters:{flowDirection:'left'}}),{input:'right',output:'left'});assert.deepEqual(equipmentFlowPorts({x:0,y:0,rotation:180,parameters:{flowDirection:'left'}}),{input:'left',output:'right'});assert.deepEqual(equipmentFlowPorts({x:0,y:0,rotation:90,parameters:{flowDirection:'down'}}),{input:'left',output:'right'});});
 
 test('설비 연결 시 가장 가까운 회전 포트를 자동 선택한다',()=>{
   const from={x:0,y:0,rotation:0},to={x:200,y:0,rotation:90},pair=closestPortPair(from,to);assert.equal(pair.fromPort,'right');assert.ok(['left','right'].includes(pair.toPort));const anchor=connectionAnchor(from,pair.fromPort);assert.deepEqual(anchor,{x:44,y:0});

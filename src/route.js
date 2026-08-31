@@ -44,6 +44,13 @@ export function equipmentDirectionControls(item,distance=64){
     :[{direction:'left',label:'←',x:item.x-distance,y:item.y},{direction:'right',label:'→',x:item.x+distance,y:item.y}];
 }
 
+export function equipmentFlowPorts(item,direction=item?.parameters?.flowDirection){
+  const vectors={left:{x:-1,y:0},right:{x:1,y:0},up:{x:0,y:-1},down:{x:0,y:1}},wanted=vectors[direction];
+  if(!wanted)return{input:'left',output:'right'};
+  const ports=equipmentPorts(item),output=Object.entries(ports).sort((a,b)=>((b[1].x-item.x)*wanted.x+(b[1].y-item.y)*wanted.y)-((a[1].x-item.x)*wanted.x+(a[1].y-item.y)*wanted.y))[0][0],opposite={left:'right',right:'left',top:'bottom',bottom:'top'};
+  return{input:opposite[output],output};
+}
+
 export function connectionAnchor(item,port){return port&&equipmentPorts(item)[port]||{x:item.x,y:item.y};}
 
 export function closestPortPair(from,to){

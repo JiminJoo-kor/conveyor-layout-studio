@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
-import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, canEquipmentHandleCargo, cargoSpec, conveyorCargoCapacity, equipmentAvailabilityFactor, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
+import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, canEquipmentHandleCargo, cargoSpec, conveyorCargoCapacity, conveyorEntryPosition, equipmentAvailabilityFactor, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
 
 test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
   const result = validateLayout(defaultLayout);
@@ -84,6 +84,7 @@ test('동일한 컨베이어 길이와 속도는 도형 크기와 잔여 lineSpe
 test('컨베이어 물류 길이에 따라 동시 적재 가능 수량을 계산한다',()=>{
   const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10}},layout={cargoSpec:{length:2.5,width:1}};assert.equal(conveyorCargoCapacity(conveyor,layout),4);layout.cargoSpec.length=4;assert.equal(conveyorCargoCapacity(conveyor,layout),2);
 });
+test('물류보다 짧은 다음 컨베이어에 도착해도 진입 좌표가 설비 중심을 지나 사라지지 않는다',()=>{const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:.8}},layout={cargoSpec:{length:1.2,width:.8}};assert.equal(conveyorEntryPosition(conveyor,layout),1);const normal={...conveyor,parameters:{length:5}};assert.equal(conveyorEntryPosition(normal,layout),1.2);});
 
 test('mm 물류 규격은 m로 변환되어 컨베이어 용량과 통과시간에 반영된다',()=>{
   const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,speed:1}},layout={cargoSpec:{length:2500,width:1200,unit:'mm'}};

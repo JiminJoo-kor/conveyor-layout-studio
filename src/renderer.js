@@ -88,7 +88,7 @@ export class LayoutRenderer {
     this.drawConnectionPreview();
     this.drawMarquee();
     this.drawPlacementPreview();
-    if(this.layout.displayMode==='cad'){const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cadTokens=(state.cadTokens||[]).filter(token=>(this.flowFilter==='all'||token.flowKey===this.flowFilter)&&shouldDrawCadToken(token,nodes.get(token.nodeId)));this.drawCadFlow({...state,cadTokens});}
+    if(this.layout.displayMode==='cad'){const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cadTokens=(state.cadTokens||[]).filter(token=>(this.flowFilter==='all'||token.flowKey===this.flowFilter)&&shouldDrawCadToken(token,nodes.get(token.nodeId))),visibleState={...state,cadTokens};this.drawCadFlow(visibleState);this.drawHandoverOverlay(visibleState);}
     c.restore();
   }
 

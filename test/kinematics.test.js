@@ -10,6 +10,8 @@ test('운행 중 목표속도 변경은 위치 순간이동 없이 현재 v와 a
 
 test('고정 dt 운동 결과는 프레임 묶음 방식과 무관하다',()=>{const a=new KinematicMotion({targetSpeed:1.5,acceleration:.8,deceleration:1,jerk:1.5}),b=new KinematicMotion({targetSpeed:1.5,acceleration:.8,deceleration:1,jerk:1.5});for(let i=0;i<500;i++)a.step(.02,{distance:100});for(let frame=0;frame<100;frame++)for(let i=0;i<5;i++)b.step(.02,{distance:100});assert.deepEqual(a.snapshot(),b.snapshot());assert.ok(kinematicTravelDuration(10,{targetSpeed:1,acceleration:.8,deceleration:1,jerk:1.5})>10);});
 
+test('연속 컨베이어 경계에서는 모션이 정지하지 않고 속도를 유지한다',()=>{const motion=new KinematicMotion({targetSpeed:1,acceleration:2,deceleration:2,jerk:10},{velocity:1});for(let i=0;i<20;i++)motion.step(.02,{distance:.2,stopAtEnd:false});const state=motion.snapshot();assert.equal(state.position,.2);assert.ok(state.velocity>.9);assert.notEqual(state.state,MotionState.STOPPED);});
+
 test('MTBF/MTTR 모델은 같은 seed와 dt에서 동일한 정지 이벤트를 만든다',()=>{const params={mtbf:2,mttr:.5,microStopInterval:3,microStopDuration:.1},a=new DeterministicReliability(42),b=new DeterministicReliability(42),statesA=[],statesB=[];for(let i=0;i<500;i++){statesA.push(a.step(.02,params).available);statesB.push(b.step(.02,params).available);}assert.deepEqual(statesA,statesB);assert.ok(statesA.includes(false));});
 
 test('공통 설비 표시 크기에서 실제 길이 비율대로 물류 크기를 계산한다',()=>{assert.equal(itemVisualLength(200,1,10),20);assert.equal(itemVisualLength(200,1,2),100);assert.equal(scaleRatioItemVisualSize(200,1,2),100);});

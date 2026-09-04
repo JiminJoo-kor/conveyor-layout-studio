@@ -14,6 +14,7 @@ let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, f
 let selectedEquipment = null;
 let selectedConnectionIndex = null;
 let pendingCadCandidates = [];
+let flowLegendSignature='';
 const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment, connectEquipment, editorModeChanged, selectConnection);
 const cadParameterSection=document.createElement('section');cadParameterSection.id='cadEquipmentParameters';cadParameterSection.className='cad-parameter-section';cadParameterSection.hidden=true;
 $('dynamicEquipmentControls').append(cadParameterSection);
@@ -31,7 +32,8 @@ function writeParams(params={}){const values={...defaultParams,...params};for(co
 function updateProjectStatus(){projectStatus.textContent=`현재 프로젝트 · ${layout.id==='empty-layout'?'없음':layout.name}`;}
 function setProjectEmpty(value){document.body.classList.toggle('project-empty',value);emptyProjectState.hidden=!value;$('layoutName').textContent=value?'파일을 열어주세요':layout.name;updateProjectStatus();}
 function ensureCargoSpecMm(target=layout){const source=target.cargoSpec||{},legacyMeters=source.unit!=='mm'&&Number(source.length||0)<=20&&Number(source.width||0)<=20,scale=legacyMeters?1000:1;target.cargoSpec={length:Math.max(1,Number(source.length||(legacyMeters?1.2:1200))*scale),width:Math.max(1,Number(source.width||(legacyMeters ? .8 : 800))*scale),weight:Math.max(.01,Number(source.weight||100)),unit:'mm'};return target.cargoSpec;}
-function syncFlowView(){const select=$('flowView'),current=select.value||'all',names=Object.keys(engine.state?.asrs?.zones||{});select.replaceChildren(new Option('전체 물류','all'),...names.map(name=>new Option(`${name}만`,name)));select.value=names.includes(current)?current:'all';renderer.setFlowFilter(select.value);const legend=$('flowLegend');legend.replaceChildren(...names.map((name,index)=>{const entry=document.createElement('span'),swatch=document.createElement('i'),label=document.createTextNode(name);swatch.style.background=flowColor(name,index);swatch.style.color=flowColor(name,index);entry.append(swatch,label);return entry;}));}
+function updateFlowLegend(){const names=Object.keys(engine.state?.asrs?.zones||{}),tokens=engine.state?.cadTokens||[],pairs=new Map();for(const token of tokens){const line=token.flowKey,cargo=token.cargoType||token.originFlowKey||line;if(line&&cargo&&cargo!==line)pairs.set(`${cargo}|${line}`,token);}const entries=names.map((name,index)=>({label:name,line:name,index,cargo:null}));for(const token of pairs.values())entries.push({label:`${token.cargoType||token.originFlowKey} → ${token.flowKey}`,line:token.flowKey,index:token.flowIndex,cargo:token.cargoType||token.originFlowKey});const signature=entries.map(item=>`${item.cargo||''}>${item.line}`).join('|');if(signature===flowLegendSignature)return;flowLegendSignature=signature;const legend=$('flowLegend');legend.replaceChildren(...entries.map(item=>{const entry=document.createElement('span'),swatch=document.createElement('i'),label=document.createTextNode(item.label);swatch.style.background=item.cargo?cargoColor(item.cargo,item.index):flowColor(item.line,item.index);swatch.style.color=flowColor(item.line,item.index);swatch.style.border=`1px solid ${flowColor(item.line,item.index)}`;entry.append(swatch,label);return entry;}));}
+function syncFlowView(){const select=$('flowView'),current=select.value||'all',names=Object.keys(engine.state?.asrs?.zones||{});select.replaceChildren(new Option('전체 물류','all'),...names.map(name=>new Option(`${name}만`,name)));select.value=names.includes(current)?current:'all';renderer.setFlowFilter(select.value);updateFlowLegend();}
 function resetEngine() {
   const params=readParams(), check=validateParams(params);
   $('validation').textContent=check.errors.join(' ');
@@ -60,6 +62,7 @@ function updateDashboard() {
   $('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
   $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
   $('moved').textContent=k.movedItems; $('completed').textContent=engine.state.completedProducts.length;
+  updateFlowLegend();
   renderEvents();
   renderSimulationReport();
   renderRackMonitor();

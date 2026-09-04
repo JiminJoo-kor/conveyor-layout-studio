@@ -160,3 +160,5 @@ test('물류 중량과 설비 허용하중, 가동률·운전효율을 현장 �
   assert.ok(Math.abs(equipmentAvailabilityFactor(conveyor)-.6)<1e-9);
   assert.ok(cadDuration(conveyor,layout)>6.2/.6);
 });
+
+test('포킹장치와 AMR은 받기·대기·이동·넘기기 파라미터로 CT를 계산한다',()=>{const layout={cargoSpec:{length:1200,width:800,unit:'mm'}},fork={type:'forkingDevice',parameters:{strokeDistance:1.5,receiveSpeed:.5,holdTime:1,transferSpeed:.75}},amr={type:'amr',parameters:{shuttleDistance:6,receiveSpeed:.6,travelSpeed:1.5,transferSpeed:.4}};assert.equal(cadDuration(fork,layout),6);assert.equal(cadDuration(amr,layout),9);});

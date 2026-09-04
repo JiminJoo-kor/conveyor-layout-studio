@@ -30,12 +30,12 @@ export const cadDuration=(item,layout,context={})=>{
   const p=item?.parameters||{};let duration;
   if(['conveyor','processLine','sorter'].includes(item?.type)){const distance=equipmentLengthMeters(item,layout)+cargoSpec(layout).length;duration=kinematicTravelDuration(distance,motionConfigFor(item));}
   else if(['asrs','stackerCrane'].includes(item?.type))duration=asrsCycleDuration(item,context);
-  else if(['agv','amr','shuttle'].includes(item?.type))duration=Number(p.shuttleDistance||5)/Math.max(.1,Number(p.speed||1.2))+Number(p.loadTime||2)+Number(p.unloadTime||2);
+  else if(['agv','amr','shuttle'].includes(item?.type)){const cargoLength=cargoSpec(layout).length;duration=cargoLength/Math.max(.1,Number(p.receiveSpeed)||cargoLength/Math.max(.1,Number(p.loadTime)||2))+Number(p.shuttleDistance||5)/Math.max(.1,Number(p.travelSpeed||p.speed)||1.2)+cargoLength/Math.max(.1,Number(p.transferSpeed)||cargoLength/Math.max(.1,Number(p.unloadTime)||2));}
   else if(item?.type==='forklift')duration=Number(p.loadTime||8)+Number(p.unloadTime||8)+Number(p.travelDistance||5)/Math.max(.1,Number(p.speed||1.5));
   else if(item?.type==='lift')duration=Number(p.loadTime||2)+Number(p.unloadTime||2)+Number(p.liftHeight||3)/Math.max(.1,Number(p.liftSpeed||.5));
   else if(item?.type==='turntable')duration=Number(p.rotationTime||6);
   else if(item?.type==='handoffPoint')duration=Number(p.transferTime||2);
-  else if(item?.type==='forkingDevice')duration=Number(p.forkTime||4);
+  else if(item?.type==='forkingDevice'){const stroke=Math.max(.01,Number(p.strokeDistance)||1.5),legacy=Math.max(.2,Number(p.forkTime)||4);duration=stroke/Math.max(.1,Number(p.receiveSpeed)||2*stroke/legacy)+Math.max(0,Number(p.holdTime)||0)+stroke/Math.max(.1,Number(p.transferSpeed)||2*stroke/legacy);}
   else duration=Number(p.cycleTime??p.processTime??p.dischargeTime??1);
   return Math.max(.2,duration/Math.max(.01,equipmentAvailabilityFactor(item)));
 };

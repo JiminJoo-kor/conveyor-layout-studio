@@ -122,6 +122,8 @@ test('컨베이어는 화면 크기와 분리된 실제 길이 파라미터를 �
   const fields=parameterFieldsFor({type:'conveyor',length:90,parameters:{speed:.5,beltWidth:2,cargoLength:3,cargoWidth:2}}),length=fields.find(field=>field.key==='length'),speed=fields.find(field=>field.key==='speed');assert.equal(length.value,5);assert.equal(length.label,'실제 길이(m)');assert.equal(speed.label,'속도(m/s)');assert.equal(fields.some(field=>['beltWidth','cargoLength','cargoWidth'].includes(field.key)),false);
 });
 
+test('포킹장치와 AMR은 현장 동작 순서가 보이는 간단 파라미터만 제공한다',()=>{const forkKeys=parameterFieldsFor({type:'forkingDevice',parameters:{jerk:9}}).map(field=>field.key),amrKeys=parameterFieldsFor({type:'amr',parameters:{motionProfile:1}}).map(field=>field.key);assert.deepEqual(forkKeys.slice(0,4),['strokeDistance','receiveSpeed','holdTime','transferSpeed']);assert.ok(amrKeys.includes('receiveSpeed')&&amrKeys.includes('travelSpeed')&&amrKeys.includes('transferSpeed'));assert.equal(forkKeys.includes('jerk'),false);assert.equal(amrKeys.includes('motionProfile'),false);});
+
 test('라인 제목은 DXF 텍스트가 아니라 이동 가능한 트럭 설비를 따라간다',()=>{
   const text={id:'label',type:'processLine',x:10,y:10},conveyor={id:'cv',type:'conveyor',x:100,y:100},truck={id:'truck',type:'dock',x:200,y:100};assert.equal(laneTitleAnchor([text,conveyor,truck]),truck);truck.x=350;assert.equal(laneTitleAnchor([text,conveyor,truck]).x,350);
 });

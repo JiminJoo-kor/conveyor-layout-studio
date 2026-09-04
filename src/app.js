@@ -22,6 +22,7 @@ const emptyProjectState=document.createElement('div');emptyProjectState.id='empt
 const newLayoutButton=document.createElement('button');newLayoutButton.id='newLayoutProject';newLayoutButton.textContent='새 레이아웃 구성';$('cadFile').closest('.layout-actions').prepend(newLayoutButton);
 const projectStatus=document.createElement('small');projectStatus.id='projectStatus';projectStatus.className='project-status';$('layoutName').after(projectStatus);
 const rackMonitor=document.createElement('section');rackMonitor.id='rackMonitor';rackMonitor.className='rack-monitor';rackMonitor.hidden=true;$('rackMonitorSlot').append(rackMonitor);
+const lineUphPanel=document.createElement('section');lineUphPanel.id='lineUphPanel';lineUphPanel.className='line-uph-panel';lineUphPanel.hidden=true;$('rackMonitorSlot').prepend(lineUphPanel);
 for(const [type,label] of [['source','입고 시작'],['dock','트럭/도크'],['handoffPoint','H/P'],['sorter','소터'],['lift','리프트'],['asrs','AS/RS'],['sink','출고 완료']]){if(document.querySelector(`[data-add="${type}"]`))continue;const button=document.createElement('button');button.dataset.add=type;button.textContent=label;$('connectEquipment').before(button);}
 
 const inputKeys = ['injectA','injectB','injectC','conv2Speed','conv1Speed','pickTime','placeTime','station15Time','station16Time','forklift17Time','forklift211Time','simDuration'];
@@ -65,8 +66,10 @@ function updateDashboard() {
   updateFlowLegend();
   renderEvents();
   renderSimulationReport();
+  renderLineThroughput(k);
   renderRackMonitor();
 }
+function renderLineThroughput(kpis){const rows=kpis.lineThroughput||[];lineUphPanel.hidden=!rows.length;if(!rows.length)return;lineUphPanel.replaceChildren();const title=document.createElement('h2');title.textContent='라인별 UPH';lineUphPanel.append(title);const table=document.createElement('table'),head=document.createElement('thead'),body=document.createElement('tbody'),header=document.createElement('tr');for(const label of ['라인','생성','AS/RS 입고','AS/RS 출고']){const cell=document.createElement('th');cell.textContent=label;header.append(cell);}head.append(header);for(const row of rows){const tr=document.createElement('tr');for(const value of [row.name,row.generatedUph,row.asrsInboundUph,row.asrsOutboundUph]){const cell=document.createElement('td');cell.textContent=typeof value==='number'?value.toFixed(1):value;tr.append(cell);}body.append(tr);}table.append(head,body);lineUphPanel.append(table);}
 function renderRackMonitor(){
   const asrs=engine.state?.asrs,equipment=layout.equipment.find(item=>item.id===asrs?.equipmentId);
   if(!asrs?.equipmentId||!equipment){rackMonitor.hidden=true;return;}

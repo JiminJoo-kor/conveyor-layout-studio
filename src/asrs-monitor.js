@@ -1,4 +1,4 @@
-import { asrsOperationSnapshot } from './engine.js';
+import { asrsModeChangeSnapshot, asrsOperationSnapshot } from './engine.js';
 
 export const isoPoint=(origin,column,level,depth=0,cellW=15,cellH=10,depthW=5)=>({x:origin.x+column*cellW+depth*depthW,y:origin.y-level*cellH-depth*depthW*.55});
 
@@ -6,7 +6,7 @@ export const asrsDepthPresentation=(operation,rows)=>{const targetDepth=Math.max
 
 export function asrsSceneModel(equipment,state,colorFor,cargoColorFor=colorFor){
   const asrs=state?.asrs,zones=Object.entries(asrs?.zones||{}),columns=Math.max(1,Number(asrs?.columns)||8),levels=Math.max(1,Number(asrs?.levels)||4),rows=Math.max(1,Number(asrs?.rows)||2),active=(state?.cadTokens||[]).filter(token=>token.nodeId===asrs?.equipmentId&&!token.edge&&['putaway','retrieval'].includes(token.asrsPhase));
-  return{columns,levels,rows,zones:zones.map(([name,zone],index)=>{const token=active.find(entry=>entry.flowKey===name),operation=asrsOperationSnapshot(equipment,token,state?.t||0),target=operation.target||{column:0,level:0,row:0},stored=(state?.cadTokens||[]).filter(entry=>entry.nodeId===asrs?.equipmentId&&entry.flowKey===name&&entry.asrsTarget),slotCargoTypes=Object.fromEntries(stored.map(entry=>[entry.asrsTarget.index,entry.cargoType||entry.flowKey]));return{name,zone,index,color:colorFor(name,index),cargoType:token?.cargoType||token?.flowKey||name,cargoColor:cargoColorFor(token?.cargoType||token?.flowKey||name,token?.flowIndex??index),slotCargoTypes,operation,target,column:Math.max(0,Math.min(columns-1,operation.x||0)),level:Math.max(0,Math.min(levels-1,operation.y||0))};})};
+  return{columns,levels,rows,zones:zones.map(([name,zone],index)=>{const token=active.find(entry=>entry.flowKey===name),operation=token?asrsOperationSnapshot(equipment,token,state?.t||0):asrsModeChangeSnapshot(equipment,asrs?.lineStates?.[name],state?.t||0)||asrsOperationSnapshot(equipment,null,state?.t||0),target=operation.target||{column:0,level:0,row:0},stored=(state?.cadTokens||[]).filter(entry=>entry.nodeId===asrs?.equipmentId&&entry.flowKey===name&&entry.asrsTarget),slotCargoTypes=Object.fromEntries(stored.map(entry=>[entry.asrsTarget.index,entry.cargoType||entry.flowKey]));return{name,zone,index,color:colorFor(name,index),cargoType:token?.cargoType||token?.flowKey||name,cargoColor:cargoColorFor(token?.cargoType||token?.flowKey||name,token?.flowIndex??index),slotCargoTypes,operation,target,column:Math.max(0,Math.min(columns-1,operation.x||0)),level:Math.max(0,Math.min(levels-1,operation.y||0))};})};
 }
 
 const polygon=(ctx,points,fill,stroke,lineWidth=1)=>{ctx.beginPath();points.forEach((point,index)=>index?ctx.lineTo(point.x,point.y):ctx.moveTo(point.x,point.y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke();};

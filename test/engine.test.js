@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cloneLayout, defaultLayout, validateLayout } from '../src/layout.js';
-import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsTargetCell, cadDuration, canEquipmentHandleCargo, cargoSpec, conveyorCargoCapacity, conveyorEntryPosition, equipmentAvailabilityFactor, equipmentLengthMeters, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
+import { CadFlowEngine, SimulationEngine, acceleratedTravelTime, asrsCycleDuration, asrsOperationSnapshot, asrsTargetCell, cadDuration, canEquipmentHandleCargo, cargoSpec, conveyorCargoCapacity, conveyorEntryPosition, equipmentAvailabilityFactor, equipmentLengthMeters, equipmentLoadSpeedFactor, equipmentSpeedMetersPerSecond, validateParams } from '../src/engine.js';
 
 test('기본 레이아웃은 유효하고 핵심 노드를 포함한다', () => {
   const result = validateLayout(defaultLayout);
@@ -92,7 +92,9 @@ test('컨베이어 수용량은 물류 길이와 최소 안전 간격을 함께 
 test('컨베이어에서 다음 컨베이어로 넘어갈 때 현재 속도와 가속도를 승계한다',()=>{const a={id:'a',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:5,speed:1}},b={id:'b',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:5,speed:1}},edge={from:'a',to:'b'},engine=new CadFlowEngine({equipment:[a,b],cargoSpec:{length:1,width:1},cadSchematic:{edges:[edge]}},{simDuration:20}),token=engine.prepareToken({id:99,nodeId:'a',edge:null,readyAt:0,motion:engine.createMotion(a)});token.motionState={position:6,velocity:.8,acceleration:.1,state:'ConstantSpeed'};token.edge=edge;token.nodeId='b';assert.ok(Math.abs(token.motionState.velocity-.8)<1e-9);assert.ok(Math.abs(token.motionState.acceleration-.1)<1e-9);});
 
 test('연속 인계를 끈 컨베이어는 정지 후 설정된 시간만큼 인계를 대기한다',()=>{const a={id:'a',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:.2,speed:1,acceleration:4,deceleration:4,jerk:20,continuousHandover:0,handoverDelay:2}},b={id:'b',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:5,speed:1}},engine=new CadFlowEngine({equipment:[a,b],cargoSpec:{length:.1,width:.1},cadSchematic:{edges:[{from:'a',to:'b'}]}},{simDuration:20}),token=engine.prepareToken({id:99,nodeId:'a',edge:null,readyAt:0,motion:engine.createMotion(a)});engine.state.cadTokens=[token];for(let index=0;index<500&&token.conveyorExitAt==null;index++){engine.state.t+=.02;engine.advanceMotion(token,a,.02);}assert.ok(token.conveyorExitAt>0);assert.ok(Math.abs(token.readyAt-token.conveyorExitAt-2)<1e-9);assert.equal(token.motionState.velocity,0);});
-test('물류보다 짧은 다음 컨베이어에 도착해도 진입 좌표가 설비 중심을 지나 사라지지 않는다',()=>{const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:.8}},layout={cargoSpec:{length:1.2,width:.8}};assert.equal(conveyorEntryPosition(conveyor,layout),1);const normal={...conveyor,parameters:{length:5}};assert.equal(conveyorEntryPosition(normal,layout),1.2);});
+test('다음 컨베이어에는 물류 머리부터 0m 진입점에서 연속 표시된다',()=>{const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:.8}},layout={cargoSpec:{length:1.2,width:.8}};assert.equal(conveyorEntryPosition(conveyor,layout),0);const normal={...conveyor,parameters:{length:5}};assert.equal(conveyorEntryPosition(normal,layout),0);});
+
+test('같은 컨베이어 스펙은 정상 허용하중 안에서 적재 수량과 무관하게 같은 속도계수를 쓴다',()=>{const conveyor={type:'conveyor',parameters:{loadCapacity:1000,performance:1}},layout={cargoSpec:{length:1,width:1,weight:100}};assert.equal(equipmentLoadSpeedFactor(conveyor,layout,1),1);assert.equal(equipmentLoadSpeedFactor(conveyor,layout,8),1);});
 
 test('mm 물류 규격은 m로 변환되어 컨베이어 용량과 통과시간에 반영된다',()=>{
   const conveyor={type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,speed:1}},layout={cargoSpec:{length:2500,width:1200,unit:'mm'}};
@@ -161,6 +163,8 @@ test('ASRS 사이클은 목표 열과 층, 상승·하강 속도를 반영한다
   assert.notEqual(asrsCycleDuration(item,{slotIndex:17,operation:'putaway'}),asrsCycleDuration(item,{slotIndex:17,operation:'retrieval'}));
   assert.ok(acceleratedTravelTime(10,2,1)>0);
 });
+
+test('AS/RS 우측 모니터 상태는 엔진 작업시간과 목표 셀을 동일하게 사용한다',()=>{const item={type:'stackerCrane',parameters:{rows:2,columns:8,levels:4,columnPitch:1.5,levelHeight:2,travelSpeed:2.5,liftSpeed:1,downSpeed:1.2,acceleration:.5,putawayTime:4,retrievalTime:5}},token={asrsPhase:'putaway',nodeEnteredAt:10,asrsTarget:{index:17}},start=asrsOperationSnapshot(item,token,10),middle=asrsOperationSnapshot(item,token,15);assert.equal(start.status,'inbound');assert.equal(start.label,'입고중');assert.deepEqual(start.target,asrsTargetCell(item,17));assert.ok(middle.progress>start.progress);token.asrsPhase='retrieval';assert.equal(asrsOperationSnapshot(item,token,10).status,'outbound');assert.equal(asrsOperationSnapshot(item,null,10).label,'대기중');});
 
 test('물류 중량과 설비 허용하중, 가동률·운전효율을 현장 보정에 반영한다',()=>{
   const layout={cargoSpec:{length:1200,width:800,weight:800,unit:'mm'}},conveyor={type:'conveyor',parameters:{length:5,speed:1,loadCapacity:700,availability:80,efficiency:75}};

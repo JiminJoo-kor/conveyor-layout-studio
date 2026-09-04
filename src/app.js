@@ -19,7 +19,7 @@ $('dynamicEquipmentControls').append(cadParameterSection);
 const emptyProjectState=document.createElement('div');emptyProjectState.id='emptyProjectState';emptyProjectState.className='empty-project-state';emptyProjectState.innerHTML='<strong>새 레이아웃을 시작하세요</strong><span>DXF 파일 또는 이미 저장된 JSON 파일을 열어주세요.</span>';$('layoutCanvas').closest('.canvas-scroll').before(emptyProjectState);
 const newLayoutButton=document.createElement('button');newLayoutButton.id='newLayoutProject';newLayoutButton.textContent='새 레이아웃 구성';$('cadFile').closest('.layout-actions').prepend(newLayoutButton);
 const projectStatus=document.createElement('small');projectStatus.id='projectStatus';projectStatus.className='project-status';$('layoutName').after(projectStatus);
-const rackMonitor=document.createElement('section');rackMonitor.id='rackMonitor';rackMonitor.className='rack-monitor';rackMonitor.hidden=true;$('dynamicEquipmentControls').after(rackMonitor);
+const rackMonitor=document.createElement('section');rackMonitor.id='rackMonitor';rackMonitor.className='rack-monitor';rackMonitor.hidden=true;$('rackMonitorSlot').append(rackMonitor);
 for(const [type,label] of [['source','입고 시작'],['dock','트럭/도크'],['handoffPoint','H/P'],['sorter','소터'],['lift','리프트'],['asrs','AS/RS'],['sink','출고 완료']]){if(document.querySelector(`[data-add="${type}"]`))continue;const button=document.createElement('button');button.dataset.add=type;button.textContent=label;$('connectEquipment').before(button);}
 
 const inputKeys = ['injectA','injectB','injectC','conv2Speed','conv1Speed','pickTime','placeTime','station15Time','station16Time','forklift17Time','forklift211Time','simDuration'];

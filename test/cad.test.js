@@ -95,7 +95,7 @@ test('ASRS 재고 비율을 랙 점등 셀 수로 변환한다',()=>{
 });
 
 test('ASRS는 품목별 실제 CELL 수와 재고 상태를 그대로 표시한다',()=>{
-  const racks=asrsRackCells({cellCount:64,zones:{트림:{inventory:2,capacity:64},화이날:{inventory:1,capacity:64},도어:{inventory:0,capacity:64}}});assert.equal(racks.length,3);assert.ok(racks.every(rack=>rack.cells.length===64));assert.deepEqual(racks.map(rack=>rack.cells.filter(Boolean).length),[2,1,0]);
+  const asrs={equipmentId:'asrs',cellCount:64,zones:{트림:{inventory:2,capacity:64},화이날:{inventory:1,capacity:64},도어:{inventory:0,capacity:64}}},racks=asrsRackCells(asrs,[{nodeId:'asrs',flowKey:'트림',cargoType:'화이날 물류',asrsTarget:{index:1}}]);assert.equal(racks.length,3);assert.ok(racks.every(rack=>rack.cells.length===64));assert.deepEqual(racks.map(rack=>rack.cells.filter(Boolean).length),[2,1,0]);assert.equal(racks[0].cargoTypes[1],'화이날 물류');
 });
 
 test('여러 라인의 이동 물류는 서로 다른 고정 색상을 사용한다',()=>{

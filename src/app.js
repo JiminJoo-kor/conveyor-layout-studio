@@ -1,10 +1,11 @@
 import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
-import { asrsOperationSnapshot, CadFlowEngine, defaultParams, SimulationEngine, validateParams } from './engine.js';
+import { CadFlowEngine, defaultParams, SimulationEngine, validateParams } from './engine.js';
 import { flowColor, LayoutRenderer } from './renderer.js';
 import { LayoutEditor, refreshEquipmentConnections } from './editor.js';
 import { analyzeCadFile, ensureDynamicParameters, parameterFieldsFor } from './cad.js';
 import { buildSimulationReport } from './report.js';
 import { closestPortPair, connectionKind } from './route.js';
+import { drawAsrsScene } from './asrs-monitor.js';
 
 const $ = id => document.getElementById(id);
 const emptyLayout={schemaVersion:defaultLayout.schemaVersion,id:'empty-layout',name:'파일을 열어주세요',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},canvas:{width:1200,height:650,grid:20},equipment:[],connections:[],displayMode:'cad',cadViewMode:'schematic',cadSchematic:{lanes:[],inboundBranches:[],edges:[]}};
@@ -64,11 +65,11 @@ function updateDashboard() {
   renderRackMonitor();
 }
 function renderRackMonitor(){
-  const asrs=engine.state?.asrs,zones=Object.entries(asrs?.zones||{}),equipment=layout.equipment.find(item=>item.id===asrs?.equipmentId);
+  const asrs=engine.state?.asrs,equipment=layout.equipment.find(item=>item.id===asrs?.equipmentId);
   if(!asrs?.equipmentId||!equipment){rackMonitor.hidden=true;return;}
-  const active=(engine.state.cadTokens||[]).filter(token=>token.nodeId===asrs.equipmentId&&!token.edge&&['putaway','retrieval'].includes(token.asrsPhase)),pulse=Math.floor((engine.state.t||0)*2)%2===0;
   rackMonitor.hidden=false;
-  rackMonitor.innerHTML=`<h2>AS/RS 실시간 흐름</h2><div class="rack-summary">총 재고 <strong>${asrs.inventory}/${asrs.capacity}</strong></div><div class="rack-flow-key"><span class="inbound">입고중</span><span class="outbound">배출중</span><span>대기중</span></div>${zones.map(([name,zone],zoneIndex)=>{const token=active.find(entry=>entry.flowKey===name),snapshot=asrsOperationSnapshot(equipment,token,engine.state.t),shown=Math.min(64,zone.capacity),filled=Math.min(shown,zone.inventory),columns=Math.max(1,Number(asrs.columns)||8),levels=Math.max(1,Number(asrs.levels)||4),x=Math.min(100,snapshot.x/columns*100),y=Math.min(100,snapshot.y/levels*100),activity=snapshot.status==='waiting'?'':` ${snapshot.status}${pulse?' pulse-on':''}`;return `<article class="rack-zone${activity}" style="--zone-color:${flowColor(name,zoneIndex)}"><header><span>${name}</span><strong>${zone.inventory}/${zone.capacity}</strong></header><div class="rack-state"><b>${snapshot.label}</b><small>${snapshot.detail}${snapshot.target?` · ${snapshot.target.column+1}열 ${snapshot.target.level+1}단`:''}</small></div><div class="rack-motion"><i class="stacker" style="left:${x}%;bottom:${y}%"></i><i class="cargo" style="left:${x}%;bottom:${y}%"></i></div><div class="rack-cells">${Array.from({length:shown},(_,index)=>`<i class="${index<filled?'occupied':''}" style="--rack-color:${flowColor(name,zoneIndex)}"></i>`).join('')}</div></article>`;}).join('')}`;
+  rackMonitor.innerHTML=`<div class="rack-monitor-head"><h2>AS/RS 3D LIVE</h2><strong>${asrs.inventory}/${asrs.capacity}</strong></div><div class="rack-flow-key"><span class="inbound">입고중</span><span class="outbound">배출중</span><span>대기중</span></div><canvas class="asrs-scene" aria-label="AS/RS 스태커 크레인 3D 실시간 동작"></canvas>`;
+  drawAsrsScene(rackMonitor.querySelector('.asrs-scene'),equipment,engine.state,flowColor);
 }
 function renderSimulationReport(){const panel=$('simulationReport');if(layout.displayMode!=='cad'||!layout.equipment.some(item=>item.source?.origin==='dxf')){panel.hidden=true;return;}panel.hidden=false;const report=buildSimulationReport(layout,engine),asrs=report.kpis.asrs;$('reportContent').innerHTML=`<div class="report-grid"><section class="report-block"><h3>1. 🛠️ Layout Corrections</h3><ul>${report.corrections.map(item=>`<li>[${item.kind}] ${item.detail} · ${item.status}</li>`).join('')}</ul></section><section class="report-block"><h3>2. 📐 Corrected Flow & Topology</h3><ul>${report.topology.map(item=>`<li>${item}</li>`).join('')}</ul></section><section class="report-block wide"><h3>3. ⏱️ 공정별 CT 및 병목</h3><div class="table-wrap"><table><thead><tr><th>공정명</th><th>거리(m)</th><th>이동(sec)</th><th>작업(sec)</th><th>공정 CT</th><th>병목</th></tr></thead><tbody>${report.rows.map(row=>`<tr><td>${row.process}</td><td>${row.distance.toFixed(1)}</td><td>${row.move.toFixed(1)}</td><td>${row.work.toFixed(1)}</td><td>${row.ct.toFixed(1)}</td><td>${row.bottleneck?'병목':'-'}</td></tr>`).join('')}</tbody></table></div></section><section class="report-block wide"><h3>4. 📊 UPH 및 생산성 예측</h3><div class="report-metrics"><div>Target UPH<strong>${report.targetUph.toFixed(1)}</strong></div><div>Realizable UPH<strong>${report.realizableUph.toFixed(1)}</strong></div><div>8시간 물동량<strong>${Math.floor(report.eightHours)}</strong></div><div>12시간 물동량<strong>${Math.floor(report.twelveHours)}</strong></div>${asrs?`<div>AS/RS 재고<strong>${asrs.inventory}/${asrs.capacity}</strong></div><div>AS/RS 가동률<strong>${(report.kpis.utilization.asrs*100).toFixed(1)}%</strong></div>`:''}</div></section></div>`;}
 function loop(now) {

@@ -1,5 +1,5 @@
 import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
-import { CadFlowEngine, defaultParams, SimulationEngine, validateParams } from './engine.js';
+import { CadFlowEngine, defaultParams, SimulationEngine, simulationEventText, validateParams } from './engine.js';
 import { cargoColor, flowColor, LayoutRenderer } from './renderer.js';
 import { LayoutEditor, refreshEquipmentConnections } from './editor.js';
 import { analyzeCadFile, ensureDynamicParameters, parameterFieldsFor } from './cad.js';
@@ -95,7 +95,7 @@ function renderEvents() {
   const rows=engine.state.events.slice(-12).reverse();
   $('eventRows').innerHTML=rows.length?rows.map(e=>`<tr><td>${format(e.t)}</td><td>${eventLabel(e.type)}</td><td>${e.equipmentId||e.kind||''}</td><td>#${e.trayId||e.productId||'-'}</td></tr>`).join(''):'<tr><td colspan="4">아직 이벤트가 없습니다.</td></tr>';
 }
-function eventLabel(type){return ({'source-injected':'소스 투입','product-injected':'C 투입','robot-pick-start':'PICK 시작','robot-place-complete':'PLACE 완료','equipment-start':'설비 작업 시작','equipment-complete':'설비 작업 완료','asrs-putaway':'AS/RS 적치','asrs-retrieval':'AS/RS 반출','cargo-overload':'허용하중 초과'})[type]||type;}
+function eventLabel(type){return ({'source-injected':'소스 투입','product-injected':'C 투입','robot-pick-start':'PICK 시작','robot-place-complete':'PLACE 완료','equipment-start':'설비 작업 시작','equipment-complete':'설비 작업 완료','asrs-putaway':'AS/RS 적치','asrs-retrieval':'AS/RS 반출','cargo-overload':'허용하중 초과','cargo-wait-started':'물류 대기 시작','cargo-wait-ended':'물류 대기 해제'})[type]||type;}
 function format(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
 function download(name,text,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
 
@@ -103,6 +103,7 @@ $('runBtn').addEventListener('click',toggleRun);
 $('flowView').addEventListener('change',()=>{renderer.setFlowFilter($('flowView').value);renderer.draw(engine.state);});
 $('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(frame);resetEngine();$('runBtn').textContent='시뮬레이션 시작';});
 $('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify({...layout,simulationParams:readParams()},null,2)));
+$('exportEvents').addEventListener('click',()=>{const safeName=(layout.name||'simulation').replace(/[\\/:*?"<>|]+/g,'_');download(`${safeName}-events.txt`,simulationEventText(engine.state,layout),'text/plain;charset=utf-8');});
 $('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hidden;$('editorTools').hidden=!active;editor.setEnabled(active);$('editorToggle').textContent=active?'편집 종료':'편집 모드';});
 $('viewFit').addEventListener('click',()=>editor.fitView());
 $('cadViewToggle').addEventListener('click',()=>{if(layout.displayMode!=='cad')return;const order=['hybrid','schematic','raw'],labels={hybrid:'보기: 혼합',schematic:'보기: 약식',raw:'보기: CAD'},next=order[(order.indexOf(layout.cadViewMode)+1)%order.length];layout.cadViewMode=next;for(const item of layout.equipment.filter(entry=>entry.source?.origin==='dxf')){const position=next==='schematic'?item.normalizedPosition:item.originalPosition;if(position){item.x=position.x;item.y=position.y;}}$('cadViewToggle').textContent=labels[next];renderer.setLayout(layout);editor.resetView();renderer.draw(engine.state);});

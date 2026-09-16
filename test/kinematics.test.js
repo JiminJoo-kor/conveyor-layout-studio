@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration } from '../src/kinematics.js';
+import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration, motionProfileSummary, profiledProgress } from '../src/kinematics.js';
 import { handoverProgress, handoverScale, handoverVisualSegments, intervalsOverlap, itemVisualLength, OccupancyManager, rigidHandoverVisualState, smoothedVelocityProgress } from '../src/occupancy.js';
-import { conveyorCargoVisualPose, conveyorFlowSign, equipmentCargoVisualPose, equipmentClipBounds, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileHandoverNode, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
+import { conveyorCargoVisualPose, conveyorFlowSign, equipmentCargoVisualPose, equipmentClipBounds, equipmentOperationProgress, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileHandoverNode, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
 
 test('S-Curve는 jerk로 가속도 변화량을 제한하고 정지까지 FSM을 추적한다',()=>{const motion=new KinematicMotion({targetSpeed:2,acceleration:1,deceleration:1,jerk:2});motion.step(.1,{distance:5});assert.ok(Math.abs(motion.acceleration-.2)<1e-9);assert.equal(motion.state,MotionState.ACCELERATING);for(let i=0;i<1000&&motion.position<5;i++)motion.step(.01,{distance:5});assert.equal(motion.position,5);assert.equal(motion.velocity,0);assert.equal(motion.state,MotionState.STOPPED);});
+
+test('설비 속도 그래프는 거리와 속도에 따라 가속·정속·감속 구간을 계산한다',()=>{const long=motionProfileSummary(10,{targetSpeed:2,acceleration:1,deceleration:1,motionProfile:'trapezoidal'}),short=motionProfileSummary(1,{targetSpeed:2,acceleration:1,deceleration:1});assert.ok(long.t1>0&&long.t2>0&&long.t3>0);assert.equal(long.s1+long.s2+long.s3,10);assert.equal(short.t2,0);assert.ok(short.peakSpeed<2);assert.ok(profiledProgress(.25)<.25&&profiledProgress(.75)>.75);});
+
+test('비연속 설비의 화면 진행률은 정지 판정 갱신에도 뒤로 복귀하지 않는다',()=>{const item={id:'agv',type:'agv',parameters:{receiveSpeed:1,transferSpeed:1}},token={nodeId:'agv',nodeEnteredAt:0,operationDuration:10},forward=equipmentOperationProgress(item,{t:7,cadTokens:[token]},token).progress,stale=equipmentOperationProgress(item,{t:6,cadTokens:[token]},token).progress;assert.equal(stale,forward);});
 
 test('운행 중 목표속도 변경은 위치 순간이동 없이 현재 v와 a에서 연속 재계산한다',()=>{const motion=new KinematicMotion({targetSpeed:2,acceleration:1,deceleration:1,jerk:2});for(let i=0;i<100;i++)motion.step(.01,{distance:20});const before=motion.snapshot();motion.updateConfig({targetSpeed:.5});const after=motion.step(.01,{distance:20});assert.ok(after.position>=before.position);assert.ok(after.position-before.position<.1);assert.ok(Math.abs(after.velocity-before.velocity)<.1);});
 

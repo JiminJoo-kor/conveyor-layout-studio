@@ -113,14 +113,14 @@ test('mm 물류 규격은 m로 변환되어 컨베이어 용량과 통과시간�
 
 test('셔틀·지게차·리프트·소터는 각 거리와 속도 파라미터로 CT를 계산한다',()=>{
   const layout={cargoSpec:{length:1000,width:800,unit:'mm'}};
-  assert.equal(cadDuration({type:'shuttle',parameters:{shuttleDistance:6,speed:2,loadTime:2,unloadTime:3}},layout),8);
-  assert.equal(cadDuration({type:'forklift',parameters:{travelDistance:9,speed:3,loadTime:4,unloadTime:5}},layout),12);
-  assert.equal(cadDuration({type:'lift',parameters:{liftHeight:6,liftSpeed:2,loadTime:1,unloadTime:2}},layout),6);
+  assert.equal(cadDuration({type:'shuttle',parameters:{shuttleDistance:6,speed:2,loadTime:2,unloadTime:3}},layout),acceleratedTravelTime(1,.5,.8)+acceleratedTravelTime(6,2,.8)+acceleratedTravelTime(1,1/3,.8));
+  assert.equal(cadDuration({type:'forklift',parameters:{travelDistance:9,speed:3,loadTime:4,unloadTime:5}},layout),9+acceleratedTravelTime(9,3,.5));
+  assert.equal(cadDuration({type:'lift',parameters:{liftHeight:6,liftSpeed:2,loadTime:1,unloadTime:2}},layout),3+acceleratedTravelTime(6,2,.5));
   assert.ok(cadDuration({type:'sorter',parameters:{length:5,speed:2}},layout)>3);
 });
 
 test('포킹장치는 설정 비율에 따라 두 출력으로 물품을 분기한다',()=>{
-  const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.01}},{id:'fork',type:'forkingDevice',x:100,y:0,source:{origin:'dxf'},parameters:{forkTime:.01,output1Ratio:50}},{id:'out-1',type:'sink',x:200,y:-50,source:{origin:'dxf'},parameters:{dischargeTime:.01}},{id:'out-2',type:'sink',x:200,y:50,source:{origin:'dxf'},parameters:{dischargeTime:.01}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'fork'},{from:'fork',to:'out-1'},{from:'fork',to:'out-2'}]}},{injectA:1,simDuration:20});for(let i=0;i<2000;i++)engine.step(.01);const routed=engine.state.events.filter(event=>event.type==='fork-routed'),output1=routed.filter(event=>event.output===1).length,output2=routed.filter(event=>event.output===2).length;assert.ok(routed.length>10);assert.ok(Math.abs(output1-output2)<=1);assert.deepEqual(routed.slice(0,4).map(event=>event.output),[1,2,1,2]);assert.ok(routed.every(event=>event.sequence==='deterministic-per-flow'));
+  const equipment=[{id:'in',type:'source',x:0,y:0,source:{origin:'dxf'},parameters:{processTime:.01}},{id:'fork',type:'forkingDevice',x:100,y:0,source:{origin:'dxf'},parameters:{forkTime:.01,output1Ratio:50}},{id:'out-1',type:'sink',x:200,y:-50,source:{origin:'dxf'},parameters:{dischargeTime:.01}},{id:'out-2',type:'sink',x:200,y:50,source:{origin:'dxf'},parameters:{dischargeTime:.01}}],engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'in',to:'fork'},{from:'fork',to:'out-1'},{from:'fork',to:'out-2'}]}},{injectA:1,simDuration:80});for(let i=0;i<8000;i++)engine.step(.01);const routed=engine.state.events.filter(event=>event.type==='fork-routed'),output1=routed.filter(event=>event.output===1).length,output2=routed.filter(event=>event.output===2).length;assert.ok(routed.length>10);assert.ok(Math.abs(output1-output2)<=1);assert.deepEqual(routed.slice(0,4).map(event=>event.output),[1,2,1,2]);assert.ok(routed.every(event=>event.sequence==='deterministic-per-flow'));
 });
 
 test('트림과 화이날은 서로 섞이지 않고 각각 직행과 교차를 반복한다',()=>{
@@ -201,7 +201,7 @@ test('물류 중량과 설비 허용하중, 가동률·운전효율을 현장 �
   assert.ok(cadDuration(conveyor,layout)>6.2/.6);
 });
 
-test('포킹장치와 AMR은 받기·대기·이동·넘기기 파라미터로 CT를 계산한다',()=>{const layout={cargoSpec:{length:1200,width:800,unit:'mm'}},fork={type:'forkingDevice',parameters:{strokeDistance:1.5,receiveSpeed:.5,holdTime:1,transferSpeed:.75}},amr={type:'amr',parameters:{shuttleDistance:6,receiveSpeed:.6,travelSpeed:1.5,transferSpeed:.4}};assert.equal(cadDuration(fork,layout),6);assert.equal(cadDuration(amr,layout),9);});
+test('포킹장치와 AMR은 받기·대기·이동·넘기기에 가감속 시간을 포함한다',()=>{const layout={cargoSpec:{length:1200,width:800,unit:'mm'}},fork={type:'forkingDevice',parameters:{strokeDistance:1.5,receiveSpeed:.5,holdTime:1,transferSpeed:.75}},amr={type:'amr',parameters:{shuttleDistance:6,receiveSpeed:.6,travelSpeed:1.5,transferSpeed:.4}},forkExpected=acceleratedTravelTime(1.5,.5,.8)+1+acceleratedTravelTime(1.5,.75,.8),amrExpected=acceleratedTravelTime(1.2,.6,.8)+acceleratedTravelTime(6,1.5,.8)+acceleratedTravelTime(1.2,.4,.8);assert.equal(cadDuration(fork,layout),forkExpected);assert.equal(cadDuration(amr,layout),amrExpected);});
 
 test('입고 차량은 첫 컨베이어 안전 간격이 확보되면 AS/RS 적재 완료 전 다음 물류를 공급한다',()=>{const source={id:'in',type:'dock',source:{origin:'dxf'},parameters:{processTime:.2,dockRole:'inbound'}},cv={id:'cv',type:'conveyor',source:{origin:'dxf',parameterLengthUnit:'m'},parameters:{length:10,speed:1,safetyGap:.2}},asrs={id:'asrs',type:'stackerCrane',source:{origin:'dxf'},parameters:{rows:1,columns:4,levels:1,productTypes:1,putawayTime:20}},engine=new CadFlowEngine({equipment:[source,cv,asrs],cargoSpec:{length:1,width:.8},cadSchematic:{edges:[{from:'in',to:'cv'},{from:'cv',to:'asrs'}]}},{injectA:30,simDuration:6});for(let i=0;i<250;i++)engine.step(.02);assert.ok(engine.state.events.filter(event=>event.type==='source-injected').length>=2);assert.equal(engine.state.events.filter(event=>event.type==='asrs-putaway').length,0);});
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
+import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, ensureDynamicParameters, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
 
@@ -38,7 +38,7 @@ test('DXF 선형 후보에 실제 길이와 회전각을 보존한다',()=>{
 test('투입구와 설비별 파라미터 필드를 생성한다',()=>{
   const source=classifyCadEntity({layer:'MHE_INFEED_01'});
   assert.equal(source.type,'source');assert.equal(source.parameters.injectionInterval,30);
-  const fields=parameterFieldsFor({parameters:source.parameters});assert.equal(fields.length,4);assert.equal(fields[0].label,'투입 간격(초)');assert.equal(fields.find(field=>field.key==='availability').value,100);
+  const fields=parameterFieldsFor({type:'source',parameters:source.parameters});assert.deepEqual(fields.map(field=>field.key),['injectionInterval']);assert.equal(fields[0].label,'투입 간격(초)');
 });
 
 test('DXF 원본 선형을 캔버스 좌표의 라인워크로 변환한다',()=>{
@@ -125,6 +125,8 @@ test('컨베이어는 화면 크기와 분리된 실제 길이 파라미터를 �
 });
 
 test('포킹장치와 AMR은 현장 동작 순서가 보이는 간단 파라미터만 제공한다',()=>{const forkKeys=parameterFieldsFor({type:'forkingDevice',parameters:{jerk:9}}).map(field=>field.key),amrKeys=parameterFieldsFor({type:'amr',parameters:{motionProfile:1}}).map(field=>field.key);assert.deepEqual(forkKeys.slice(0,4),['strokeDistance','receiveSpeed','holdTime','transferSpeed']);assert.ok(amrKeys.includes('receiveSpeed')&&amrKeys.includes('travelSpeed')&&amrKeys.includes('transferSpeed'));assert.equal(forkKeys.includes('jerk'),false);assert.equal(amrKeys.includes('motionProfile'),false);});
+
+test('UI는 실제 물류 운전에 필요한 값만 표시하고 자동·고급값은 내부에 유지한다',()=>{const conveyor={type:'conveyor',parameters:{length:5,speed:1,availability:90,efficiency:80,positions:4}},keys=parameterFieldsFor(conveyor).map(field=>field.key);assert.deepEqual(keys,['length','speed','safetyGap','loadCapacity']);ensureDynamicParameters(conveyor);assert.equal(conveyor.parameters.availability,90);assert.equal(conveyor.parameters.efficiency,80);assert.equal(conveyor.parameters.jerk,1.5);const storageKeys=parameterFieldsFor({type:'stackerCrane',parameters:{stackerCount:9,returnHome:1}}).map(field=>field.key);assert.equal(storageKeys.includes('stackerCount'),false);assert.equal(storageKeys.includes('returnHome'),false);assert.equal(storageKeys.includes('cellCount'),true);});
 
 test('라인 제목은 DXF 텍스트가 아니라 이동 가능한 트럭 설비를 따라간다',()=>{
   const text={id:'label',type:'processLine',x:10,y:10},conveyor={id:'cv',type:'conveyor',x:100,y:100},truck={id:'truck',type:'dock',x:200,y:100};assert.equal(laneTitleAnchor([text,conveyor,truck]),truck);truck.x=350;assert.equal(laneTitleAnchor([text,conveyor,truck]).x,350);

@@ -1,12 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration, motionProfileSummary, profiledProgress } from '../src/kinematics.js';
+import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration, motionConfigFor, motionProfileSummary, profiledProgress } from '../src/kinematics.js';
 import { handoverProgress, handoverScale, handoverVisualSegments, intervalsOverlap, itemVisualLength, OccupancyManager, rigidHandoverVisualState, smoothedVelocityProgress } from '../src/occupancy.js';
 import { conveyorCargoVisualPose, conveyorFlowSign, equipmentCargoVisualPose, equipmentClipBounds, equipmentOperationProgress, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileHandoverNode, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
 
 test('S-Curve는 jerk로 가속도 변화량을 제한하고 정지까지 FSM을 추적한다',()=>{const motion=new KinematicMotion({targetSpeed:2,acceleration:1,deceleration:1,jerk:2});motion.step(.1,{distance:5});assert.ok(Math.abs(motion.acceleration-.2)<1e-9);assert.equal(motion.state,MotionState.ACCELERATING);for(let i=0;i<1000&&motion.position<5;i++)motion.step(.01,{distance:5});assert.equal(motion.position,5);assert.equal(motion.velocity,0);assert.equal(motion.state,MotionState.STOPPED);});
 
 test('설비 속도 그래프는 거리와 속도에 따라 가속·정속·감속 구간을 계산한다',()=>{const long=motionProfileSummary(10,{targetSpeed:2,acceleration:1,deceleration:1,motionProfile:'trapezoidal'}),short=motionProfileSummary(1,{targetSpeed:2,acceleration:1,deceleration:1});assert.ok(long.t1>0&&long.t2>0&&long.t3>0);assert.equal(long.s1+long.s2+long.s3,10);assert.equal(short.t2,0);assert.ok(short.peakSpeed<2);assert.ok(profiledProgress(.25)<.25&&profiledProgress(.75)>.75);});
+
+test('감속도를 바꾸면 예상 속도 프로파일과 총 이동시간도 변경된다',()=>{const fastStop=motionProfileSummary(8,{targetSpeed:2,acceleration:1,deceleration:2}),slowStop=motionProfileSummary(8,{targetSpeed:2,acceleration:1,deceleration:.5});assert.ok(fastStop.t3<slowStop.t3);assert.ok(fastStop.total<slowStop.total);});
+
+test('설비 종류별 대표 속도를 예상 프로파일 목표속도로 사용한다',()=>{assert.equal(motionConfigFor({type:'processLine',parameters:{lineSpeed:120}}).targetSpeed,2);assert.equal(motionConfigFor({type:'forkingDevice',parameters:{receiveSpeed:.4,transferSpeed:.8}}).targetSpeed,.8);assert.equal(motionConfigFor({type:'agv',parameters:{travelSpeed:1.5}}).targetSpeed,1.5);});
 
 test('비연속 설비의 화면 진행률은 정지 판정 갱신에도 뒤로 복귀하지 않는다',()=>{const item={id:'agv',type:'agv',parameters:{receiveSpeed:1,transferSpeed:1}},token={nodeId:'agv',nodeEnteredAt:0,operationDuration:10},forward=equipmentOperationProgress(item,{t:7,cadTokens:[token]},token).progress,stale=equipmentOperationProgress(item,{t:6,cadTokens:[token]},token).progress;assert.equal(stale,forward);});
 

@@ -143,7 +143,7 @@ export class CadFlowEngine {
     const ratio=Math.max(0,Math.min(100,Number(fork.parameters?.output1Ratio??50))),key=`${fork.id}:${flowKey}`,previous=this.state.routeAccumulators[key],accumulator=(previous===undefined?100-ratio:previous)+ratio,choosePrimary=accumulator>=100;
     this.state.routeAccumulators[key]=choosePrimary?accumulator-100:accumulator;
     const preferredIndex=choosePrimary?primaryIndex:forkIndex,optionIndex=this.availableRouteIndex(options,preferredIndex,token);
-    this.emit('fork-routed',{equipmentId:fork.id,junctionId:current?.id,flowKey,output:optionIndex+1,route:optionIndex===primaryIndex?'primary':'fork',ratio,sequence:'deterministic-per-flow'});
+    this.emit('fork-routed',{equipmentId:fork.id,junctionId:current?.id,flowKey,output:optionIndex+1,route:optionIndex===primaryIndex?'primary':'fork',ratio,sequence:'primary-first-deterministic-per-flow'});
     return optionIndex;
   }
   preselectEntryFork(token,toNode){if(toNode?.type!=='conveyor')return null;const options=this.outgoing.get(toNode.id)||[],forkIndex=options.findIndex(edge=>this.nodes.get(edge.to)?.type==='forkingDevice');if(options.length<2||forkIndex<0)return null;const incomingPort=token.edge?.toPort,forkPort=options[forkIndex].fromPort;if(!incomingPort||!forkPort||incomingPort!==forkPort)return null;const optionIndex=this.selectRoute(options,toNode,token);return{options,optionIndex,forkIndex};}

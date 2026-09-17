@@ -18,7 +18,7 @@ export class KinematicMotion {
   snapshot(){return{position:this.position,velocity:this.velocity,acceleration:this.acceleration,state:this.state};}
 }
 
-export const motionConfigFor=item=>{const p=item?.parameters||{},target=item?.type==='processLine'?Number(p.lineSpeed||30)/60:item?.type==='forkingDevice'?Math.max(Number(p.receiveSpeed)||0,Number(p.transferSpeed)||0,.5):Number(p.targetSpeed??p.speed??p.travelSpeed??p.liftSpeed??.5);return{targetSpeed:target,acceleration:Number(p.acceleration??.8),deceleration:Number(p.deceleration??p.acceleration??1),jerk:Number(p.jerk??1.5),motionProfile:Number(p.motionProfile??0)===1||p.motionProfile==='trapezoidal'?'trapezoidal':'sCurve'};};
+export const motionConfigFor=item=>{const p=item?.parameters||{},target=item?.type==='processLine'?Number(p.lineSpeed||30)/60:item?.type==='forkingDevice'?Math.max(Number(p.receiveSpeed)||0,Number(p.transferSpeed)||0,.5):Number(p.targetSpeed??(['agv','amr','shuttle','asrs','stackerCrane'].includes(item?.type)?p.travelSpeed??p.speed:item?.type==='lift'?p.liftSpeed:p.speed)??.5);return{targetSpeed:target,acceleration:Number(p.acceleration??.8),deceleration:Number(p.deceleration??p.acceleration??1),jerk:Number(p.jerk??1.5),motionProfile:Number(p.motionProfile??0)===1||p.motionProfile==='trapezoidal'?'trapezoidal':'sCurve'};};
 export function kinematicTravelDuration(distance,config={},dt=.01){const motion=new KinematicMotion(config),limit=Math.max(10,Math.max(0,Number(distance)||0)/Math.max(.01,Number(config.targetSpeed)||1)*20);let elapsed=0;while(motion.position<distance&&elapsed<limit){motion.step(dt,{distance});elapsed+=dt;}return elapsed;}
 
 export class DeterministicReliability {

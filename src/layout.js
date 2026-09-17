@@ -1,3 +1,4 @@
+import { validateFlowGraph } from './flow-graph.js';
 export const layoutSchemaVersion = 1;
 
 export const defaultLayout = {
@@ -54,6 +55,7 @@ export function validateLayout(layout) {
     if (item.pickNode && !nodeIds.has(item.pickNode)) errors.push(`${item.id}의 pickNode가 존재하지 않습니다.`);
     if (item.placeNode && !nodeIds.has(item.placeNode)) errors.push(`${item.id}의 placeNode가 존재하지 않습니다.`);
   }
+  if(Array.isArray(layout?.equipment)&&layout?.cadSchematic)errors.push(...validateFlowGraph(layout).errors);
   return { valid: errors.length === 0, errors };
 }
 

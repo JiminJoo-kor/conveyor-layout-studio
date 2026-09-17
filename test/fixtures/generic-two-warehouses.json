@@ -1,0 +1,25 @@
+{
+  "schemaVersion":1,"id":"generic-acceptance","name":"범용 인계 검증 · 두 창고","displayMode":"cad","cadViewMode":"schematic",
+  "cargoSpec":{"length":1200,"width":800,"weight":100,"unit":"mm"},
+  "cargoPatternColors":{"빨강 상자":"#ef4444","파랑 상자":"#3b82f6"},
+  "canvas":{"width":1200,"height":650,"grid":20},
+  "equipment":[
+    {"id":"s1","name":"Alpha 입고","type":"source","x":70,"y":160,"parameters":{"injectionInterval":4,"cargoType":"빨강 상자"}},
+    {"id":"cv1","name":"Alpha CV","type":"conveyor","x":230,"y":160,"parameters":{"length":5.5,"speed":1,"continuousHandover":1,"safetyGap":0.2}},
+    {"id":"w1","name":"첫 번째 창고","type":"asrs","x":450,"y":210,"parameters":{"productTypes":2,"rows":3,"columns":4,"levels":3,"infeedTime":2,"outfeedTime":2,"forkStroke":0.2,"forkSpeed":1,"travelSpeed":2,"liftSpeed":1}},
+    {"id":"out1","name":"Alpha 출고","type":"sink","x":650,"y":210,"parameters":{"dischargeTime":1}},
+    {"id":"s2","name":"Beta 입고","type":"source","x":70,"y":420,"parameters":{"injectionInterval":4,"cargoType":"파랑 상자"}},
+    {"id":"cv2","name":"Beta CV","type":"conveyor","x":230,"y":420,"rotation":90,"parameters":{"length":5.5,"speed":1,"continuousHandover":1,"safetyGap":0.2}},
+    {"id":"w2","name":"두 번째 창고","type":"asrs","x":450,"y":470,"parameters":{"productTypes":2,"rows":3,"columns":4,"levels":3,"infeedTime":2,"outfeedTime":2,"forkStroke":0.2,"forkSpeed":1,"travelSpeed":2,"liftSpeed":1}},
+    {"id":"out2","name":"Beta 출고","type":"sink","x":650,"y":470,"parameters":{"dischargeTime":1}}
+  ],
+  "connections":[],
+  "cadSchematic":{"lanes":[],"inboundBranches":[{"name":"Alpha","nodeIds":["s1"]},{"name":"Beta","nodeIds":["s2"]}],"edges":[
+    {"from":"s1","to":"cv1","fromPort":"right","toPort":"left"},
+    {"from":"cv1","to":"w1","fromPort":"right","toPort":"product-2-in"},
+    {"from":"w1","to":"out1","fromPort":"product-1-out","toPort":"left"},
+    {"from":"s2","to":"cv2","fromPort":"right","toPort":"left"},
+    {"from":"cv2","to":"w2","fromPort":"right","toPort":"product-1-in"},
+    {"from":"w2","to":"out2","fromPort":"product-2-out","toPort":"left"}
+  ]}
+}

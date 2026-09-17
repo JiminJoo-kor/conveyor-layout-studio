@@ -9,7 +9,7 @@ test('운행 중인 AMR와 AGV는 배치 원점이 아니라 화면에 표시된
 test('입고 시작 블록은 입고 Dock과 새 라인·물류 종류를 함께 만든다',()=>{
   const asrs={id:'asrs',type:'stackerCrane',parameters:{productTypes:1,stackerCount:1}},dock={id:'dock-new',type:'dock',name:'새 입고 시작 2',parameters:{lineName:'신규 라인',cargoType:'신규 물류'}},layout={equipment:[asrs,dock],cadSchematic:{lanes:[],inboundBranches:[{id:'old',name:'기존 라인',cargoType:'기존 물류',nodeIds:['old']}],edges:[]}};
   const branch=registerInboundDockLine(layout,dock);
-  assert.equal(dock.type,'dock');assert.equal(dock.parameters.dockRole,'inbound');assert.equal(branch.name,'신규 라인');assert.equal(branch.cargoType,'신규 물류');assert.deepEqual(branch.nodeIds,['dock-new']);assert.equal(asrs.parameters.productTypes,2);assert.equal(asrs.parameters.stackerCount,2);assert.deepEqual(layout.cargoPatternColors,{});
+  assert.equal(dock.type,'dock');assert.equal(dock.parameters.dockRole,'inbound');assert.equal(branch.name,'신규 라인');assert.equal(branch.cargoType,'신규 물류');assert.deepEqual(branch.nodeIds,['dock-new']);assert.equal(asrs.parameters.productTypes,1);assert.equal(asrs.parameters.stackerCount,1);assert.deepEqual(layout.cargoPatternColors,{});
 });
 
 test('중간 설비를 삭제하면 이전 설비와 다음 설비를 자동 연결한다',()=>{

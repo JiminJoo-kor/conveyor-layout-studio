@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, ensureDynamicParameters, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { asrsLayoutCargoPresentation, asrsLayoutCargoVisible, asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, flowDisplayTitle, isNodeConveyor, laneTitleAnchor, mobileEquipmentBridge, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
+import { asrsInfeedSourcePresentation, asrsLayoutCargoPresentation, asrsLayoutCargoVisible, asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, flowDisplayTitle, isNodeConveyor, laneTitleAnchor, mobileEquipmentBridge, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
 import { connectionAnchor } from '../src/route.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
@@ -199,6 +199,8 @@ test('출고 전용 3개 라인에는 대응하는 입고 트럭과 ASRS 입고 
 test('AS/RS 파라미터 UI는 입고와 출고 인계 시간을 각각 제공한다',()=>{const fields=parameterFieldsFor({type:'stackerCrane',parameters:{}}),byKey=Object.fromEntries(fields.map(field=>[field.key,field]));assert.equal(byKey.infeedTime.label,'입고 인계 시간(초)');assert.equal(byKey.outfeedTime.label,'출고 인계 시간(초)');assert.equal(byKey.infeedTime.value,1);assert.equal(byKey.outfeedTime.value,1);});
 
 test('메인 레이아웃의 AS/RS 주변 상자는 실제 입고·출고 인계 단계에서만 표시한다',()=>{assert.equal(asrsLayoutCargoVisible({phase:'infeed'}),true);assert.equal(asrsLayoutCargoVisible({phase:'handoff-wait'}),true);assert.equal(asrsLayoutCargoVisible({phase:'outfeed'}),true);for(const phase of ['travel','fork','return','complete','handoff-confirm'])assert.equal(asrsLayoutCargoVisible({phase}),false);});
+
+test('AS/RS 입고 중에는 상류 출구의 물류 꼬리가 완전히 빠질 때까지 클리핑 표시된다',()=>{const source={id:'cv',type:'conveyor',x:0,y:0,rotation:0},target={id:'asrs',type:'stackerCrane',x:200,y:0},edge={from:'cv',to:'asrs',fromPort:'right',toPort:'product-1-in'},start=asrsInfeedSourcePresentation(source,target,edge,20,0),middle=asrsInfeedSourcePresentation(source,target,edge,20,.5),end=asrsInfeedSourcePresentation(source,target,edge,20,1);assert.equal(start.visible,true);assert.equal(middle.visible,true);assert.equal(end.visible,false);assert.ok(start.pose.x<middle.pose.x&&middle.pose.x<end.pose.x);});
 
 test('메인 AS/RS 작업 상자는 트림·화이날·도어 재고 문구 옆의 서로 다른 높이에 정렬된다',()=>{const item={id:'asrs',type:'stackerCrane',x:500,y:400,parameters:{rows:1,columns:2,levels:1,infeedTime:2}},state={t:1,asrs:{equipmentId:'asrs',zones:{'트림 라인':{},'화이날 라인':{},'도어 라인':{}}}},make=(flowKey,index)=>asrsLayoutCargoPresentation(item,state,{edge:{to:'asrs'},asrsInfeedAcceptedAt:0,flowKey,asrsTarget:{index}}),trim=make('트림 라인',0),final=make('화이날 라인',1),door=make('도어 라인',2);assert.equal(trim.x,final.x);assert.equal(final.x,door.x);assert.ok(trim.y<final.y&&final.y<door.y);assert.ok(trim.visible&&final.visible&&door.visible);});
 

@@ -108,6 +108,7 @@ test('여러 라인의 이동 물류는 서로 다른 고정 색상을 사용한
 });
 
 test('물품 종류 색상은 소속 라인 색상과 독립적으로 고정된다',()=>{assert.equal(cargoColor('트림 물류'),cargoColor('트림 물류'));assert.notEqual(cargoColor('트림 물류'),cargoColor('화이날 물류'));assert.notEqual(cargoColor('트림 물류'),flowColor('화이날 라인'));});
+test('프로젝트에서 변경한 물류 패턴 색상은 기본 팔레트보다 우선한다',()=>{assert.equal(cargoColor('트림 물류',0,{cargoPatternColors:{'트림 물류':'#123abc'}}),'#123abc');assert.notEqual(cargoColor('트림 물류'),'#123abc');});
 
 test('ASRS 내부 적재 물류는 사각형 토큰으로 중복 표시하지 않는다',()=>{
   assert.equal(shouldDrawCadToken({nodeId:'asrs',edge:null},{type:'stackerCrane'}),false);assert.equal(shouldDrawCadToken({nodeId:'asrs',edge:null,asrsPhase:'putaway'},{type:'stackerCrane'}),true);assert.equal(shouldDrawCadToken({nodeId:'asrs',edge:null,asrsPhase:'retrieval'},{type:'stackerCrane'}),true);assert.equal(shouldDrawCadToken({nodeId:'asrs',edge:{from:'asrs',to:'out'}},{type:'stackerCrane'}),true);assert.equal(shouldDrawCadToken({nodeId:'cv',edge:null},{type:'conveyor'}),true);

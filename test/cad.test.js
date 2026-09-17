@@ -79,7 +79,7 @@ test('AGV는 적재 후 이동하고 하역 위치에 도착해야 물품을 넘
 });
 
 test('정지 AMR은 저장 좌표에 있고 운반 중에만 경로 좌표로 이동한다',()=>{
-  const item={id:'amr',type:'amr',x:100,y:80,parameters:{loadTime:0,unloadTime:0},shuttleRoute:{start:{x:20,y:20},end:{x:220,y:20},points:[{x:20,y:20},{x:220,y:20}]}},layout={equipment:[item],cadSchematic:{edges:[]}},idle=equipmentVisualPosition(layout,item,{t:0,cadTokens:[]}),token={nodeId:'amr',edge:null,nodeEnteredAt:0,operationDuration:10},moving=equipmentVisualPosition(layout,item,{t:5,cadTokens:[token]},token);assert.deepEqual(idle,{x:100,y:80});assert.ok(Math.abs(moving.x-120)<1e-9);assert.equal(moving.y,20);
+  const item={id:'amr',type:'amr',x:100,y:80,parameters:{loadTime:0,unloadTime:0},shuttleRoute:{start:{x:20,y:20},end:{x:220,y:20},points:[{x:20,y:20},{x:220,y:20}]}},layout={equipment:[item],cadSchematic:{edges:[]}},idle=equipmentVisualPosition(layout,item,{t:0,cadTokens:[]}),token={nodeId:'amr',edge:null,nodeEnteredAt:0,operationDuration:10},moving=equipmentVisualPosition(layout,item,{t:5,cadTokens:[token]},token);assert.deepEqual(idle,{x:20,y:20});assert.ok(Math.abs(moving.x-120)<1e-9);assert.equal(moving.y,20);
 });
 
 test('턴테이블 진행률은 물품 작업시간에 동기화된다',()=>{

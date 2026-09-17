@@ -213,7 +213,24 @@ export class LayoutRenderer {
     return false;
   }
 
-  handoverDescriptor(token,state,nodes,cargo){const physical=item=>equipmentLengthMeters(item,this.layout),visible=ratio=>ratio>1e-4&&ratio<1-1e-4,receiving=ratio=>ratio>=0&&ratio<1-1e-4,current=nodes.get(token.nodeId);if(!token.edge&&['agv','amr'].includes(current?.type)){const step=equipmentSequenceSnapshot(current,token,state?.t||0,this.layout),edges=this.layout.cadSchematic?.edges||[];if(step.phase==='receive'){const edge=token.incomingHandover?.edge||edges.find(candidate=>candidate.to===current.id),source=nodes.get(edge?.from);if(edge&&source)return{source,target:current,edge,raw:Math.max(0,Math.min(1,step.progress||0))};}if(step.phase==='transfer'){const edge=token.predictiveRouteEdge||edges.find(candidate=>candidate.from===current.id),target=nodes.get(edge?.to);if(edge&&target)return{source:current,target,edge,raw:Math.max(0,Math.min(1,step.progress||0))};}}if(!token.edge&&token.motion&&['conveyor','processLine','sorter'].includes(current?.type)){const source=current,position=Number(token.motionState?.position)||0,entered=Math.max(0,position-physical(source)),outgoing=(this.layout.cadSchematic?.edges||[]).filter(edge=>edge.from===source.id),edge=token.predictiveRouteEdge||token.visualEdge||outgoing[0],target=nodes.get(edge?.to),raw=entered/cargo.length;if(visible(raw)&&edge&&target)return{source,target,edge,raw};}if(token.edge)return null;const handover=token.incomingHandover,source=nodes.get(handover?.sourceId),target=nodes.get(handover?.targetId);if(!handover||token.nodeId!==handover.targetId||!source||!target||!token.motion)return null;const raw=(Number(token.motionState?.position)||0)/cargo.length;return receiving(raw)?{source,target,edge:handover.edge||{},raw:Math.max(0,raw)}:null;}
+  handoverDescriptor(token,state,nodes,cargo){
+    const physical=item=>equipmentLengthMeters(item,this.layout),visible=ratio=>ratio>1e-4&&ratio<1-1e-4,receiving=ratio=>ratio>=0&&ratio<1-1e-4,current=nodes.get(token.nodeId);
+    if(!token.edge&&['agv','amr'].includes(current?.type)){
+      const step=equipmentSequenceSnapshot(current,token,state?.t||0,this.layout),edges=this.layout.cadSchematic?.edges||[];
+      if(step.phase==='receive'){const edge=token.incomingHandover?.edge||edges.find(candidate=>candidate.to===current.id),source=nodes.get(edge?.from);if(edge&&source)return{source,target:current,edge,raw:Math.max(0,Math.min(1,step.progress||0))};}
+      if(step.phase==='transfer'){const edge=token.predictiveRouteEdge||edges.find(candidate=>candidate.from===current.id),target=nodes.get(edge?.to);if(edge&&target)return{source:current,target,edge,raw:Math.max(0,Math.min(1,step.progress||0))};}
+    }
+    if(!token.edge&&token.motion&&['conveyor','processLine','sorter'].includes(current?.type)){
+      const source=current,position=Number(token.motionState?.position)||0,entered=Math.max(0,position-physical(source)),outgoing=(this.layout.cadSchematic?.edges||[]).filter(edge=>edge.from===source.id),edge=token.predictiveRouteEdge||token.visualEdge||outgoing[0],target=nodes.get(edge?.to),raw=entered/cargo.length;
+      if(['agv','amr'].includes(target?.type))return null;
+      if(visible(raw)&&edge&&target)return{source,target,edge,raw};
+    }
+    if(token.edge)return null;
+    const handover=token.incomingHandover,source=nodes.get(handover?.sourceId),target=nodes.get(handover?.targetId);
+    if(!handover||token.nodeId!==handover.targetId||!source||!target||!token.motion)return null;
+    const raw=(Number(token.motionState?.position)||0)/cargo.length;
+    return receiving(raw)?{source,target,edge:handover.edge||{},raw:Math.max(0,raw)}:null;
+  }
 
   drawHandoverOverlay(state){
 const c=this.ctx,nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cargo=normalizedCargoSpec(this.layout),commonVisualLength=this.layout.cadViewMode==='hybrid'?58:78,metrics=stableCargoVisualMetrics(this.layout,cargo,commonVisualLength),colorsFor=token=>({cargo:cargoColor(token.cargoPatternKey||token.cargoType||token.flowKey,token.flowIndex,this.layout),line:flowColor(token.flowKey,token.flowIndex)});

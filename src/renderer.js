@@ -228,7 +228,7 @@ export class LayoutRenderer {
     }
     if(!token.edge&&token.motion&&['conveyor','processLine','sorter'].includes(current?.type)){
       const source=current,position=Number(token.motionState?.position)||0,entered=Math.max(0,position-physical(source)),outgoing=(this.layout.cadSchematic?.edges||[]).filter(edge=>edge.from===source.id),edge=token.predictiveRouteEdge||token.visualEdge||outgoing[0],target=nodes.get(edge?.to),raw=entered/cargo.length;
-      if(['agv','amr'].includes(target?.type))return null;
+      if(['agv','amr','asrs','stackerCrane'].includes(target?.type))return null;
       if(visible(raw)&&edge&&target)return{source,target,edge,raw};
     }
     if(token.edge){const target=nodes.get(token.edge.to);if(['asrs','stackerCrane'].includes(target?.type)&&token.asrsInfeedAcceptedAt!=null){const duration=Math.max(.1,Number(target.parameters?.infeedTime)||1),raw=((state?.t||0)-token.asrsInfeedAcceptedAt)/duration;return{source:current,target,edge:token.edge,raw:Math.max(0,Math.min(1,raw))};}if(['asrs','stackerCrane'].includes(current?.type)&&token.asrsPhase==='retrieval'&&token.handoffAcceptedAt!=null){const duration=Math.max(.1,Number(current.parameters?.outfeedTime)||1),raw=((state?.t||0)-token.handoffAcceptedAt)/duration;return{source:current,target,edge:token.edge,raw:Math.max(0,Math.min(1,raw))};}return null;}

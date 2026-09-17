@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, ensureDynamicParameters, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
+import { asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken, shouldDrawMobileTransferEdge } from '../src/renderer.js';
 import { connectionAnchor } from '../src/route.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
@@ -134,6 +134,10 @@ test('포킹장치와 AMR은 현장 동작 순서가 보이는 간단 파라미�
 test('UI는 실제 물류 운전에 필요한 값만 표시하고 자동·고급값은 내부에 유지한다',()=>{const conveyor={type:'conveyor',parameters:{length:5,speed:1,availability:90,efficiency:80,positions:4}},keys=parameterFieldsFor(conveyor).map(field=>field.key);assert.deepEqual(keys,['length','speed','acceleration','deceleration','safetyGap','loadCapacity']);ensureDynamicParameters(conveyor);assert.equal(conveyor.parameters.availability,90);assert.equal(conveyor.parameters.efficiency,80);assert.equal(conveyor.parameters.jerk,1.5);const storageKeys=parameterFieldsFor({type:'stackerCrane',parameters:{stackerCount:9,returnHome:1}}).map(field=>field.key);assert.equal(storageKeys.includes('stackerCount'),false);assert.equal(storageKeys.includes('returnHome'),false);assert.equal(storageKeys.includes('cellCount'),true);});
 
 test('속도를 갖는 이동 설비는 가속도와 감속도를 함께 입력한다',()=>{for(const type of ['conveyor','sorter','forkingDevice','agv','amr','shuttle','forklift','lift']){const keys=parameterFieldsFor({type,parameters:{}}).map(field=>field.key);assert.ok(keys.includes('acceleration'),`${type} acceleration`);assert.ok(keys.includes('deceleration'),`${type} deceleration`);}const storage=parameterFieldsFor({type:'stackerCrane',parameters:{}}).map(field=>field.key);assert.ok(['travelAcceleration','travelDeceleration','liftAcceleration','liftDeceleration','forkAcceleration','forkDeceleration'].every(key=>storage.includes(key)));assert.equal(storage.includes('acceleration'),false);});
+
+test('AMR·AGV 운행 연결선은 시뮬레이션 시작 후에만 표시한다',()=>{const cv={type:'conveyor'},agv={type:'agv'},amr={type:'amr'},edge={kind:'transfer'};assert.equal(shouldDrawMobileTransferEdge(edge,cv,agv,{t:0}),false);assert.equal(shouldDrawMobileTransferEdge(edge,amr,cv,{t:0}),false);assert.equal(shouldDrawMobileTransferEdge(edge,cv,agv,{t:.02}),true);assert.equal(shouldDrawMobileTransferEdge(edge,cv,cv,{t:0}),true);});
+
+test('AS/RS 출고 라인이 바뀌어도 저장 셀은 입고 당시 물품 종류와 저장 라인을 유지한다',()=>{const asrs={equipmentId:'asrs',cellCount:2,zones:{'화이날 라인':{capacity:2,inventory:1,occupiedSlots:[true,false]}}},token={nodeId:'asrs',flowKey:'트림 출고',storageFlowKey:'화이날 라인',cargoType:'트림 물류',asrsTarget:{index:0}},cells=asrsRackCells(asrs,[token]);assert.equal(cells[0].cargoTypes[0],'트림 물류');assert.equal(cells[0].name,'화이날 라인');});
 
 test('라인 제목은 DXF 텍스트가 아니라 이동 가능한 트럭 설비를 따라간다',()=>{
   const text={id:'label',type:'processLine',x:10,y:10},conveyor={id:'cv',type:'conveyor',x:100,y:100},truck={id:'truck',type:'dock',x:200,y:100};assert.equal(laneTitleAnchor([text,conveyor,truck]),truck);truck.x=350;assert.equal(laneTitleAnchor([text,conveyor,truck]).x,350);

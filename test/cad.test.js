@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, ensureDynamicParameters, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
 import { asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
+import { connectionAnchor } from '../src/route.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
   assert.equal(classifyCadEntity({layer:'MHE_CONVEYOR',blockName:'ROLLER_CV'}).type,'conveyor');
@@ -72,6 +73,10 @@ test('지게차와 고정 포킹장치를 별도 설비로 분류한다',()=>{
 
 test('연결된 AGV와 AMR은 앞뒤 설비 사이의 동적 이동 경로를 갖는다',()=>{
   const equipment=[{id:'a',type:'conveyor',x:0,y:0},{id:'agv',type:'agv',x:100,y:50},{id:'b',type:'conveyor',x:200,y:100}],layout={equipment,cadSchematic:{edges:[{from:'a',to:'agv',fromPort:'right',toPort:'left'},{from:'agv',to:'b',fromPort:'right',toPort:'left'}]}},route=mobileEquipmentRoute(layout,equipment[1]);assert.ok(route);assert.equal(route.points.length,2);assert.deepEqual(route.start,{x:56,y:50});assert.deepEqual(route.end,{x:144,y:50});
+});
+
+test('AMR와 AGV의 대기 위치는 주황색 이송 경로의 진행 방향 첫 점이다',()=>{
+  for(const type of ['amr','agv']){const before={id:'before',type:'turntable',x:40,y:300},vehicle={id:type,type,x:300,y:120,shuttleRoute:{start:{x:300,y:120},end:{x:500,y:120},points:[{x:300,y:120},{x:500,y:120}]}},after={id:'after',type:'dock',x:600,y:80},incoming={from:'before',to:type,fromPort:'right',toPort:'left',kind:'transfer'},outgoing={from:type,to:'after',fromPort:'right',toPort:'left',kind:'transfer'},layout={equipment:[before,vehicle,after],cadSchematic:{edges:[incoming,outgoing]}},route=mobileEquipmentRoute(layout,vehicle),orangeStart=connectionAnchor(before,incoming.fromPort);assert.equal(route.source,'transfer-path');assert.deepEqual(route.start,orangeStart);assert.deepEqual(equipmentVisualPosition(layout,vehicle,{t:0,cadTokens:[]}),orangeStart);}
 });
 
 test('AGV는 적재 후 이동하고 하역 위치에 도착해야 물품을 넘긴다',()=>{

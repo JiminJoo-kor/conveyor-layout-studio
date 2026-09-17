@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildLayoutCandidates, buildSchematicLayout, classifyCadEntity, dedupeProcessLineCandidates, detectProcessRegion, ensureDynamicParameters, normalizeSchematicPositions, parameterFieldsFor, selectPrimaryLayoutCluster } from '../src/cad.js';
 import { createCanvasTransform, isLogisticsDxfEntity, parseDxf, transformDxfGeometry } from '../src/dxf.js';
-import { asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, isNodeConveyor, laneTitleAnchor, mobileEquipmentBridge, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
+import { asrsOccupiedSlots, asrsRackCells, cargoColor, equipmentOperationProgress, equipmentVisualPosition, flowColor, flowDisplayTitle, isNodeConveyor, laneTitleAnchor, mobileEquipmentBridge, mobileEquipmentRoute, normalizedCargoSpec, shouldDrawCadToken } from '../src/renderer.js';
 import { connectionAnchor } from '../src/route.js';
 
 test('DWG 블록명과 레이어명으로 대표 물류설비를 분류한다',()=>{
@@ -138,6 +138,8 @@ test('속도를 갖는 이동 설비는 가속도와 감속도를 함께 입력�
 test('시뮬레이션 운행선은 AMR·AGV 양쪽 연결점 사이 중앙 공백도 이어 준다',()=>{const before={id:'before',type:'conveyor',x:0,y:0},agv={id:'agv',type:'agv',x:100,y:0},after={id:'after',type:'conveyor',x:200,y:0},layout={equipment:[before,agv,after],cadSchematic:{edges:[{from:'before',to:'agv',toPort:'left',kind:'transfer'},{from:'agv',to:'after',fromPort:'right',kind:'transfer'}]}},bridge=mobileEquipmentBridge(layout,agv);assert.deepEqual(bridge.start,{x:56,y:0});assert.deepEqual(bridge.end,{x:144,y:0});assert.deepEqual(bridge.points,[bridge.start,bridge.end]);});
 
 test('AS/RS 출고 라인이 바뀌어도 저장 셀은 입고 당시 물품 종류와 저장 라인을 유지한다',()=>{const asrs={equipmentId:'asrs',cellCount:2,zones:{'화이날 라인':{capacity:2,inventory:1,occupiedSlots:[true,false]}}},token={nodeId:'asrs',flowKey:'트림 출고',storageFlowKey:'화이날 라인',cargoType:'트림 물류',asrsTarget:{index:0}},cells=asrsRackCells(asrs,[token]);assert.equal(cells[0].cargoTypes[0],'트림 물류');assert.equal(cells[0].name,'화이날 라인');});
+
+test('입고·출고 제목은 임의 프로젝트 이름을 사용하고 자동 경로 설명은 붙이지 않는다',()=>{assert.equal(flowDisplayTitle('차체 A라인','입고',{name:'차체 A라인 입고 트럭',source:{inferred:true}}),'차체 A라인 입고');assert.equal(flowDisplayTitle('모듈 X라인','출고',{name:'출고'}),'모듈 X라인 출고');assert.equal(flowDisplayTitle('임의 라인','입고',{name:'원자재 투입구'}),'원자재 투입구');});
 
 test('라인 제목은 DXF 텍스트가 아니라 이동 가능한 트럭 설비를 따라간다',()=>{
   const text={id:'label',type:'processLine',x:10,y:10},conveyor={id:'cv',type:'conveyor',x:100,y:100},truck={id:'truck',type:'dock',x:200,y:100};assert.equal(laneTitleAnchor([text,conveyor,truck]),truck);truck.x=350;assert.equal(laneTitleAnchor([text,conveyor,truck]).x,350);

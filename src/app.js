@@ -22,6 +22,7 @@ const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, edito
 const cadParameterSection=document.createElement('section');cadParameterSection.id='cadEquipmentParameters';cadParameterSection.className='cad-parameter-section';cadParameterSection.hidden=true;
 $('dynamicEquipmentControls').append(cadParameterSection);
 const emptyProjectState=document.createElement('div');emptyProjectState.id='emptyProjectState';emptyProjectState.className='empty-project-state';emptyProjectState.innerHTML='<strong>새 레이아웃을 시작하세요</strong><span>DXF 파일 또는 이미 저장된 JSON 파일을 열어주세요.</span>';$('layoutCanvas').closest('.canvas-scroll').before(emptyProjectState);
+const layoutImportStatus=document.createElement('p');layoutImportStatus.id='layoutImportStatus';layoutImportStatus.className='validation';layoutImportStatus.setAttribute('role','alert');layoutImportStatus.hidden=true;emptyProjectState.before(layoutImportStatus);
 const newLayoutButton=document.createElement('button');newLayoutButton.id='newLayoutProject';newLayoutButton.textContent='새 레이아웃 구성';$('cadFile').closest('.layout-actions').prepend(newLayoutButton);
 const projectStatus=document.createElement('small');projectStatus.id='projectStatus';projectStatus.className='project-status';$('layoutName').after(projectStatus);
 const rackMonitor=document.createElement('section');rackMonitor.id='rackMonitor';rackMonitor.className='rack-monitor';rackMonitor.hidden=true;$('rackMonitorSlot').append(rackMonitor);
@@ -42,8 +43,8 @@ function syncFlowView(){const select=$('flowView'),current=select.value||'all',n
 function resetEngine() {
   const params=readParams(), check=validateParams(params);
   $('validation').textContent=check.errors.join(' ');
-  if(!check.valid) return false;
-  if(layout.displayMode==='cad'){const graph=validateFlowGraph(layout);if(!graph.valid){$('validation').textContent=graph.errors.join(' · ');return false;}for(const item of layout.equipment){ensureDynamicParameters(item);}}
+  if(!check.valid){running=false;cancelAnimationFrame(frame);engine=new CadFlowEngine(cloneLayout(emptyLayout),defaultParams);$('runBtn').textContent='시뮬레이션 시작';renderer.draw(engine.state);renderEvents();return false;}
+  if(layout.displayMode==='cad'){const graph=validateFlowGraph(layout);if(!graph.valid){running=false;cancelAnimationFrame(frame);engine=new CadFlowEngine(cloneLayout(emptyLayout),params);$('runBtn').textContent='시뮬레이션 시작';$('validation').textContent=graph.errors.join(' · ');renderer.draw(engine.state);renderEvents();return false;}for(const item of layout.equipment){ensureDynamicParameters(item);}}
   engine=layout.displayMode==='cad'?new CadFlowEngine(layout,params):new SimulationEngine(layout,params);syncFlowView();renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
 }
 function editorChanged(rebuild) {
@@ -100,6 +101,7 @@ function loop(now) {
   frame=requestAnimationFrame(loop);
 }
 function toggleRun() {
+  if(!running&&layout.displayMode==='cad'&&!validateFlowGraph(layout).valid){resetEngine();return;}
   if(engine.state.t===0&&!resetEngine()) return;
   running=!running; $('runBtn').textContent=running?'일시정지':'재개'; last=0;
   if(running) frame=requestAnimationFrame(loop); else {cancelAnimationFrame(frame);renderEvents();}
@@ -197,7 +199,7 @@ function rotateSelected(delta){if(!selectedEquipment)return;selectedEquipment.ro
 $('rotateLeft').addEventListener('click',()=>rotateSelected(-90));$('rotateRight').addEventListener('click',()=>rotateSelected(90));
 $('layoutFile').addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;
-  try {const candidate=JSON.parse(await file.text()), check=validateLayout(candidate);if(!check.valid)throw new Error(check.errors.join(' '));layout=candidate;ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();}
-  catch(error){$('validation').textContent='레이아웃 불러오기 실패: '+error.message;} finally{event.target.value='';}
+  try {const candidate=JSON.parse((await file.text()).replace(/^\uFEFF/,'')), check=validateLayout(candidate,{forExecution:false});if(!check.valid)throw new Error(check.errors.join(' '));running=false;cancelAnimationFrame(frame);last=0;$('runBtn').textContent='시뮬레이션 시작';layout=candidate;ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);const ready=resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();layoutImportStatus.hidden=false;layoutImportStatus.textContent=ready?`${file.name} 불러오기 완료`:`${file.name} 불러오기 완료 · 실행 전 수정 필요: ${$('validation').textContent}`;}
+  catch(error){layoutImportStatus.hidden=false;layoutImportStatus.textContent='레이아웃 불러오기 실패: '+error.message;$('validation').textContent=layoutImportStatus.textContent;} finally{event.target.value='';}
 });
 writeParams(defaultParams);setProjectEmpty(true);syncFlowView();renderer.draw({t:0,cadTokens:[],source:[],product:[],locks:{},robot:{phase:'idle'}});renderEvents();

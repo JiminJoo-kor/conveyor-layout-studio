@@ -36,10 +36,15 @@ export const defaultLayout = {
   ]
 };
 
-export function validateLayout(layout) {
+export function validateLayout(layout, { forExecution = true } = {}) {
   const errors = [];
   if (layout?.schemaVersion !== layoutSchemaVersion) errors.push('지원하지 않는 레이아웃 버전입니다.');
   if (!Array.isArray(layout?.equipment)) errors.push('equipment 배열이 필요합니다.');
+  if (errors.length) return { valid: false, errors };
+  const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
+  if (layout.equipment.some(item => !isObject(item) || item.nodes != null && (!Array.isArray(item.nodes) || item.nodes.some(node => !isObject(node))))) errors.push('설비와 노드는 객체 배열이어야 합니다.');
+  if (layout.cadSchematic != null && (!isObject(layout.cadSchematic) || ['edges','lanes','inboundBranches'].some(key => layout.cadSchematic[key] != null && (!Array.isArray(layout.cadSchematic[key]) || layout.cadSchematic[key].some(value => !isObject(value)))))) errors.push('CAD 연결·라인 정보는 객체 배열이어야 합니다.');
+  if (errors.length) return { valid: false, errors };
   const ids = new Set();
   const nodeIds = new Set();
   for (const item of layout?.equipment || []) {
@@ -55,7 +60,7 @@ export function validateLayout(layout) {
     if (item.pickNode && !nodeIds.has(item.pickNode)) errors.push(`${item.id}의 pickNode가 존재하지 않습니다.`);
     if (item.placeNode && !nodeIds.has(item.placeNode)) errors.push(`${item.id}의 placeNode가 존재하지 않습니다.`);
   }
-  if(Array.isArray(layout?.equipment)&&layout?.cadSchematic)errors.push(...validateFlowGraph(layout).errors);
+  if(forExecution&&layout?.cadSchematic)errors.push(...validateFlowGraph(layout).errors);
   return { valid: errors.length === 0, errors };
 }
 

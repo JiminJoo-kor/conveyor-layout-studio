@@ -142,7 +142,7 @@ export class CadFlowEngine {
     if(current?.id===this.state.asrs.equipmentId){const outbound=this.outboundLineForCargo(token);if(outbound){token.outboundFlowKey=outbound.name;token.outboundFlowIndex=outbound.index;this.setTokenFlowLine(token,outbound,current.id);}}
     if(options.length<2)return 0;
     const destinationIndex=this.routeIndexForLine(options,token.outboundFlowKey);
-    if(destinationIndex>=0)return this.availableRouteIndex(options,destinationIndex,token);
+    if(destinationIndex>=0)return destinationIndex;
     let fork=current?.type==='forkingDevice'?current:null,forkIndex=-1,primaryIndex=0;
     if(!fork){forkIndex=options.findIndex(edge=>this.nodes.get(edge.to)?.type==='forkingDevice');if(forkIndex<0)return this.availableRouteIndex(options,(token.flowIndex||0)%options.length,token);fork=this.nodes.get(options[forkIndex].to);primaryIndex=options.findIndex((edge,index)=>index!==forkIndex&&this.nodes.get(edge.to)?.type!=='forkingDevice');if(primaryIndex<0)primaryIndex=options.findIndex((edge,index)=>index!==forkIndex);}else forkIndex=options.length>1?1:0;
 const flowKey=token.flowKey||`flow-${token.flowIndex||0}`,cargoKey=token.cargoPatternKey||token.cargoType||token.originFlowKey||flowKey,configuredFlows=fork.parameters?.distributionFlowKeys,enabled=fork.parameters?.distributionEnabled!==false,eligible=enabled&&(!Array.isArray(configuredFlows)||configuredFlows.length===0||configuredFlows.includes(cargoKey)||configuredFlows.includes(flowKey)||configuredFlows.includes(token.originFlowKey));

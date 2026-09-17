@@ -23,6 +23,7 @@ export function handoverEndpointPose(item,port,cargoLength,isTarget=false,other=
 export const pendingTransferPose=(source,target,edge,cargoLength,commonVisualLength=78)=>handoverEndpointPose(source,edge?.fromPort,cargoLength,false,target,0,commonVisualLength);
 
 export function mobileEquipmentRoute(layout,item){
+  if(item?.shuttleRoute){const points=item.shuttleRoute.points||[item.shuttleRoute.start,item.shuttleRoute.end].filter(Boolean);if(points.length>=2)return{...item.shuttleRoute,start:item.shuttleRoute.start||points[0],end:item.shuttleRoute.end||points.at(-1),points};}
   const edges=layout.cadSchematic?.edges||[],byId=new Map(layout.equipment.map(node=>[node.id,node])),incoming=edges.find(edge=>edge.to===item.id),outgoing=edges.find(edge=>edge.from===item.id),before=byId.get(incoming?.from),after=byId.get(outgoing?.to);
   if(before&&after){const start=connectionAnchor(item,incoming.toPort||'left'),end=connectionAnchor(item,outgoing.fromPort||'right');return{start,end,points:orthogonalRoute(start,end),axis:'orthogonal'};}
   if(before){const start=connectionAnchor(before,incoming.fromPort),end=connectionAnchor(item,incoming.toPort||'left');return{start,end,points:orthogonalRoute(start,end),axis:'orthogonal'};}

@@ -96,6 +96,7 @@ export class LayoutRenderer {
   isVisible(item) { return this.layout.displayMode!=='cad'||item.source?.origin==='dxf'; }
 
   draw(state) {
+    this.lastState=state;
     const c = this.ctx, { width, height, grid } = this.layout.canvas;
     c.fillStyle = COLORS.bg; c.fillRect(0, 0, width, height);
     c.save(); c.translate(this.view.x, this.view.y); c.scale(this.view.zoom, this.view.zoom);

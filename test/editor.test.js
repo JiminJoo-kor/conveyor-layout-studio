@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { insertEquipmentIntoNearestEdge, isSelectedEdgeHit, itemsInRect, refreshEquipmentConnections, registerInboundDockLine, removeConnection, removeEquipmentAndReconnect, setEquipmentFlowDirection, snapUnit } from '../src/editor.js';
+import { equipmentHitTarget, insertEquipmentIntoNearestEdge, isSelectedEdgeHit, itemsInRect, refreshEquipmentConnections, registerInboundDockLine, removeConnection, removeEquipmentAndReconnect, setEquipmentFlowDirection, snapUnit } from '../src/editor.js';
+
+test('운행 중인 AMR와 AGV는 배치 원점이 아니라 화면에 표시된 현재 위치에서 선택된다',()=>{
+  for(const type of ['amr','agv']){const vehicle={id:type,type,x:100,y:80,parameters:{loadTime:0,unloadTime:0},shuttleRoute:{start:{x:20,y:20},end:{x:220,y:20},points:[{x:20,y:20},{x:220,y:20}]}},under={id:'cv',type:'conveyor',x:200,y:80},layout={cargoSpec:{length:1,width:.8},equipment:[vehicle,under],cadSchematic:{edges:[]}},token={nodeId:type,edge:null,nodeEnteredAt:0,operationDuration:10},state={t:5,cadTokens:[token]};assert.equal(equipmentHitTarget(layout,state,{x:200,y:80}),vehicle);assert.equal(equipmentHitTarget(layout,state,{x:100,y:80}),undefined);}
+});
 
 test('입고 시작 블록은 입고 Dock과 새 라인·물류 종류를 함께 만든다',()=>{
   const asrs={id:'asrs',type:'stackerCrane',parameters:{productTypes:1,stackerCount:1}},dock={id:'dock-new',type:'dock',name:'새 입고 시작 2',parameters:{lineName:'신규 라인',cargoType:'신규 물류'}},layout={equipment:[asrs,dock],cadSchematic:{lanes:[],inboundBranches:[{id:'old',name:'기존 라인',cargoType:'기존 물류',nodeIds:['old']}],edges:[]}};

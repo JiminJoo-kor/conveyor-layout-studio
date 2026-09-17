@@ -225,7 +225,7 @@ export class LayoutRenderer {
       if(['agv','amr'].includes(target?.type))return null;
       if(visible(raw)&&edge&&target)return{source,target,edge,raw};
     }
-    if(token.edge)return null;
+    if(token.edge){const target=nodes.get(token.edge.to);if(['asrs','stackerCrane'].includes(target?.type)&&token.asrsInfeedAcceptedAt!=null){const duration=Math.max(.1,Number(target.parameters?.infeedTime)||1),raw=((state?.t||0)-token.asrsInfeedAcceptedAt)/duration;return{source:current,target,edge:token.edge,raw:Math.max(0,Math.min(1,raw))};}return null;}
     const handover=token.incomingHandover,source=nodes.get(handover?.sourceId),target=nodes.get(handover?.targetId);
     if(!handover||token.nodeId!==handover.targetId||!source||!target||!token.motion)return null;
     const raw=(Number(token.motionState?.position)||0)/cargo.length;

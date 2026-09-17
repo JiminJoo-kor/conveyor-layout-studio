@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipmentDirectionControls, equipmentFlowPorts, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from '../src/route.js';
+import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipmentDirectionControls, equipmentFlowPorts, equipmentPorts, orthogonalRoute, pointOnRoute, routeArrow, routeLength } from '../src/route.js';
 
 test('대각선 설비 사이 물류는 직교 꺾임 경로를 따라 이동한다',()=>{
   const points=orthogonalRoute({x:0,y:0},{x:100,y:100});
@@ -17,6 +17,10 @@ test('회전된 설비도 선택한 화살표 방향을 출력, 반대쪽을 입
 test('설비 연결 시 가장 가까운 회전 포트를 자동 선택한다',()=>{
   const from={x:0,y:0,rotation:0},to={x:200,y:0,rotation:90},pair=closestPortPair(from,to);assert.equal(pair.fromPort,'right');assert.ok(['left','right'].includes(pair.toPort));const anchor=connectionAnchor(from,pair.fromPort);assert.deepEqual(anchor,{x:44,y:0});
 });
+
+test('ASRS는 물품 구분 수만큼 외곽 입고·출고 연결점을 제공한다',()=>{const asrs={id:'asrs',type:'stackerCrane',x:300,y:200,parameters:{productTypes:3}},ports=equipmentPorts(asrs),names=Object.keys(ports).filter(name=>name.startsWith('product-'));assert.deepEqual(names,['product-1-in','product-1-out','product-2-in','product-2-out','product-3-in','product-3-out']);assert.ok(names.filter(name=>name.endsWith('-in')).every(name=>ports[name].x<asrs.x-89));assert.ok(names.filter(name=>name.endsWith('-out')).every(name=>ports[name].x>asrs.x+89));assert.equal(new Set(names.map(name=>ports[name].y)).size,3);});
+
+test('ASRS 자동 연결은 품목별 외곽 포트를 선택한다',()=>{const conveyor={id:'cv',type:'conveyor',x:0,y:200},asrs={id:'asrs',type:'asrs',x:300,y:200,parameters:{productTypes:3}},inbound=closestPortPair(conveyor,asrs),outbound=closestPortPair(asrs,conveyor);assert.match(inbound.toPort,/^product-\d+-in$/);assert.match(outbound.fromPort,/^product-\d+-out$/);assert.ok(connectionAnchor(asrs,inbound.toPort).x<asrs.x);assert.ok(connectionAnchor(asrs,outbound.fromPort).x>asrs.x);});
 
 test('연결 설비 특성에 따라 흐름 종류와 색상 의미를 분류한다',()=>{
   assert.equal(connectionKind({type:'conveyor'},{type:'conveyor'},'warehouse'),'flow');assert.equal(connectionKind({type:'conveyor'},{type:'forkingDevice'}),'forking');assert.equal(connectionKind({type:'forkingDevice'},{type:'stackerCrane'}),'warehouse');assert.equal(connectionKind({type:'conveyor'},{type:'amr'}),'transfer');assert.equal(connectionKind({type:'conveyor'},{type:'forklift'}),'transfer');

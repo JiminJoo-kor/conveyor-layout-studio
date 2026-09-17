@@ -31,9 +31,10 @@ export function pointOnRoute(points,progress){
   return points.at(-1);
 }
 
-export function equipmentPorts(item,distance=44){
-  const angle=(Number(item?.rotation)||0)*Math.PI/180,rotate=(x,y)=>({x:item.x+x*Math.cos(angle)-y*Math.sin(angle),y:item.y+x*Math.sin(angle)+y*Math.cos(angle)});
-  return{left:rotate(-distance,0),right:rotate(distance,0),top:rotate(0,-distance),bottom:rotate(0,distance)};
+export function equipmentPorts(item,distance=null){
+  const storage=['asrs','stackerCrane'].includes(item?.type),horizontal=Number.isFinite(distance)?distance:storage?97:44,vertical=Number.isFinite(distance)?distance:storage?74:44,angle=(Number(item?.rotation)||0)*Math.PI/180,rotate=(x,y)=>({x:item.x+x*Math.cos(angle)-y*Math.sin(angle),y:item.y+x*Math.sin(angle)+y*Math.cos(angle)}),ports={left:rotate(-horizontal,0),right:rotate(horizontal,0),top:rotate(0,-vertical),bottom:rotate(0,vertical)};
+  if(storage){const count=Math.max(1,Math.round(Number(item.parameters?.productTypes)||1)),span=Math.min(104,Math.max(0,(count-1)*26)),top=-span/2;for(let index=0;index<count;index++){const y=count===1?0:top+span*index/(count-1);ports[`product-${index+1}-in`]=rotate(-horizontal,y);ports[`product-${index+1}-out`]=rotate(horizontal,y);}}
+  return ports;
 }
 
 export function equipmentDirectionControls(item,distance=64){
@@ -54,7 +55,7 @@ export function equipmentFlowPorts(item,direction=item?.parameters?.flowDirectio
 export function connectionAnchor(item,port){return port&&equipmentPorts(item)[port]||{x:item.x,y:item.y};}
 
 export function closestPortPair(from,to){
-  const allFrom=equipmentPorts(from),allTo=equipmentPorts(to),fromPorts={left:allFrom.left,right:allFrom.right},toPorts={left:allTo.left,right:allTo.right};let best=null;
+  const allFrom=equipmentPorts(from),allTo=equipmentPorts(to),storage=node=>['asrs','stackerCrane'].includes(node?.type),fromPorts=storage(from)?Object.fromEntries(Object.entries(allFrom).filter(([name])=>name.endsWith('-out'))):{left:allFrom.left,right:allFrom.right},toPorts=storage(to)?Object.fromEntries(Object.entries(allTo).filter(([name])=>name.endsWith('-in'))):{left:allTo.left,right:allTo.right};let best=null;
   for(const [fromPort,a] of Object.entries(fromPorts))for(const [toPort,b] of Object.entries(toPorts)){const distance=Math.hypot(a.x-b.x,a.y-b.y);if(!best||distance<best.distance)best={fromPort,toPort,distance};}
   return best;
 }

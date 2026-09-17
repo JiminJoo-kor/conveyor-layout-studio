@@ -22,6 +22,8 @@ test('ASRS는 물품 구분 수만큼 외곽 입고·출고 연결점을 제공�
 
 test('ASRS 자동 연결은 품목별 외곽 포트를 선택한다',()=>{const conveyor={id:'cv',type:'conveyor',x:0,y:200},asrs={id:'asrs',type:'asrs',x:300,y:200,parameters:{productTypes:3}},inbound=closestPortPair(conveyor,asrs),outbound=closestPortPair(asrs,conveyor);assert.match(inbound.toPort,/^product-\d+-in$/);assert.match(outbound.fromPort,/^product-\d+-out$/);assert.ok(connectionAnchor(asrs,inbound.toPort).x<asrs.x);assert.ok(connectionAnchor(asrs,outbound.fromPort).x>asrs.x);});
 
+test('ASRS 입고·출고 방향 설정에 따라 품목별 포트 묶음이 외곽 면을 이동한다',()=>{const asrs={type:'asrs',x:300,y:200,parameters:{productTypes:3,infeedSide:'top',outfeedSide:'bottom'}},ports=equipmentPorts(asrs),inputs=Object.entries(ports).filter(([name])=>name.endsWith('-in')).map(([,point])=>point),outputs=Object.entries(ports).filter(([name])=>name.endsWith('-out')).map(([,point])=>point);assert.ok(inputs.every(point=>point.y<asrs.y-66));assert.ok(outputs.every(point=>point.y>asrs.y+66));assert.equal(new Set(inputs.map(point=>point.x)).size,3);assert.equal(new Set(outputs.map(point=>point.x)).size,3);});
+
 test('연결 설비 특성에 따라 흐름 종류와 색상 의미를 분류한다',()=>{
   assert.equal(connectionKind({type:'conveyor'},{type:'conveyor'},'warehouse'),'flow');assert.equal(connectionKind({type:'conveyor'},{type:'forkingDevice'}),'forking');assert.equal(connectionKind({type:'forkingDevice'},{type:'stackerCrane'}),'warehouse');assert.equal(connectionKind({type:'conveyor'},{type:'amr'}),'transfer');assert.equal(connectionKind({type:'conveyor'},{type:'forklift'}),'transfer');
 });

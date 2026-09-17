@@ -33,7 +33,7 @@ export function pointOnRoute(points,progress){
 
 export function equipmentPorts(item,distance=null){
   const storage=['asrs','stackerCrane'].includes(item?.type),horizontal=Number.isFinite(distance)?distance:storage?97:44,vertical=Number.isFinite(distance)?distance:storage?74:44,angle=(Number(item?.rotation)||0)*Math.PI/180,rotate=(x,y)=>({x:item.x+x*Math.cos(angle)-y*Math.sin(angle),y:item.y+x*Math.sin(angle)+y*Math.cos(angle)}),ports={left:rotate(-horizontal,0),right:rotate(horizontal,0),top:rotate(0,-vertical),bottom:rotate(0,vertical)};
-  if(storage){const count=Math.max(1,Math.round(Number(item.parameters?.productTypes)||1)),span=Math.min(104,Math.max(0,(count-1)*26)),top=-span/2;for(let index=0;index<count;index++){const y=count===1?0:top+span*index/(count-1);ports[`product-${index+1}-in`]=rotate(-horizontal,y);ports[`product-${index+1}-out`]=rotate(horizontal,y);}}
+  if(storage){const count=Math.max(1,Math.round(Number(item.parameters?.productTypes)||1)),span=Math.min(104,Math.max(0,(count-1)*26)),start=-span/2,infeedSide=['left','right','top','bottom'].includes(item.parameters?.infeedSide)?item.parameters.infeedSide:'left',outfeedSide=['left','right','top','bottom'].includes(item.parameters?.outfeedSide)?item.parameters.outfeedSide:'right',sameSide=infeedSide===outfeedSide,point=(side,index,kind)=>{const lane=count===1?0:start+span*index/(count-1)+(sameSide?(kind==='in'?-8:8):0);if(side==='right')return rotate(horizontal,lane);if(side==='top')return rotate(lane,-vertical);if(side==='bottom')return rotate(lane,vertical);return rotate(-horizontal,lane);};for(let index=0;index<count;index++){ports[`product-${index+1}-in`]=point(infeedSide,index,'in');ports[`product-${index+1}-out`]=point(outfeedSide,index,'out');}}
   return ports;
 }
 

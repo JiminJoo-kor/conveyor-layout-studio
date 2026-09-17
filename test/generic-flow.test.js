@@ -148,7 +148,7 @@ test('공통 적용은 Dock 역할·물품·라인·포트 연결·분배 대상
 test('3D LIVE는 표시 창고와 실제 저장 구역을 기준으로 상태를 선택한다',()=>{
   const w1=storage('w1'),w2=storage('w2'),engine=new CadFlowEngine({equipment:[w1,w2],cadSchematic:{edges:[]}}),asrs=engine.state.warehouses.w2,key=Object.keys(asrs.zones)[1];asrs.zones[key].inventory=1;
   const token={id:1,nodeId:'w2',stackerKey:Object.keys(asrs.stackers)[0],storageFlowKey:key,cargoType:'다른 라인 물류',flowKey:key,asrsPhase:'putaway',asrsTarget:{index:1},nodeEnteredAt:0};engine.state.cadTokens=[token];
-  const scene=asrsSceneModel(w2,engine.state,()=> '#00ffff');assert.equal(scene.zones[0].storageZone,key);assert.equal(scene.zones[0].zone.inventory,1);
+  const scene=asrsSceneModel(w2,engine.state,()=> '#00ffff');const storedRack=scene.zones.find(entry=>entry.storageZone===key);assert.equal(storedRack.name,key);assert.equal(storedRack.zone.inventory,1);assert.equal(scene.zones.reduce((sum,entry)=>sum+entry.zone.inventory,0),1);
   assert.equal(asrsSceneModel(w1,engine.state,()=> '#00ffff').zones[0].zone.inventory,0);
 });
 test('AS/RS 승인 취소의 null 시간은 0초 승인으로 오인하지 않는다',()=>{

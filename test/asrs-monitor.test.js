@@ -1,6 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { asrsDepthPresentation, asrsSceneModel, isoPoint } from '../src/asrs-monitor.js';
+import { asrsRackCells } from '../src/renderer.js';
+
+test('교차 라인 출고 중에도 2D와 LIVE의 랙 순서·수량·점유 셀이 일치한다',()=>{
+  const equipment={id:'rack',parameters:{columns:8,levels:4,rows:2}};
+  const names=['트림','화이날','도어'],counts=[2,0,1];
+  const zones=Object.fromEntries(names.map((name,i)=>[name,{inventory:counts[i],capacity:64,occupiedSlots:Array.from({length:64},(_,slot)=>slot<counts[i])}]));
+  const state={t:3,asrs:{equipmentId:'rack',columns:8,levels:4,rows:2,zones,stackers:Object.fromEntries(names.map(name=>[name,{id:name}]))},cadTokens:[{id:1,nodeId:'rack',stackerKey:'화이날',flowKey:'화이날',storageFlowKey:'트림',cargoType:'화이날',asrsPhase:'retrieval',asrsTarget:{index:0},nodeEnteredAt:0}]};
+  const racks=asrsRackCells(state.asrs,state.cadTokens),live=asrsSceneModel(equipment,state,()=> '#00ffff');
+  assert.deepEqual(live.zones.map(entry=>entry.name),names);
+  assert.deepEqual(live.zones.map(entry=>entry.zone.inventory),counts);
+  assert.equal(live.zones.reduce((sum,entry)=>sum+entry.zone.inventory,0),3);
+  for(let i=0;i<racks.length;i++)assert.deepEqual(live.zones[i].zone.occupiedSlots,racks[i].cells);
+  assert.equal(live.zones[0].operation.status,'outbound');
+  assert.equal(live.zones[1].operation.status,'waiting');
+});
 
 test('아이소메트릭 렉 좌표는 열·단·깊이를 서로 다른 축으로 투영한다',()=>{const origin={x:10,y:80},base=isoPoint(origin,0,0),column=isoPoint(origin,1,0),level=isoPoint(origin,0,1),depth=isoPoint(origin,0,0,1);assert.ok(column.x>base.x);assert.ok(level.y<base.y);assert.ok(depth.x>base.x&&depth.y<base.y);});
 
@@ -8,7 +23,7 @@ test('AS/RS 3D 장면은 물품 구분별 렉과 동일 엔진 시간의 스태�
 
 test('3D LIVE는 소속 라인 색과 실제 물품 종류 색을 분리한다',()=>{const equipment={id:'asrs',type:'stackerCrane',parameters:{rows:1,columns:2,levels:1}},token={nodeId:'asrs',edge:null,flowKey:'화이날 라인',cargoType:'트림 물류',asrsPhase:'putaway',nodeEnteredAt:0,asrsTarget:{index:1}},state={t:.1,asrs:{equipmentId:'asrs',columns:2,levels:1,rows:1,zones:{'화이날 라인':{inventory:1,capacity:2,occupiedSlots:[false,true]}}},cadTokens:[token]},model=asrsSceneModel(equipment,state,()=> '#00ff88',()=> '#ffd23f'),entry=model.zones[0];assert.equal(entry.color,'#00ff88');assert.equal(entry.cargoColor,'#ffd23f');assert.equal(entry.cargoType,'트림 물류');assert.equal(entry.slotCargoTypes[1],'트림 물류');});
 
-test('3D LIVE는 물품 구분별 독립 스태커 두 대의 동시 작업을 각각 표시한다',()=>{const equipment={id:'asrs',type:'stackerCrane',parameters:{rows:1,columns:4,levels:2}},tokens=[{id:1,nodeId:'asrs',edge:null,flowKey:'B 라인',cargoType:'A 물류',stackerKey:'A 라인',asrsPhase:'putaway',nodeEnteredAt:0,operationDuration:10,readyAt:10,asrsTarget:{index:1}},{id:2,nodeId:'asrs',edge:null,flowKey:'A 라인',cargoType:'B 물류',stackerKey:'B 라인',asrsPhase:'retrieval',nodeEnteredAt:0,operationDuration:10,readyAt:10,asrsTarget:{index:6}}],stackers={'A 라인':{id:'stacker-1',cargoType:'A 물류'},'B 라인':{id:'stacker-2',cargoType:'B 물류'}},zones={'A 라인':{inventory:1,capacity:8},'B 라인':{inventory:1,capacity:8}},state={t:3,asrs:{equipmentId:'asrs',columns:4,levels:2,rows:1,stackers,zones,lineStates:stackers},cadTokens:tokens},model=asrsSceneModel(equipment,state,()=> '#0cf');assert.equal(model.zones.length,2);assert.deepEqual(model.zones.map(entry=>entry.stackerId),['stacker-1','stacker-2']);assert.deepEqual(model.zones.map(entry=>entry.operation.status),['inbound','outbound']);assert.deepEqual(model.zones.map(entry=>entry.cargoType),['A 물류','B 물류']);});
+test('3D LIVE는 물품 구분별 독립 스태커 두 대의 동시 작업을 각각 표시한다',()=>{const equipment={id:'asrs',type:'stackerCrane',parameters:{rows:1,columns:4,levels:2}},tokens=[{id:1,nodeId:'asrs',edge:null,flowKey:'B 라인',cargoType:'A 물류',stackerKey:'A 라인',asrsPhase:'putaway',nodeEnteredAt:0,operationDuration:10,readyAt:10,asrsTarget:{index:1}},{id:2,nodeId:'asrs',edge:null,flowKey:'A 라인',cargoType:'B 물류',stackerKey:'B 라인',asrsPhase:'retrieval',nodeEnteredAt:0,operationDuration:10,readyAt:10,asrsTarget:{index:6}}],stackers={'A 라인':{id:'stacker-1',cargoType:'A 물류'},'B 라인':{id:'stacker-2',cargoType:'B 물류'}},zones={'A 라인':{inventory:1,capacity:8},'B 라인':{inventory:1,capacity:8}},state={t:3,asrs:{equipmentId:'asrs',columns:4,levels:2,rows:1,stackers,zones,lineStates:stackers},cadTokens:tokens},model=asrsSceneModel(equipment,state,()=> '#0cf');assert.deepEqual(model.zones.map(entry=>entry.name),['A 라인','B 라인']);model.zones.sort((a,b)=>a.stackerId.localeCompare(b.stackerId));assert.equal(model.zones.length,2);assert.deepEqual(model.zones.map(entry=>entry.stackerId),['stacker-1','stacker-2']);assert.deepEqual(model.zones.map(entry=>entry.operation.status),['inbound','outbound']);assert.deepEqual(model.zones.map(entry=>entry.cargoType),['A 물류','B 물류']);});
 
 test('3D LIVE는 입고·출고 인계 위치 사이 스태커 전환 이동도 표시한다',()=>{const equipment={id:'asrs',type:'stackerCrane',parameters:{rows:1,columns:5,levels:2,infeedColumn:1,infeedLevel:1,outfeedColumn:5,outfeedLevel:2}},state={t:5,asrs:{equipmentId:'asrs',columns:5,levels:2,rows:1,zones:{라인:{inventory:0,capacity:10}},lineStates:{라인:{mode:'outbound',fromMode:'outbound',targetMode:'inbound',startedAt:0,duration:10,availableAt:10}}},cadTokens:[]},operation=asrsSceneModel(equipment,state,()=> '#0cf').zones[0].operation;assert.equal(operation.status,'transition');assert.equal(operation.phase,'mode-change');assert.ok(operation.x>0&&operation.x<4);assert.ok(operation.label.includes('전환중'));});
 

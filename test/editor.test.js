@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { insertEquipmentIntoNearestEdge, isSelectedEdgeHit, itemsInRect, refreshEquipmentConnections, removeConnection, removeEquipmentAndReconnect, setEquipmentFlowDirection, snapUnit } from '../src/editor.js';
+import { insertEquipmentIntoNearestEdge, isSelectedEdgeHit, itemsInRect, refreshEquipmentConnections, registerInboundDockLine, removeConnection, removeEquipmentAndReconnect, setEquipmentFlowDirection, snapUnit } from '../src/editor.js';
+
+test('입고 시작 블록은 입고 Dock과 새 라인·물류 종류를 함께 만든다',()=>{
+  const asrs={id:'asrs',type:'stackerCrane',parameters:{productTypes:1,stackerCount:1}},dock={id:'dock-new',type:'dock',name:'새 입고 시작 2',parameters:{lineName:'신규 라인',cargoType:'신규 물류'}},layout={equipment:[asrs,dock],cadSchematic:{lanes:[],inboundBranches:[{id:'old',name:'기존 라인',cargoType:'기존 물류',nodeIds:['old']}],edges:[]}};
+  const branch=registerInboundDockLine(layout,dock);
+  assert.equal(dock.type,'dock');assert.equal(dock.parameters.dockRole,'inbound');assert.equal(branch.name,'신규 라인');assert.equal(branch.cargoType,'신규 물류');assert.deepEqual(branch.nodeIds,['dock-new']);assert.equal(asrs.parameters.productTypes,2);assert.equal(asrs.parameters.stackerCount,2);assert.deepEqual(layout.cargoPatternColors,{});
+});
 
 test('중간 설비를 삭제하면 이전 설비와 다음 설비를 자동 연결한다',()=>{
   const layout={equipment:[{id:'a'},{id:'middle'},{id:'b'}],cadSchematic:{lanes:[{nodes:[{id:'a'},{id:'middle'},{id:'b'}]}],inboundBranches:[],edges:[{from:'a',to:'middle',kind:'flow'},{from:'middle',to:'b',kind:'transfer'}]}};

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration, motionConfigFor, motionProfileSummary, profiledProgress, recommendedMotionDynamics } from '../src/kinematics.js';
+import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration, motionConfigFor, motionProfileProgressAtTime, motionProfileSummary, profiledProgress, recommendedMotionDynamics } from '../src/kinematics.js';
 import { handoverProgress, handoverScale, handoverVisualSegments, intervalsOverlap, itemVisualLength, OccupancyManager, rigidHandoverVisualState, smoothedVelocityProgress } from '../src/occupancy.js';
 import { conveyorCargoVisualPose, conveyorFlowSign, equipmentCargoVisualPose, equipmentClipBounds, equipmentOperationProgress, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileHandoverNode, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
 
@@ -9,6 +9,8 @@ test('S-Curve는 jerk로 가속도 변화량을 제한하고 정지까지 FSM을
 test('설비 속도 그래프는 거리와 속도에 따라 가속·정속·감속 구간을 계산한다',()=>{const long=motionProfileSummary(10,{targetSpeed:2,acceleration:1,deceleration:1,motionProfile:'trapezoidal'}),short=motionProfileSummary(1,{targetSpeed:2,acceleration:1,deceleration:1});assert.ok(long.t1>0&&long.t2>0&&long.t3>0);assert.equal(long.s1+long.s2+long.s3,10);assert.equal(short.t2,0);assert.ok(short.peakSpeed<2);assert.ok(profiledProgress(.25)<.25&&profiledProgress(.75)>.75);});
 
 test('자동 가감속은 속도와 거리에 맞춰 안정적인 정속 구간을 확보한다',()=>{const dynamics=recommendedMotionDynamics(1.62,50/60),summary=motionProfileSummary(1.62,{targetSpeed:50/60,...dynamics,motionProfile:'trapezoidal'});assert.ok(summary.t1>0&&summary.t2>0&&summary.t3>0);assert.ok(Math.abs(summary.s1-.405)<.01);assert.ok(Math.abs(summary.s2-.81)<.01);assert.equal(dynamics.acceleration,dynamics.deceleration);});
+
+test('프로파일 시간별 위치는 가속·정속·감속 궤적을 그대로 따른다',()=>{const config={targetSpeed:2,acceleration:1,deceleration:1},summary=motionProfileSummary(10,{...config,motionProfile:'trapezoidal'});assert.equal(motionProfileProgressAtTime(0,10,config),0);assert.ok(motionProfileProgressAtTime(summary.t1/2,10,config)<summary.t1/summary.total/2);assert.ok(Math.abs(motionProfileProgressAtTime(summary.t1+summary.t2,10,config)-.8)<1e-9);assert.equal(motionProfileProgressAtTime(summary.total,10,config),1);});
 
 test('감속도를 바꾸면 예상 속도 프로파일과 총 이동시간도 변경된다',()=>{const fastStop=motionProfileSummary(8,{targetSpeed:2,acceleration:1,deceleration:2}),slowStop=motionProfileSummary(8,{targetSpeed:2,acceleration:1,deceleration:.5});assert.ok(fastStop.t3<slowStop.t3);assert.ok(fastStop.total<slowStop.total);});
 

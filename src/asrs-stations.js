@@ -24,7 +24,7 @@ export function positionAsrsStations(layout){
   const parents=new Map(layout.equipment.filter(hasAsrsStations).map(p=>[p.id,p]));
   for(const parent of parents.values()){
     const p=parent.parameters,count=Math.max(1,Number(p.productTypes)||3),width=asrsStationSpec(parent,layout,'in').visualWidth,spacing=width+40,inSide=p.infeedSide||'left',outSide=p.outfeedSide||'right',same=inSide===outSide,span=(count*(same?2:1))*spacing+48;
-    p.stationVisualSpacing=spacing;parent.asrsVisualBounds={width:Math.max(178,[inSide,outSide].some(s=>['top','bottom'].includes(s))?span:178),height:Math.max(132,[inSide,outSide].some(s=>['left','right'].includes(s))?span:132)};
+    p.stationVisualSpacing=spacing;parent.asrsVisualBounds={width:Math.max(280,[inSide,outSide].some(s=>['top','bottom'].includes(s))?span:178),height:Math.max(count*84+40,[inSide,outSide].some(s=>['left','right'].includes(s))?span:132)};
   }
   for(const child of layout.equipment.filter(e=>e.asrsStation)){
     const parent=parents.get(child.asrsStation.parentId);if(!parent)continue;

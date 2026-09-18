@@ -5,6 +5,18 @@ import {stationId} from '../src/asrs-stations.js';
 import {stationTransferPresentations} from '../src/asrs-putaway.js';
 import {asrsLayoutCargoPresentation} from '../src/renderer.js';
 import {asrsSceneModel,stationCargoGeometry} from '../src/asrs-monitor.js';
+test('warehouse work cargo remains inside standardized per-line status panels',()=>{
+ for(const count of [1,3,6])for(const rotation of [0,90,180,270]){
+  const l=layout();Object.assign(l.equipment[1].parameters,{productTypes:count,zoneNames:Array.from({length:count},(_,i)=>'Line '+i)});l.equipment[1].rotation=rotation;
+  const e=new CadFlowEngine(l),rack=e.nodes.get('rack'),w=rack.asrsVisualBounds.width,h=rack.asrsVisualBounds.height;
+  assert.ok(w>=280);assert.ok(h>=count*84+40);
+  for(const [index,zone] of Object.keys(e.state.asrs.zones).entries()){
+   const t={id:900+index,nodeId:'rack',flowKey:zone,storageFlowKey:zone,asrsPhase:'putaway',asrsTarget:asrsTargetCell(rack,0),nodeEnteredAt:0,readyAt:100};
+   const p=asrsLayoutCargoPresentation(rack,{...e.state,t:1},t),a=-rotation*Math.PI/180,dx=p.x-rack.x,dy=p.y-rack.y,x=dx*Math.cos(a)-dy*Math.sin(a),y=dx*Math.sin(a)+dy*Math.cos(a);
+   assert.ok(Math.abs(x)+p.displaySize/2<w/2);assert.ok(Math.abs(y)+p.displaySize/2<h/2);assert.ok(p.displaySize<=22);assert.equal(p.index,index);
+  }
+ }
+});
 test('LIVE station cargo uses physical edge spacing for every conveyor rotation',()=>{
  for(const rotation of [0,90,180,270]){
   const station={length:5,rotation,cargo:{length:1.2,width:.8}},a={cargoOrientation:0},b={cargoOrientation:Math.PI/2};

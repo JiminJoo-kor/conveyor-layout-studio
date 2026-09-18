@@ -5,6 +5,21 @@ import {stationId} from '../src/asrs-stations.js';
 import {stationTransferPresentations} from '../src/asrs-putaway.js';
 import {asrsLayoutCargoPresentation} from '../src/renderer.js';
 import {asrsSceneModel,stationCargoGeometry} from '../src/asrs-monitor.js';
+test('station deposit animation duration is independent of conveyor speed and acceleration',()=>{
+ for(const count of [1,2]){
+  const durations=[];
+  for(const speed of [.1,10]){
+   const l=layout();Object.assign(l.equipment[1].parameters,{stationConveyorSpeed:speed,stationAcceleration:speed/2,stationDeceleration:speed/3,outfeedTime:2});
+   const e=new CadFlowEngine(l,{simDuration:200});e.sources=[];const loads=Array.from({length:count},(_,i)=>addStored(e,700+i,i));
+   for(let i=0;i<5000&&!loads[0].stationOutfeedVisual;i++)e.step(.02);
+   assert.ok(loads[0].stationOutfeedVisual);durations.push(loads[0].handoffDuration);
+   const station=e.nodes.get(stationId('rack',0,'out'));assert.equal(station.parameters.speed,speed);assert.equal(station.parameters.acceleration,speed/2);assert.equal(station.parameters.deceleration,speed/3);
+   while(loads[0].nodeId==='rack')e.step(.02);
+   assert.ok(loads.every(t=>t.motionState.velocity===0));
+  }
+  assert.equal(durations[0],durations[1]);
+ }
+});
 test('warehouse work cargo remains inside standardized per-line status panels',()=>{
  for(const count of [1,3,6])for(const rotation of [0,90,180,270]){
   const l=layout();Object.assign(l.equipment[1].parameters,{productTypes:count,zoneNames:Array.from({length:count},(_,i)=>'Line '+i)});l.equipment[1].rotation=rotation;

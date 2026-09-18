@@ -32,6 +32,7 @@ export function validateFlowGraph(layout) {
   for (const item of nodes.values()) {
     const p = item.parameters || {};
     if(item.type==='conveyor'&&Number(p.diverterEnabled)===1){
+      if(p.diverterMotionMode!=null&&!['stop','moving'].includes(p.diverterMotionMode))errors.push(`디버터 동작 방식 오류: ${item.id}`);
       const directions=p.diverterDirections||[],vertical=['up','down'],horizontal=['left','right'];
       if(!Array.isArray(directions)||directions.some(d=>!vertical.includes(d)&&!horizontal.includes(d))||directions.some(d=>vertical.includes(d))&&directions.some(d=>horizontal.includes(d)))errors.push(`디버터 방향은 상·하 또는 좌·우 한 축만 선택해야 합니다: ${item.id}`);
       if(p.diverterPorts!=null&&(!Array.isArray(p.diverterPorts)||p.diverterPorts.some(port=>!['left','right','top','bottom'].includes(port))))errors.push(`디버터 연결점 설정 오류: ${item.id}`);

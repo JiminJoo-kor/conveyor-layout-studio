@@ -2,6 +2,7 @@ import { equipmentFlowPorts, equipmentPorts } from './route.js';
 import { motionProfileSummary, motionProfileProgressAtTime } from './kinematics.js';
 
 export const diverterEnabled=item=>item?.type==='conveyor'&&Number(item.parameters?.diverterEnabled)===1;
+export const movingDiverter=item=>diverterEnabled(item)&&item.parameters?.diverterMotionMode==='moving';
 export const directionAxis=direction=>['up','down'].includes(direction)?'vertical':['left','right'].includes(direction)?'horizontal':null;
 export function toggleDiverterDirection(directions,direction){
   const selected=Array.isArray(directions)?directions:[],axis=directionAxis(direction);
@@ -44,15 +45,30 @@ export function diverterAvailableIndex(item,options,preferred,available){
   const index=options.findIndex(edge=>(p.diverterRoutingMode==='available'||alternatives.includes(diverterRouteKey(edge)))&&available(edge));
   return index>=0?index:preferred;
 }
-export function diverterProfile(item){
+export function diverterProfile(item,initialSpeed=null,distanceOverride=null){
   const p=item?.parameters||{},config={targetSpeed:Number(p.diverterSpeed)||.5,acceleration:Number(p.diverterAcceleration)||.8,deceleration:Number(p.diverterDeceleration)||1,motionProfile:'trapezoidal'},distance=Math.max(.01,Number(p.diverterStroke)||1);
-  return {...motionProfileSummary(distance,config),config};
+  if(!movingDiverter(item))return {...motionProfileSummary(distance,config),config};
+  const d=distanceOverride??distance,startSpeed=Math.max(0,initialSpeed??(Number(p.speed)||0)),target=config.targetSpeed,rate=target>=startSpeed?config.acceleration:-config.deceleration;
+  const rampDistance=Math.abs(target*target-startSpeed*startSpeed)/(2*Math.abs(rate)),rampEndSpeed=rampDistance>d?Math.sqrt(Math.max(0,startSpeed*startSpeed+2*rate*d)):target;
+  const rampTime=Math.abs(rampEndSpeed-startSpeed)/Math.abs(rate),s1=Math.min(d,rampDistance),s2=Math.max(0,d-s1),t2=s2/Math.max(.000001,rampEndSpeed);
+  return{moving:true,distance:d,startSpeed,endSpeed:rampEndSpeed,peakSpeed:Math.max(startSpeed,rampEndSpeed),rate,rampTime,t1:rampTime,t2,t3:0,s1,s2,s3:0,total:rampTime+t2,config};
+}
+export function diverterMotionAtTime(profile,time){
+  const t=Math.max(0,Math.min(profile.total,time)),r=Math.min(t,profile.rampTime);
+  return{position:Math.min(profile.distance,Math.max(0,profile.startSpeed*r+.5*profile.rate*r*r+profile.endSpeed*Math.max(0,t-r))),velocity:t<profile.rampTime?Math.max(0,profile.startSpeed+profile.rate*t):profile.endSpeed};
 }
 export function advanceDiverterTransfer(token,item,edge,time,permitted){
   if(!diverterBranch(item,edge))return true;
   let move=token.diverterTransfer;
-  if(!move||move.sourceId!==item.id||move.targetId!==edge.to){if(!permitted)return false;const profile=diverterProfile(item);move=token.diverterTransfer={sourceId:item.id,targetId:edge.to,profile,elapsed:0,lastTime:time,permitted:true,progress:0};}
+  if(!move||move.sourceId!==item.id||move.targetId!==edge.to){if(!permitted)return false;const profile=diverterProfile(item,Number(token.motion?.controller.velocity??token.motionState?.velocity)||0);move=token.diverterTransfer={sourceId:item.id,targetId:edge.to,profile,elapsed:0,lastTime:time,permitted:true,progress:0,velocity:profile.startSpeed||0,offset:0,totalDistance:profile.distance};}
   const dt=Math.max(0,time-move.lastTime);move.lastTime=time;
+  if(move.profile.moving){
+    if(!permitted){move.permitted=false;move.velocity=0;return false;}
+    if(!move.permitted){move.offset=move.progress*move.totalDistance;move.profile=diverterProfile(item,0,Math.max(0,move.totalDistance-move.offset));move.elapsed=0;}
+    else move.elapsed=Math.min(move.profile.total,move.elapsed+dt);
+    move.permitted=true;const sample=diverterMotionAtTime(move.profile,move.elapsed);move.velocity=sample.velocity;move.progress=Math.min(1,(move.offset+sample.position)/move.totalDistance);
+    return move.progress>=1-1e-9;
+  }
   if(permitted&&move.permitted)move.elapsed=Math.min(move.profile.total,move.elapsed+dt);
   move.permitted=permitted;move.progress=motionProfileProgressAtTime(move.elapsed,move.profile.distance,move.profile.config);
   return permitted&&move.elapsed+1e-9>=move.profile.total;

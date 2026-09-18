@@ -31,6 +31,11 @@ export function validateFlowGraph(layout) {
   }
   for (const item of nodes.values()) {
     const p = item.parameters || {};
+    if(item.type==='conveyor'&&Number(p.diverterEnabled)===1){
+      const directions=p.diverterDirections||[],vertical=['up','down'],horizontal=['left','right'];
+      if(!Array.isArray(directions)||directions.some(d=>!vertical.includes(d)&&!horizontal.includes(d))||directions.some(d=>vertical.includes(d))&&directions.some(d=>horizontal.includes(d)))errors.push(`디버터 방향은 상·하 또는 좌·우 한 축만 선택해야 합니다: ${item.id}`);
+      for(const key of ['diverterSpeed','diverterAcceleration','diverterDeceleration','diverterStroke'])if(p[key]!=null&&(!Number.isFinite(Number(p[key]))||Number(p[key])<=0))errors.push(`디버터 파라미터는 양수여야 합니다: ${item.id}.${key}`);
+    }
     for (const key of ['length', 'speed', 'travelSpeed', 'receiveSpeed', 'transferSpeed', 'liftSpeed', 'acceleration', 'deceleration', 'safetyGap']) {
       if (p[key] != null && (!Number.isFinite(Number(p[key])) || Number(p[key]) < 0 || key !== 'safetyGap' && Number(p[key]) === 0)) errors.push(`유효하지 않은 파라미터: ${item.id}.${key} (속도·길이·가감속은 양수, 안전간격은 0 이상)`);
     }

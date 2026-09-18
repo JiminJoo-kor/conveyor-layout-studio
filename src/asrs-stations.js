@@ -35,6 +35,8 @@ export function positionAsrsStations(layout){
     const ports=equipmentPorts(parent),anchor=ports[`product-${index+1}-${kind}`],offset=spec.visualLength/2+8;if(!anchor)continue;
     child.x=parent.x+(anchor.x-parent.x)+dx*offset;child.y=parent.y+(anchor.y-parent.y)+dy*offset;
     child.rotation=(Number(parent.rotation)||0)+direction.angle+(kind==='in'?180:0);
+    const placement=child.asrsStation.placement;
+    if(placement){child.x=parent.x+placement.x*Math.cos(angle)-placement.y*Math.sin(angle);child.y=parent.y+placement.x*Math.sin(angle)+placement.y*Math.cos(angle);child.rotation=(Number(parent.rotation)||0)+placement.rotation;}
     Object.assign(child.asrsStation,spec);Object.assign(child.parameters,{length:spec.length,width:spec.width,safetyGap:spec.gap,speed:spec.speed});
   }
 }
@@ -54,9 +56,10 @@ export function syncAsrsStations(layout){
     const count=Math.max(1,Math.round(Number(parent.parameters?.productTypes)||3));
     if(parent.parameters.productTypes==null)parent.parameters.productTypes=count;
     for(let index=0;index<count;index++)for(const kind of ['in','out']){
-      const id=stationId(parent.id,index,kind),spec=asrsStationSpec(parent,layout,kind,index),name=parent.parameters?.zoneNames?.[index]||layout.cadSchematic.inboundBranches?.[index]?.name||`품목 ${index+1}`;
-      const item=old.get(id)||{id,type:'conveyor',x:0,y:0,rotation:0};
-      Object.assign(item,{name:`${parent.name||'AS/RS'} · ${name} ${kind==='in'?'입고':'출고'} CV`,asrsStation:{parentId:parent.id,index,kind,...spec},source:{origin:'dxf',parameterLengthUnit:'m',reason:'asrs-station'},reviewStatus:'approved',parameters:{length:spec.length,width:spec.width,speed:spec.speed,safetyGap:spec.gap,continuousHandover:1,handoverDelay:0,acceleration:Number(parent.parameters?.stationAcceleration)||.8,deceleration:Number(parent.parameters?.stationDeceleration)||.8,loadCapacity:Math.max(Number(parent.parameters?.loadCapacity)||1000,(Number(layout.cargoSpec?.weight)||100)*spec.count),availability:100,efficiency:100}});
+      const retained=[...old.values()].find(n=>n.asrsStation.parentId===parent.id&&n.asrsStation.index===index&&n.asrsStation.kind===kind);
+      const id=retained?.id||stationId(parent.id,index,kind),spec=asrsStationSpec(parent,layout,kind,index),name=parent.parameters?.zoneNames?.[index]||layout.cadSchematic.inboundBranches?.[index]?.name||`품목 ${index+1}`;
+      const item=retained||{id,type:'conveyor',x:0,y:0,rotation:0};
+      Object.assign(item,{name:`${parent.name||'AS/RS'} · ${name} ${kind==='in'?'입고':'출고'} CV`,asrsStation:{placement:item.asrsStation?.placement,parentId:parent.id,index,kind,...spec},source:{origin:'dxf',parameterLengthUnit:'m',reason:'asrs-station'},reviewStatus:'approved',parameters:{length:spec.length,width:spec.width,speed:spec.speed,safetyGap:spec.gap,continuousHandover:1,handoverDelay:0,acceleration:Number(parent.parameters?.stationAcceleration)||.8,deceleration:Number(parent.parameters?.stationDeceleration)||.8,loadCapacity:Math.max(Number(parent.parameters?.loadCapacity)||1000,(Number(layout.cargoSpec?.weight)||100)*spec.count),availability:100,efficiency:100}});
       layout.equipment.push(item);
       edges.push(kind==='in'?{from:id,to:parent.id,fromPort:'right',toPort:`product-${index+1}-in`,kind:'warehouse',asrsStationInternal:parent.id}:{from:parent.id,to:id,fromPort:`product-${index+1}-out`,toPort:'left',kind:'warehouse',asrsStationInternal:parent.id});
     }
@@ -68,7 +71,7 @@ export function syncAsrsStations(layout){
       if(index==null&&kind==='in')index=inboundLineIndex(edge.from,originalEdges,layout.cadSchematic.inboundBranches||[]);
       // Invalid explicit product ports remain invalid, so validation reports them instead of rerouting cargo.
       if(index!=null&&index>=count)continue;
-      index=Math.max(0,index??0);edge[end]=stationId(parent.id,index,kind);edge[`${end}Port`]=kind==='in'?'left':'right';
+      index=Math.max(0,index??0);edge[end]=layout.equipment.find(n=>n.asrsStation?.parentId===parent.id&&n.asrsStation.index===index&&n.asrsStation.kind===kind)?.id||stationId(parent.id,index,kind);edge[`${end}Port`]=kind==='in'?'left':'right';
     }}
   }
   layout.cadSchematic.edges=[...edges.filter(e=>!e.asrsStationInternal),...edges.filter(e=>e.asrsStationInternal)];positionAsrsStations(layout);return layout;

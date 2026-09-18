@@ -1,3 +1,25 @@
+import {syncAsrsStations} from './asrs-stations.js';
+import {validateFlowGraph} from './flow-graph.js';
+
+export function reassignStationOwnership(layout,sourceId,targetId){
+ if(sourceId===targetId)return;
+ const trial=structuredClone(layout),source=trial.equipment.find(n=>n.id===sourceId),target=trial.equipment.find(n=>n.id===targetId);
+ if(!source?.asrsStation||!target?.asrsStation)throw Error('스테이션을 선택해 주세요.');
+ const a={...source.asrsStation},b={...target.asrsStation};
+ for(const [node,binding] of [[source,b],[target,a]]){
+  const parent=trial.equipment.find(n=>n.id===binding.parentId);if(!parent)throw Error('AS/RS가 없습니다.');
+  const angle=(Number(parent.rotation)||0)*Math.PI/180,dx=node.x-parent.x,dy=node.y-parent.y;
+  node.asrsStation={...binding,placement:{x:dx*Math.cos(angle)+dy*Math.sin(angle),y:-dx*Math.sin(angle)+dy*Math.cos(angle),rotation:(Number(node.rotation)||0)-(Number(parent.rotation)||0)}};
+ }
+ trial.cadSchematic.edges=trial.cadSchematic.edges.map(e=>{
+  if(e.asrsStationInternal)return e;
+  const node=[source,target].find(n=>e.from===n.id||e.to===n.id);if(!node)return e;
+  const other=e.from===node.id?e.to:e.from,port=e.from===node.id?e.toPort:e.fromPort;
+  return node.asrsStation.kind==='in'?{...e,from:other,fromPort:port,to:node.id,toPort:'left'}:{...e,from:node.id,fromPort:'right',to:other,toPort:port};
+ });
+ syncAsrsStations(trial);const check=validateFlowGraph(trial);if(!check.valid)throw Error(check.errors.join(' · '));
+ layout.equipment=trial.equipment;layout.cadSchematic=trial.cadSchematic;
+}
 // Resolve names from this warehouse's physical inlet, never another warehouse's index.
 export function stationLineLabel(layout,parent,index,zoneName,patterns=[]){
  const edges=layout.cadSchematic?.edges||[],nodes=new Map(layout.equipment.map(n=>[n.id,n])),seen=new Set(),names=new Set();

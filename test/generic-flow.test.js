@@ -66,7 +66,7 @@ test('AS/RS 입고 인계 도중 고장은 타이머를 동결하고 반복 평�
 
 test('직렬 AS/RS의 입고 셀·출고 셀·인계 타이머가 서로 덮어쓰이지 않는다',()=>{
   const w1=storage('w1'),w2=storage('w2'),equipment=[node('s','source',{injectionInterval:8}),w1,w2,node('out','sink')];
-  const engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'s',to:'w1',toPort:'product-1-in'},{from:'w1',to:'w2',fromPort:'product-1-out',toPort:'product-2-in'},{from:'w2',to:'out',fromPort:'product-1-out'}]}},{simDuration:90});
+  const engine=new CadFlowEngine({equipment,cadSchematic:{edges:[{from:'s',to:'w1',toPort:'product-1-in'},{from:'w1',to:'w2',fromPort:'product-1-out',toPort:'product-2-in'},{from:'w2',to:'out',fromPort:'product-2-out'}]}},{simDuration:90});
   for(let i=0;i<4500;i++){
     engine.step(.02);
     for(const warehouse of Object.values(engine.state.warehouses))assert.equal(warehouse.inventory,Object.values(warehouse.zones).reduce((sum,zone)=>sum+zone.occupiedSlots.filter(Boolean).length,0));

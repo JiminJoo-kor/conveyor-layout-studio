@@ -21,6 +21,18 @@ function setup(slots=[0,5],extra={}){
 }
 function advanceUntil(engine,predicate,max=10000){for(let i=0;i<max&&!predicate();i++)engine.step(.02);assert.ok(predicate(),'condition must be reached\n'+engine.flowDiagnosticText());}
 
+test('forked cargo uses the physical storage stacker independently of its original pattern',()=>{
+ const {engine,warehouse,name}=setup([0],{productTypes:2});
+ const other=Object.keys(warehouse.zones).find(n=>n!==name),first=engine.state.cadTokens[0];
+ first.cargoType='same-pattern';first.asrsPhase='retrieval';
+ const second=engine.prepareToken({id:99,nodeId:'rack',storageFlowKey:other,flowKey:other,cargoType:'same-pattern',asrsPhase:'stored'});
+ engine.state.cadTokens.push(second);
+ assert.equal(engine.asrsStackerKey(first),name);assert.equal(engine.asrsStackerKey(second),other);
+ assert.equal(engine.asrsLineBusy(other,second,warehouse),false);
+ assert.equal(engine.downstreamBlocker(engine.nodes.get('rack'),second),null);
+ assert.match(engine.flowDiagnosticText(),/스태커별 독립 상태/);
+});
+
 test('retrieval starts at retained inlet position and waits at outlet after unloading',()=>{
  const {engine,rack,warehouse,name}=setup([3],{infeedColumn:1,outfeedColumn:4});
  warehouse.stackers[name].position={column:0,level:0,row:0};engine.scheduleAsrsBatchRetrieval();

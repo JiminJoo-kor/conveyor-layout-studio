@@ -11,7 +11,7 @@ import { conveyorCargoVisualPose, equipmentCargoMetrics, handoverCargoMetrics, L
 
 const node=(id,type,parameters={})=>({id,name:id,type,x:0,y:0,parameters});
 const run=(engine,seconds)=>{for(let i=0;i<seconds*50;i++)engine.step(.02);return engine;};
-const storage=id=>node(id,'asrs',{productTypes:2,rows:1,columns:2,levels:1,infeedTime:.2,outfeedTime:.4,modeChangeTime:.1,forkStroke:.05,forkSpeed:1,travelSpeed:5,putawayTime:0,retrievalTime:0});
+const storage=id=>node(id,'asrs',{outfeedColumn:1,productTypes:2,rows:1,columns:2,levels:1,infeedTime:.2,outfeedTime:.4,modeChangeTime:.1,forkStroke:.05,forkSpeed:1,travelSpeed:5,putawayTime:0,retrievalTime:0});
 
 test('일반 JSON 프로젝트는 DXF 출처 없이도 연결 순서대로 실행된다',()=>{
   const equipment=[node('새 입고','source',{injectionInterval:2}),node('새 컨베이어','conveyor',{length:2,speed:1}),node('새 배출','sink',{dischargeTime:.1})];

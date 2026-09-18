@@ -1,3 +1,4 @@
+import {initializeAsrsHandoverPositions} from './asrs-parameter-defaults.js';
 import { equipmentPorts } from './route.js';
 
 export const hasAsrsStations=item=>['asrs','stackerCrane'].includes(item?.type);
@@ -49,7 +50,7 @@ export function syncAsrsStations(layout){
   });
   layout.equipment=layout.equipment.filter(e=>!e.asrsStation);
   for(const parent of parents){
-    parent.parameters??={};parent.parameters.stationConveyorsEnabled=1;
+    initializeAsrsHandoverPositions(parent);parent.parameters??={};parent.parameters.stationConveyorsEnabled=1;
     const count=Math.max(1,Math.round(Number(parent.parameters?.productTypes)||3));
     if(parent.parameters.productTypes==null)parent.parameters.productTypes=count;
     for(let index=0;index<count;index++)for(const kind of ['in','out']){

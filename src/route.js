@@ -46,6 +46,8 @@ export function equipmentDirectionControls(item,distance=64){
 }
 
 export function equipmentFlowPorts(item,direction=item?.parameters?.flowDirection){
+  const main=item?.parameters?.diverterMainPort;
+  if(arguments.length<2&&Number(item?.parameters?.diverterEnabled)===1&&['left','right','top','bottom'].includes(main))return{input:{left:'right',right:'left',top:'bottom',bottom:'top'}[main],output:main};
   const vectors={left:{x:-1,y:0},right:{x:1,y:0},up:{x:0,y:-1},down:{x:0,y:1}},wanted=vectors[direction];
   if(!wanted)return{input:'left',output:'right'};
   const ports=equipmentPorts(item),output=Object.entries(ports).sort((a,b)=>((b[1].x-item.x)*wanted.x+(b[1].y-item.y)*wanted.y)-((a[1].x-item.x)*wanted.x+(a[1].y-item.y)*wanted.y))[0][0],opposite={left:'right',right:'left',top:'bottom',bottom:'top'};

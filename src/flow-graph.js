@@ -34,6 +34,11 @@ export function validateFlowGraph(layout) {
     if(item.type==='conveyor'&&Number(p.diverterEnabled)===1){
       const directions=p.diverterDirections||[],vertical=['up','down'],horizontal=['left','right'];
       if(!Array.isArray(directions)||directions.some(d=>!vertical.includes(d)&&!horizontal.includes(d))||directions.some(d=>vertical.includes(d))&&directions.some(d=>horizontal.includes(d)))errors.push(`디버터 방향은 상·하 또는 좌·우 한 축만 선택해야 합니다: ${item.id}`);
+      if(p.diverterPorts!=null&&(!Array.isArray(p.diverterPorts)||p.diverterPorts.some(port=>!['left','right','top','bottom'].includes(port))))errors.push(`디버터 연결점 설정 오류: ${item.id}`);
+      if(p.diverterRoutingMode!=null&&!['rules','ratio','available','straight'].includes(p.diverterRoutingMode))errors.push(`디버터 분배 모드 오류: ${item.id}`);
+      if(p.diverterRules!=null&&(!Array.isArray(p.diverterRules)||p.diverterRules.some(rule=>!rule||!['cargo','destination'].includes(rule.field)||typeof rule.value!=='string'||typeof rule.route!=='string')))errors.push(`디버터 분배 조건 오류: ${item.id}`);
+      if(p.diverterAlternatives!=null&&(!Array.isArray(p.diverterAlternatives)||p.diverterAlternatives.some(key=>typeof key!=='string')))errors.push(`디버터 대체 경로 설정 오류: ${item.id}`);
+      if(p.diverterWeights!=null&&(typeof p.diverterWeights!=='object'||Object.values(p.diverterWeights).some(value=>!Number.isInteger(value)||value<0||value>100)))errors.push(`디버터 비중은 0~100 정수여야 합니다: ${item.id}`);
       for(const key of ['diverterSpeed','diverterAcceleration','diverterDeceleration','diverterStroke'])if(p[key]!=null&&(!Number.isFinite(Number(p[key]))||Number(p[key])<=0))errors.push(`디버터 파라미터는 양수여야 합니다: ${item.id}.${key}`);
     }
     for (const key of ['length', 'speed', 'travelSpeed', 'receiveSpeed', 'transferSpeed', 'liftSpeed', 'acceleration', 'deceleration', 'safetyGap']) {

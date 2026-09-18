@@ -1,3 +1,7 @@
+export function stationPatternLabel(index,zoneName,patterns=[]){
+ const pattern=patterns.find(p=>p.line===zoneName||p.key===zoneName)||(!zoneName?patterns[index]:null);
+ return pattern?.label||zoneName||`물류 ${index+1}`;
+}
 export function reassignStationConnections(layout,sourceId,targetId){
  const source=layout.equipment.find(n=>n.id===sourceId),target=layout.equipment.find(n=>n.id===targetId);
  if(!source?.asrsStation||!target?.asrsStation)throw Error('스테이션을 선택해 주세요.');

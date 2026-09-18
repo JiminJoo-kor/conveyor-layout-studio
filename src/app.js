@@ -1,4 +1,4 @@
-import { reassignStationConnections } from './station-assignment.js';
+import { reassignStationConnections, stationPatternLabel } from './station-assignment.js';
 import { syncAsrsStations, positionAsrsStations, appendAsrsStationControls } from './asrs-stations.js';
 import { applyCommonParameters } from './parameter-policy.js';
 import { workspaceShortcut } from './shortcuts.js';
@@ -95,7 +95,7 @@ function showStationAssignment(station){
  const [warehouse,line,kind]=selects,add=(s,value,text)=>{const o=document.createElement('option');o.value=value;o.textContent=text;s.append(o);};
  for(const n of layout.equipment.filter(n=>['asrs','stackerCrane'].includes(n.type)))add(warehouse,n.id,n.name||n.id);
  warehouse.value=station.asrsStation.parentId;
- const fill=()=>{line.replaceChildren();const p=layout.equipment.find(n=>n.id===warehouse.value);for(let i=0;i<(Number(p.parameters.productTypes)||3);i++)add(line,String(i),p.parameters.zoneNames?.[i]||'라인 '+(i+1));};fill();line.value=String(station.asrsStation.index);warehouse.onchange=fill;add(kind,'in','입고부');add(kind,'out','출고부');kind.value=station.asrsStation.kind;
+ const fill=()=>{line.replaceChildren();const p=layout.equipment.find(n=>n.id===warehouse.value),zones=Object.keys(engine.state.warehouses?.[p.id]?.zones||{}),patterns=detectedCargoPatterns();for(let i=0;i<(Number(p.parameters.productTypes)||3);i++)add(line,String(i),stationPatternLabel(i,p.parameters.zoneNames?.[i]||zones[i]||layout.cadSchematic?.inboundBranches?.[i]?.name,patterns));};fill();line.value=String(station.asrsStation.index);warehouse.onchange=fill;add(kind,'in','입고부');add(kind,'out','출고부');kind.value=station.asrsStation.kind;
  const hint=document.createElement('small');hint.textContent='선택한 스테이션으로 외부 연결을 재지정합니다. 기존 스테이션은 유지되며 시뮬레이션은 초기화됩니다.';panel.append(hint);
  const apply=document.createElement('button');apply.textContent='연결 재지정 적용';panel.append(apply);
  apply.onclick=()=>{if(running){hint.textContent='일시정지 후 변경해 주세요.';return;}const target=layout.equipment.find(n=>n.asrsStation?.parentId===warehouse.value&&n.asrsStation.index===Number(line.value)&&n.asrsStation.kind===kind.value),previous=layout.cadSchematic.edges;try{reassignStationConnections(layout,station.id,target?.id);const check=validateFlowGraph(layout);if(!check.valid)throw Error(check.errors.join(' · '));resetEngine();selectEquipment(layout.equipment.find(n=>n.id===target.id));renderer.setSelected(target.id);renderer.draw(engine.state);}catch(error){layout.cadSchematic.edges=previous;hint.textContent=error.message;}};

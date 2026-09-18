@@ -4,7 +4,23 @@ import {CadFlowEngine,asrsTargetCell,asrsOperationSnapshot} from '../src/engine.
 import {stationId} from '../src/asrs-stations.js';
 import {stationTransferPresentations} from '../src/asrs-putaway.js';
 import {asrsLayoutCargoPresentation} from '../src/renderer.js';
-import {asrsSceneModel} from '../src/asrs-monitor.js';
+import {asrsSceneModel,stationCargoGeometry} from '../src/asrs-monitor.js';
+test('LIVE station cargo uses physical edge spacing for every conveyor rotation',()=>{
+ for(const rotation of [0,90,180,270]){
+  const station={length:5,rotation,cargo:{length:1.2,width:.8}},a={cargoOrientation:0},b={cargoOrientation:Math.PI/2};
+  const first=stationCargoGeometry(station,a,5,100),extent=first.width/20,second=stationCargoGeometry(station,b,5-extent-.2,100);
+  assert.ok(Math.abs((first.center-first.width/2)-(second.center+second.width/2)-4)<1e-8);
+ }
+});
+test('infeed waits for real accumulation instead of collecting widely spaced cargo',()=>{
+ const e=new CadFlowEngine(layout(),{simDuration:200});e.sources=[];const a=addBuffered(e,801),b=addBuffered(e,802),station=e.nodes.get(a.nodeId);
+ const target=b.motion.controller.position;b.motion.controller.position=target-.6;b.motionState=b.motion.controller.snapshot();
+ a.edge=e.outgoing.get(station.id)[0];e.tryDirectHandover(a);assert.equal(a.putawayMission,undefined);
+ assert.ok(b.motion.controller.position<target);
+ for(let i=0;i<2000&&!a.putawayMission;i++)e.step(.02);
+ assert.ok(a.putawayMission);const positions=a.putawayMission.entries.map(x=>x.stationPosition);
+ assert.ok(Math.abs(positions[0]-positions[1]-e.minimumFollowingSpacing(station,a))<1e-5);
+});
 function layout(){return {displayMode:'cad',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[{id:'source',type:'source',x:-300,y:0,parameters:{injectionInterval:2,cargoType:'A'}},{id:'rack',type:'asrs',name:'Rack',x:0,y:0,parameters:{stationConveyorsEnabled:1,retrievalCarryCount:2,infeedBufferCount:2,outfeedBufferCount:2,productTypes:2,zoneNames:['A','B'],rows:1,levels:1,columns:4,travelSpeed:3,liftSpeed:2,forkStroke:.1,forkSpeed:2,putawayTime:.1,retrievalTime:.1,infeedTime:.1,outfeedTime:.1,modeChangeTime:0}},{id:'sink',type:'sink',x:300,y:0,parameters:{processTime:.1}}],cadSchematic:{inboundBranches:[{name:'A',cargoType:'A',nodeIds:['source']}],edges:[{from:'source',to:'rack',toPort:'product-1-in'},{from:'rack',to:'sink',fromPort:'product-1-out'}]}};}
 
 function addBuffered(engine,id){const station=engine.nodes.get(stationId('rack',0,'in'));const token=engine.prepareToken({id,nodeId:station.id,flowKey:'A',cargoType:'A',readyAt:0,createdAt:0});const position=station.parameters.length-engine.state.cadTokens.filter(t=>t.nodeId===station.id).length*engine.minimumFollowingSpacing(station,token);token.motion=engine.createMotion(station,position,{velocity:0},token);token.motionState=token.motion.controller.snapshot();token.progress=position/token.motion.distance;engine.state.cadTokens.push(token);return token;}

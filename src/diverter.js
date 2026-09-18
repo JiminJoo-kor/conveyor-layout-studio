@@ -45,8 +45,18 @@ export function diverterAvailableIndex(item,options,preferred,available){
   const index=options.findIndex(edge=>(p.diverterRoutingMode==='available'||alternatives.includes(diverterRouteKey(edge)))&&available(edge));
   return index>=0?index:preferred;
 }
+export function diverterDynamics(item,distanceOverride=null,initialSpeed=null){
+  const p=item?.parameters||{},distance=Math.max(.001,Number(distanceOverride??p.diverterStroke)||1),speed=Math.max(.01,Number(p.diverterSpeed)||.5);
+  if(Number(p.diverterAutoDynamics)!==1)return{acceleration:Number(p.diverterAcceleration)||.8,deceleration:Number(p.diverterDeceleration)||1};
+  const reference=movingDiverter(item)?Math.max(speed,Number(initialSpeed??p.speed)||0):speed,rate=Math.max(.1,reference*reference/(.5*distance));
+  return{acceleration:rate,deceleration:rate};
+}
+export function updateDiverterParameter(item,key,value){
+  item.parameters??={};item.parameters[key]=value;if(key==='diverterEnabled'&&value===1)item.parameters.diverterAutoDynamics??=1;
+  if(Number(item.parameters.diverterAutoDynamics)===1){const rates=diverterDynamics(item);item.parameters.diverterAcceleration=rates.acceleration;item.parameters.diverterDeceleration=rates.deceleration;}
+}
 export function diverterProfile(item,initialSpeed=null,distanceOverride=null){
-  const p=item?.parameters||{},config={targetSpeed:Number(p.diverterSpeed)||.5,acceleration:Number(p.diverterAcceleration)||.8,deceleration:Number(p.diverterDeceleration)||1,motionProfile:'trapezoidal'},distance=Math.max(.01,Number(p.diverterStroke)||1);
+  const p=item?.parameters||{},config={targetSpeed:Number(p.diverterSpeed)||.5,...diverterDynamics(item,distanceOverride,initialSpeed),motionProfile:'trapezoidal'},distance=Math.max(.01,Number(p.diverterStroke)||1);
   if(!movingDiverter(item))return {...motionProfileSummary(distance,config),config};
   const d=distanceOverride??distance,startSpeed=Math.max(0,initialSpeed??(Number(p.speed)||0)),target=config.targetSpeed,rate=target>=startSpeed?config.acceleration:-config.deceleration;
   const rampDistance=Math.abs(target*target-startSpeed*startSpeed)/(2*Math.abs(rate)),rampEndSpeed=rampDistance>d?Math.sqrt(Math.max(0,startSpeed*startSpeed+2*rate*d)):target;

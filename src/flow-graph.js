@@ -27,6 +27,7 @@ export function validateFlowGraph(layout) {
         if (!isStorage(item) || product.direction !== direction || product.index < 0 || product.index >= Number(item.parameters?.productTypes || 3)) errors.push(`잘못된 입출고 연결점: ${item.id}.${port}`);
       } else if (!['left', 'right', 'top', 'bottom'].includes(port)) errors.push(`알 수 없는 연결점: ${item.id}.${port}`);
     }
+    if(!edge.asrsStationInternal){if(from.asrsStation&&(from.asrsStation.kind!=='out'||edge.fromPort!=='right'))errors.push(`내부 출고 컨베이어 외측 출력점으로 연결하세요: ${from.id}`);if(to.asrsStation&&(to.asrsStation.kind!=='in'||edge.toPort!=='left'))errors.push(`내부 입고 컨베이어 외측 입력점으로 연결하세요: ${to.id}`);}
     if (from.type === 'sink' || from.type === 'dock' && from.parameters?.dockRole === 'outbound') warnings.push(`배출 설비에 후속 연결 있음: ${from.id}`);
   }
   for (const item of nodes.values()) {
@@ -45,7 +46,9 @@ export function validateFlowGraph(layout) {
     for (const key of ['length', 'speed', 'travelSpeed', 'receiveSpeed', 'transferSpeed', 'liftSpeed', 'acceleration', 'deceleration', 'safetyGap']) {
       if (p[key] != null && (!Number.isFinite(Number(p[key])) || Number(p[key]) < 0 || key !== 'safetyGap' && Number(p[key]) === 0)) errors.push(`유효하지 않은 파라미터: ${item.id}.${key} (속도·길이·가감속은 양수, 안전간격은 0 이상)`);
     }
-    for (const key of ['rows', 'columns', 'levels', 'productTypes', 'capacity']) if(p[key] != null && (!Number.isInteger(Number(p[key])) || Number(p[key]) < 1)) errors.push(`양의 정수가 필요한 파라미터: ${item.id}.${key}`);
+    for(const [index,counts] of Object.entries(p.stationLineCounts||{}))for(const kind of ['in','out'])if(counts?.[kind]!=null&&(!Number.isInteger(Number(counts[kind]))||Number(counts[kind])<1))errors.push(`양의 정수가 필요한 내부 컨베이어 수량: ${item.id}.${index}.${kind}`);
+    for(const key of ['stationConveyorSpeed','stationSafetyGap'])if(p[key]!=null&&(!Number.isFinite(Number(p[key]))||Number(p[key])<=0))errors.push(`양수가 필요한 내부 컨베이어 파라미터: ${item.id}.${key}`);
+    for (const key of ['rows', 'columns', 'levels', 'productTypes', 'capacity', 'retrievalCarryCount', 'infeedBufferCount', 'outfeedBufferCount']) if(p[key] != null && (!Number.isInteger(Number(p[key])) || Number(p[key]) < 1)) errors.push(`양의 정수가 필요한 파라미터: ${item.id}.${key}`);
     if (!['sink', 'processLine'].includes(item.type) && !(item.type === 'dock' && p.dockRole === 'outbound') && !(layout.cadSchematic?.edges || []).some(edge => edge.from === item.id)) warnings.push(`후속 연결 없음: ${item.id} (출구에서 대기)`);
   }
   return { valid: !errors.length, errors, warnings };

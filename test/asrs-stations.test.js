@@ -6,6 +6,24 @@ import { CadFlowEngine,asrsTargetCell } from '../src/engine.js';
 import { validateFlowGraph } from '../src/flow-graph.js';
 import { asrsSceneModel } from '../src/asrs-monitor.js';
 import {refreshEquipmentConnections,removeEquipmentAndReconnect} from '../src/editor.js';
+import {equipmentCargoMetrics,equipmentClipBounds,conveyorCargoVisualPose} from '../src/renderer.js';
+
+test('internal and normal conveyors use identical drawing and cargo scale in both views',()=>{
+  for(const view of ['schematic','hybrid']){const l=layout();l.cadViewMode=view;syncAsrsStations(l);const station=l.equipment.find(e=>e.asrsStation),normal={...station,asrsStation:undefined},length=view==='hybrid'?58:78,cargo={length:1.2,width:.8};
+    assert.equal(station.asrsStation.visualLength,length);assert.equal(station.asrsStation.visualWidth,view==='hybrid'?16:24);
+    assert.deepEqual(equipmentCargoMetrics(l,cargo,station,length),equipmentCargoMetrics(l,cargo,normal,length));assert.deepEqual(equipmentClipBounds(station,length),equipmentClipBounds(normal,length));
+    for(const rotation of [0,90,180,270]){station.rotation=normal.rotation=rotation;assert.deepEqual(conveyorCargoVisualPose(station,cargo,1,length),conveyorCargoVisualPose(normal,cargo,1,length));}
+  }
+});
+test('all station side combinations rotate along their conveyor axis and fit warehouse bounds',()=>{
+  for(const infeedSide of ['left','right','top','bottom'])for(const outfeedSide of ['left','right','top','bottom'])for(const rotation of [0,90]){
+    const l=layout(),rack=l.equipment[1];Object.assign(rack.parameters,{productTypes:4,infeedSide,outfeedSide});rack.rotation=rotation;syncAsrsStations(l);const bounds=rack.asrsVisualBounds,ports=equipmentPorts(rack);
+    for(const child of l.equipment.filter(e=>e.asrsStation)){const {index,kind}=child.asrsStation,anchor=ports[`product-${index+1}-${kind}`],childPorts=equipmentPorts(child),inner=kind==='in'?childPorts.right:childPorts.left;
+      assert.ok(Math.abs(Math.hypot(inner.x-anchor.x,inner.y-anchor.y)-8)<1e-8);const axis=(child.rotation*Math.PI/180),dx=child.x-anchor.x,dy=child.y-anchor.y;assert.ok(Math.abs(dx*Math.sin(axis)-dy*Math.cos(axis))<1e-8);
+      const a=-rotation*Math.PI/180,x=(anchor.x-rack.x)*Math.cos(a)-(anchor.y-rack.y)*Math.sin(a),y=(anchor.x-rack.x)*Math.sin(a)+(anchor.y-rack.y)*Math.cos(a);assert.ok(Math.abs(x)<=bounds.width/2+8.01&&Math.abs(y)<=bounds.height/2+8.01);
+    }
+  }
+});
 
 test('legacy warehouses without station settings migrate once and preserve upstream line identity',()=>{
   const l=layout();delete l.equipment[1].parameters.stationConveyorsEnabled;
@@ -74,7 +92,7 @@ test('derived conveyors reconnect by product port, survive repeated sync and JSO
 test('cargo sizing and per-line capacity determine physical and visual conveyor length',()=>{
   const l=layout(),rack=l.equipment[1];rack.parameters.stationLineCounts={1:{in:3,out:1}};syncAsrsStations(l);
   const a=l.equipment.find(e=>e.id===stationId('rack',0,'in')),b=l.equipment.find(e=>e.id===stationId('rack',1,'in'));
-  assert.ok(b.parameters.length>a.parameters.length);assert.ok(b.asrsStation.visualLength>a.asrsStation.visualLength);assert.equal(b.asrsStation.count,3);
+  assert.ok(b.parameters.length>a.parameters.length);assert.equal(b.asrsStation.visualLength,a.asrsStation.visualLength);assert.equal(b.asrsStation.count,3);
   assert.ok(a.parameters.length>=2*Math.hypot(1.2,.8)+.2);
   const before=a.parameters.length;l.cargoSpec.length=2000;syncAsrsStations(l);assert.ok(l.equipment.find(e=>e.id===a.id).parameters.length>before);
   rack.rotation=90;rack.x=100;positionAsrsStations(l);const ports=equipmentPorts(a);assert.ok(Number.isFinite(ports.left.y));assert.ok(Math.abs(ports.left.y-ports.right.y)>40);

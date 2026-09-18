@@ -17,12 +17,15 @@ export function asrsStationSpec(parent,layout,kind,index=null){
   // Circumscribed footprint accommodates retained cargo orientation, including AMR rotations.
   const footprint=Math.hypot(length*scale,width*scale),gap=Math.max(.02,Number(p.stationSafetyGap??.2)),margin=.1;
   const count=Math.max(kind==='out'?Math.round(Number(p.retrievalCarryCount)||1):1,Math.round(Number(index==null?null:p.stationLineCounts?.[index]?.[kind])||Number(p[kind==='in'?'infeedBufferCount':'outfeedBufferCount'])||Number(p.retrievalCarryCount)||1));
-  return {count,footprint,gap,margin,length:count*footprint+(count-1)*gap+2*margin,width:footprint+2*margin,speed:Math.max(.01,Number(p.stationConveyorSpeed)||.5),visualLength:Math.max(46,(count*footprint+(count-1)*gap+2*margin)*24),visualWidth:Math.max(24,(footprint+2*margin)*24)};
+  return {count,footprint,gap,margin,length:count*footprint+(count-1)*gap+2*margin,width:footprint+2*margin,speed:Math.max(.01,Number(p.stationConveyorSpeed)||.5),visualLength:layout.cadViewMode==='hybrid'?58:78,visualWidth:layout.cadViewMode==='hybrid'?16:24};
 }
 
 export function positionAsrsStations(layout){
   const parents=new Map(layout.equipment.filter(hasAsrsStations).map(p=>[p.id,p]));
-  for(const parent of parents.values())parent.parameters.stationVisualSpacing=Math.max(asrsStationSpec(parent,layout,'in').visualWidth,asrsStationSpec(parent,layout,'out').visualWidth)+32;
+  for(const parent of parents.values()){
+    const p=parent.parameters,count=Math.max(1,Number(p.productTypes)||3),width=asrsStationSpec(parent,layout,'in').visualWidth,spacing=width+40,inSide=p.infeedSide||'left',outSide=p.outfeedSide||'right',same=inSide===outSide,span=(count*(same?2:1))*spacing+48;
+    p.stationVisualSpacing=spacing;parent.asrsVisualBounds={width:Math.max(178,[inSide,outSide].some(s=>['top','bottom'].includes(s))?span:178),height:Math.max(132,[inSide,outSide].some(s=>['left','right'].includes(s))?span:132)};
+  }
   for(const child of layout.equipment.filter(e=>e.asrsStation)){
     const parent=parents.get(child.asrsStation.parentId);if(!parent)continue;
     const {index,kind}=child.asrsStation,spec=asrsStationSpec(parent,layout,kind,index),p=parent.parameters||{},side=p[kind==='in'?'infeedSide':'outfeedSide']||(kind==='in'?'left':'right');

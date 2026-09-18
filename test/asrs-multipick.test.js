@@ -34,9 +34,9 @@ test('multi-pick visits two occupied cells in order, carries both and handshakes
   const a=asrsLayoutCargoPresentation(rack,engine.state,tokens[0]),b=asrsLayoutCargoPresentation(rack,engine.state,tokens[1]);assert.ok(a.visible&&b.visible);assert.notEqual(a.x,b.x);
   const scene=asrsSceneModel(rack,engine.state,()=> '#00ffff');assert.equal(scene.zones[0].operation.carriedCargo.length,2);assert.equal(scene.zones[0].zone.inventory,0);
   accept=true;advanceUntil(engine,()=>tokens[0].nodeId==='rack::station-1-out');accept=false;
-  assert.equal(tokens[1].nodeId,'rack');assert.equal(tokens[1].asrsPicked,true);assert.equal(warehouse.retrievals,1);
-  engine.step(3);assert.equal(tokens[1].nodeId,'rack');assert.equal(asrsOperationSnapshot(rack,tokens[1],engine.state.t).phase,'handoff-wait');
-  accept=true;advanceUntil(engine,()=>warehouse.retrievals===2);
+  assert.equal(tokens[1].nodeId,'rack::station-1-out');assert.equal(warehouse.retrievals,2);
+  assert.equal(tokens[0].nodeEnteredAt,tokens[1].nodeEnteredAt);assert.ok(Math.abs(tokens[0].motionState.position-tokens[1].motionState.position)>=engine.minimumFollowingSpacing(engine.nodes.get(tokens[0].nodeId),tokens[0]));
+  engine.step(3);assert.equal(tokens[1].nodeId,'rack::station-1-out');
   assert.equal(Object.keys(warehouse.pickMissions).length,0);assert.equal(tokens[1].cargoOrientation,Math.PI/2);
   const picks=engine.state.events.filter(e=>e.type==='asrs-cell-picked');assert.deepEqual(picks.map(e=>e.target.index),[0,5]);assert.ok(picks[1].t>picks[0].t);
   assert.equal(engine.state.events.filter(e=>e.type==='asrs-handoff-complete').length,2);

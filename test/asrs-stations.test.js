@@ -33,6 +33,36 @@ test('multiple warehouses derive independent station IDs and capacity',()=>{
 });
 
 function layout(){return {displayMode:'cad',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[{id:'source',type:'source',x:-300,y:0,parameters:{injectionInterval:2,cargoType:'A'}},{id:'rack',type:'asrs',name:'Rack',x:0,y:0,parameters:{stationConveyorsEnabled:1,retrievalCarryCount:2,infeedBufferCount:2,outfeedBufferCount:2,productTypes:2,zoneNames:['A','B'],rows:1,levels:1,columns:4,travelSpeed:3,liftSpeed:2,forkStroke:.1,forkSpeed:2,putawayTime:.1,retrievalTime:.1,infeedTime:.1,outfeedTime:.1,modeChangeTime:0}},{id:'sink',type:'sink',x:300,y:0,parameters:{processTime:.1}}],cadSchematic:{inboundBranches:[{name:'A',cargoType:'A',nodeIds:['source']}],edges:[{from:'source',to:'rack',toPort:'product-1-in'},{from:'rack',to:'sink',fromPort:'product-1-out'}]}};}
+
+function addBuffered(engine,id){const station=engine.nodes.get(stationId('rack',0,'in'));const token=engine.prepareToken({id,nodeId:station.id,flowKey:'A',cargoType:'A',readyAt:0,createdAt:0});engine.state.cadTokens.push(token);return token;}
+function addStored(engine,id,slot){const rack=engine.nodes.get('rack'),zone=engine.state.asrs.zones.A;zone.occupiedSlots[slot]=true;zone.inventory++;engine.state.asrs.inventory++;const token=engine.prepareToken({id,nodeId:'rack',flowKey:'A',cargoType:'A',storageFlowKey:'A',asrsPhase:'stored',asrsTarget:asrsTargetCell(rack,slot),readyAt:Infinity,createdAt:0});engine.state.cadTokens.push(token);return token;}
+test('infeed waits for configured count, then drains the admitted batch without waiting for refill',()=>{
+  const engine=new CadFlowEngine(layout(),{simDuration:200});engine.sources=[];addBuffered(engine,1);
+  for(let i=0;i<1000;i++)engine.step(.02);assert.equal(engine.state.asrs.putaways,0);
+  addBuffered(engine,2);for(let i=0;i<3000&&engine.state.asrs.putaways<2;i++)engine.step(.02);
+  assert.equal(engine.state.asrs.putaways,2,engine.flowDiagnosticText());assert.equal(engine.state.cadTokens.filter(t=>t.nodeId===stationId('rack',0,'in')).length,0);
+});
+test('partial infeed does not block available outbound retrieval',()=>{
+  const engine=new CadFlowEngine(layout(),{simDuration:200});engine.sources=[];const inbound=addBuffered(engine,1);addStored(engine,2,0);addStored(engine,3,1);
+  for(let i=0;i<3000&&engine.state.asrs.retrievals<2;i++)engine.step(.02);
+  assert.equal(engine.state.asrs.retrievals,2,engine.flowDiagnosticText());assert.equal(engine.state.asrs.putaways,0);assert.equal(inbound.nodeId,stationId('rack',0,'in'));
+});
+test('two retrieved loads land on outfeed station on exactly the same simulation tick',()=>{
+  const engine=new CadFlowEngine(layout(),{simDuration:200});engine.sources=[];const a=addStored(engine,1,0),b=addStored(engine,2,1);
+  for(let i=0;i<3000&&a.nodeId==='rack';i++){engine.step(.02);assert.equal(a.nodeId==='rack',b.nodeId==='rack');}
+  assert.equal(a.nodeId,stationId('rack',0,'out'));assert.equal(b.nodeId,a.nodeId);assert.equal(a.nodeEnteredAt,b.nodeEnteredAt);assert.ok(Math.abs(a.motionState.position-b.motionState.position)>=engine.minimumFollowingSpacing(engine.nodes.get(a.nodeId),a));
+  assert.equal(engine.state.events.find(e=>e.type==='asrs-batch-deposit-complete').count,2);
+});
+test('outfeed station auto sizing cannot be smaller than a complete retrieval load',()=>{
+  const l=layout();l.equipment[1].parameters.outfeedBufferCount=1;l.equipment[1].parameters.stationLineCounts={0:{out:1}};syncAsrsStations(l);
+  assert.equal(l.equipment.find(e=>e.id===stationId('rack',0,'out')).asrsStation.count,2);
+});
+test('full rack can retrieve to release space for a pending infeed batch without deadlock',()=>{
+  const l=layout();l.equipment[1].parameters.columns=2;const engine=new CadFlowEngine(l,{simDuration:200});engine.sources=[];
+  addStored(engine,1,0);addStored(engine,2,1);addBuffered(engine,3);addBuffered(engine,4);
+  for(let i=0;i<6000&&engine.state.asrs.putaways<2;i++)engine.step(.02);
+  assert.equal(engine.state.asrs.putaways,2,engine.flowDiagnosticText());assert.ok(engine.state.asrs.retrievals>=2);
+});
 test('derived conveyors reconnect by product port, survive repeated sync and JSON round-trip',()=>{
   const l=layout();syncAsrsStations(l);assert.equal(l.equipment.filter(e=>e.asrsStation).length,4);assert.equal(l.cadSchematic.edges.length,6);assert.ok(validateFlowGraph(l).valid);
   assert.equal(l.cadSchematic.edges.find(e=>e.from==='source').to,stationId('rack',0,'in'));

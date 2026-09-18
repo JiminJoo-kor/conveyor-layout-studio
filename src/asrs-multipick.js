@@ -30,9 +30,9 @@ export function retrievalMissionSnapshot(item, token, time) {
   const mission=token.retrievalMission,p=mission.parameters||item.parameters||{},elapsed=Math.max(0,time-mission.startedAt);
   const segment=mission.segments.find(s=>elapsed<s.end)||null;
   const carriedCargo=mission.entries.filter(e=>mission.pickedIds.includes(e.tokenId)&&!mission.completedIds.includes(e.tokenId));
-  const active=mission.activeTokenId===token.id,approved=active&&token.handoffAcceptedAt!=null;
-  const duration=Math.max(.1,Number(token.handoffDuration)||Number(p.outfeedTime)||1);
-  const outfeedProgress=approved?Math.min(1,Math.max(0,(time-token.handoffAcceptedAt)/duration)):0;
+  const active=mission.activeTokenId===token.id,startedAt=mission.batchDeposit?mission.depositStartedAt:token.handoffAcceptedAt,approved=(active||mission.batchDeposit)&&startedAt!=null;
+  const duration=Math.max(.1,Number(mission.batchDeposit?mission.depositDuration:token.handoffDuration)||Number(p.outfeedTime)||1);
+  const outfeedProgress=approved?Math.min(1,Math.max(0,(time-startedAt)/duration)):0;
   const phase=segment?.phase||(approved?'outfeed':'handoff-wait'),profile=segment?.profile||mission.segments.at(-1).profile;
   let x=mission.home.column,y=mission.home.level,forkProgress=0,forkExtension=0;
   if(segment){

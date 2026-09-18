@@ -22,6 +22,19 @@ function layout(){return {displayMode:'cad',cargoSpec:{length:1200,width:800,wei
 function addBuffered(engine,id){const station=engine.nodes.get(stationId('rack',0,'in'));const token=engine.prepareToken({id,nodeId:station.id,flowKey:'A',cargoType:'A',readyAt:0,createdAt:0});engine.state.cadTokens.push(token);return token;}
 function addStored(engine,id,slot){const rack=engine.nodes.get('rack'),zone=engine.state.asrs.zones.A;zone.occupiedSlots[slot]=true;zone.inventory++;engine.state.asrs.inventory++;const token=engine.prepareToken({id,nodeId:'rack',flowKey:'A',cargoType:'A',storageFlowKey:'A',asrsPhase:'stored',asrsTarget:asrsTargetCell(rack,slot),readyAt:Infinity,createdAt:0});engine.state.cadTokens.push(token);return token;}
 
+test('batch station moving cargo retains edge-to-edge safety gap each simulation tick',()=>{
+ const l=layout();l.equipment[1].parameters.stationSafetyGap=.3;
+ l.equipment[2].type='conveyor';l.equipment[2].parameters={length:2,speed:.2,continuousHandover:1,safetyGap:.3};
+ const e=new CadFlowEngine(l,{simDuration:120});e.sources=[];addStored(e,1,0);addStored(e,2,1);
+ const station=e.nodes.get(stationId('rack',0,'out'));let checked=0;
+ for(let i=0;i<2500;i++){
+  e.step(.02);
+  const loads=e.state.cadTokens.filter(t=>t.nodeId===station.id&&t.motion).sort((a,b)=>b.motion.controller.position-a.motion.controller.position);
+  if(loads.length===2){const gap=loads[0].motion.controller.position-loads[1].motion.controller.position-1.2;assert.ok(gap>=.3-1e-6,`gap ${gap} at ${e.state.t}`);checked++;}
+ }
+ assert.ok(checked>10);
+});
+
 test('station checks straddled cargo and other inbound reservations before crane deposit',()=>{
  const e=new CadFlowEngine(layout()),station=e.nodes.get(stationId('rack',0,'out'));
  const t=e.prepareToken({id:1,nodeId:station.id,flowKey:'A'});e.state.cadTokens.push(t);

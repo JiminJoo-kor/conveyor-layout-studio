@@ -1,3 +1,22 @@
+// Resolve names from this warehouse's physical inlet, never another warehouse's index.
+export function stationLineLabel(layout,parent,index,zoneName,patterns=[]){
+ const edges=layout.cadSchematic?.edges||[],nodes=new Map(layout.equipment.map(n=>[n.id,n])),seen=new Set(),names=new Set();
+ const station=layout.equipment.find(n=>n.asrsStation?.parentId===parent.id&&n.asrsStation.index===index&&n.asrsStation.kind==='in');
+ const queue=station?[station.id]:edges.filter(e=>e.to===parent.id&&e.toPort===`product-${index+1}-in`).map(e=>e.from);
+ const meaningful=name=>name&&!/^(라인|line|품목|물류)\s*\d+$/i.test(name.trim());
+ while(queue.length){const id=queue.shift();if(seen.has(id))continue;seen.add(id);const node=nodes.get(id);if(!node||id===parent.id)continue;
+  if(node.type==='source'||node.type==='dock'&&node.parameters?.dockRole==='inbound'){
+   const name=node.parameters?.lineName||node.name;
+   if(meaningful(name)&&!/^(입고|source|dock)$/i.test(name.trim()))names.add(name.trim());
+   continue;
+  }
+  for(const edge of edges)if(edge.to===id&&!edge.asrsStationInternal)queue.push(edge.from);
+ }
+ if(names.size)return [...names].join(' / ');
+ const branch=(layout.cadSchematic?.inboundBranches||[]).find(b=>b.nodeIds?.some(id=>seen.has(id)));
+ const configured=parent.parameters?.zoneNames?.[index];
+ return stationPatternLabel(index,[configured,branch?.name,zoneName].find(meaningful),patterns);
+}
 export function stationPatternLabel(index,zoneName,patterns=[]){
  const pattern=patterns.find(p=>p.line===zoneName||p.key===zoneName)||(!zoneName?patterns[index]:null);
  return pattern?.label||zoneName||`물류 ${index+1}`;

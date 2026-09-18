@@ -2,10 +2,10 @@ import { motionProfileProgressAtTime } from './kinematics.js';
 
 // One mission owns every selected load until its last downstream handover.
 // Entries contain IDs, not token references, so diagnostic snapshots stay serializable.
-export function buildRetrievalMission(item, entries, profileFor, startedAt, stackerKey) {
+export function buildRetrievalMission(item, entries, profileFor, startedAt, stackerKey, startPosition=null) {
   const p=item.parameters||{}, first=profileFor(item,{slotIndex:entries[0].target.index,operation:'retrieval'});
   const home={column:first.baseColumn,level:first.baseLevel,row:0};
-  const segments=[]; let at=home, total=0;
+  const segments=[]; let at=startPosition||home, total=0;
   const move=(to,entry,phase)=>{
     const speed=to.level>=at.level?(p.liftSpeed||1):(p.downSpeed||p.liftSpeed||1);
     const parameters={...p,outfeedColumn:at.column+1,outfeedLevel:at.level+1,downSpeed:speed};

@@ -1,12 +1,18 @@
 import {buildRetrievalMission,retrievalMissionSnapshot} from './asrs-multipick.js';
 
-export function buildPutawayMission(item,entries,profileFor,startedAt,stackerKey,stationId,pickupDuration){
+export function buildPutawayMission(item,entries,profileFor,startedAt,stackerKey,stationId,pickupDuration,startPosition=null){
   const p=item.parameters||{},adapted={...item,parameters:{...p,outfeedColumn:p.infeedColumn||1,outfeedLevel:p.infeedLevel||1,retrievalTime:p.putawayTime||0}};
-  const mission=buildRetrievalMission(adapted,entries,profileFor,startedAt+pickupDuration,stackerKey);
-  return {...mission,stationId,pickupStartedAt:startedAt,pickupDuration,stage:'pickup',storedIds:[],pickedIds:entries.map(e=>e.tokenId)};
+  const home={column:Math.max(0,(p.infeedColumn||1)-1),level:Math.max(0,(p.infeedLevel||1)-1),row:0};
+  home.index=(home.column*Math.max(1,Number(p.levels)||4)+home.level)*Math.max(1,Number(p.rows)||2);
+  const approach=startPosition?buildRetrievalMission(adapted,[{tokenId:null,target:home}],profileFor,startedAt,stackerKey,startPosition):null;
+  if(approach){approach.segments=approach.segments.slice(0,1);approach.total=approach.segments[0].end;}
+  const pickupStartedAt=startedAt+(approach?.total||0);
+  const mission=buildRetrievalMission(adapted,entries,profileFor,pickupStartedAt+pickupDuration,stackerKey);
+  return {...mission,stationId,approach,pickupStartedAt,pickupDuration,stage:'pickup',storedIds:[],pickedIds:entries.map(e=>e.tokenId)};
 }
 export function putawayMissionSnapshot(item,token,time){
   const m=token.putawayMission,progress=Math.max(0,Math.min(1,(time-m.pickupStartedAt)/m.pickupDuration));
+  if(m.approach&&time<m.pickupStartedAt){const approach=retrievalMissionSnapshot(item,{...token,retrievalMission:m.approach},time);return {...approach,multiPick:false,multiPutaway:true,status:'inbound',label:'입고부 이동',phase:'approach',phaseLabel:'현재 위치에서 입고부 이동',cargoMode:'none',carriedCargo:[],cargoScale:0,infeedProgress:0};}
   const snapshot=retrievalMissionSnapshot(item,{...token,retrievalMission:{...m,completedIds:m.storedIds}},Math.max(m.startedAt,time));
   const phase=m.stage==='pickup'?'infeed':snapshot.phase==='handoff-wait'?'complete':snapshot.phase;
   if(phase==='return')snapshot.phaseLabel='입고 위치 복귀';

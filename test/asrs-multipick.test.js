@@ -21,6 +21,16 @@ function setup(slots=[0,5],extra={}){
 }
 function advanceUntil(engine,predicate,max=10000){for(let i=0;i<max&&!predicate();i++)engine.step(.02);assert.ok(predicate(),'condition must be reached\n'+engine.flowDiagnosticText());}
 
+test('retrieval starts at retained inlet position and waits at outlet after unloading',()=>{
+ const {engine,rack,warehouse,name}=setup([3],{infeedColumn:1,outfeedColumn:4});
+ warehouse.stackers[name].position={column:0,level:0,row:0};engine.scheduleAsrsBatchRetrieval();
+ assert.equal(engine.state.cadTokens[0].retrievalMission.segments[0].from.column,0);
+ advanceUntil(engine,()=>engine.state.completedProducts.length===1);
+ assert.equal(warehouse.stackers[name].position.column,3);
+ assert.equal(asrsSceneModel(rack,engine.state,()=> '#fff').zones[0].operation.x,3);
+ engine.step(2);assert.equal(warehouse.stackers[name].position.column,3);
+});
+
 test('multi-pick visits two occupied cells in order, carries both and handshakes each load',()=>{
   const {engine,rack,zone,warehouse}=setup(),tokens=[...engine.state.cadTokens];
   let accept=false;engine.canAcceptNode=()=>accept;engine.predictedEntryAvailable=()=>accept;

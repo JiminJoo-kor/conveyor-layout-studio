@@ -1,4 +1,5 @@
 import { applyCommonParameters } from './parameter-policy.js';
+import { workspaceShortcut } from './shortcuts.js';
 import { validateFlowGraph } from './flow-graph.js';
 import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
 import { CadFlowEngine, defaultParams, SimulationEngine, simulationEventText, validateParams } from './engine.js';
@@ -29,6 +30,18 @@ const equipmentNavigation=document.createElement('div');equipmentNavigation.clas
 function filterEquipmentCards(){const query=($('equipmentSearch')?.value||'').trim().toLowerCase();for(const card of cadParameterSection.querySelectorAll('[data-parameter-card]')){const item=layout.equipment.find(entry=>entry.id===card.dataset.parameterCard);card.hidden=Boolean(query&&!`${item?.name||''} ${item?.type||''}`.toLowerCase().includes(query)&&item?.id!==selectedEquipment?.id);}for(const group of cadParameterSection.querySelectorAll('.equipment-type-group'))group.hidden=![...group.querySelectorAll('[data-parameter-card]')].some(card=>!card.hidden);$('revealEquipment').disabled=!selectedEquipment;}
 $('equipmentSearch').addEventListener('input',filterEquipmentCards);$('revealEquipment').addEventListener('click',()=>{if(selectedEquipment)editor.selectEquipmentById(selectedEquipment.id);});
 const layoutActions=document.querySelector('.layout-actions');
+const shortcutHelp=document.createElement('details');shortcutHelp.className='shortcut-help';shortcutHelp.innerHTML='<summary>단축키 안내</summary><p><kbd>Delete</kbd> 선택 설비 / 연결선 삭제 (실행 중 제외)<br><kbd>Space</kbd> 시작 · 일시정지 · 재개<br><kbd>F</kbd> 전체 화면 맞춤<br><kbd>G</kbd> 선택 설비 위치 보기<br><kbd>E</kbd> 편집 모드 전환<br><kbd>Esc</kbd> 연결·배치 취소 / 선택 해제</p><small>입력칸·버튼 조작 중에는 단축키가 작동하지 않습니다. 삭제는 기존 삭제 버튼과 동일하게 연결선을 정리합니다.</small>';layoutActions.closest('.section-head').after(shortcutHelp);
+document.addEventListener('keydown',event=>{
+  const action=workspaceShortcut(event);if(!action||document.body.classList.contains('project-empty'))return;
+  if(action==='delete'){
+    if(running){event.preventDefault();$('validation').textContent='삭제하려면 먼저 시뮬레이션을 일시정지해 주세요.';return;}
+    if(selectedConnectionIndex!==null){event.preventDefault();deleteSelectedConnection();}
+    else if(selectedEquipment&&editor.selectedIds.size===1){event.preventDefault();$('deleteEquipment').click();}
+  }else if(action==='run'){event.preventDefault();$('runBtn').click();}
+  else if(action==='fit'){event.preventDefault();editor.fitView();}
+  else if(action==='reveal'&&selectedEquipment){event.preventDefault();editor.selectEquipmentById(selectedEquipment.id);}
+  else if(action==='edit'){event.preventDefault();$('editorToggle').click();}
+});
 for(const [title,ids] of [['프로젝트',['newLayoutProject','layoutFile','exportLayout']],['화면',['viewFit','cadViewToggle']],['편집 · 가져오기',['editorToggle','cadFile','drawingFile']]]){const group=document.createElement('div');group.className='workspace-action-group';group.setAttribute('role','group');group.setAttribute('aria-label',title);const label=document.createElement('span');label.className='action-group-title';label.textContent=title;group.append(label);for(const id of ids){const control=$(id);if(control)group.append(control.tagName==='INPUT'?control.closest('label'):control);}layoutActions.append(group);}
 const rackMonitor=document.createElement('section');rackMonitor.id='rackMonitor';rackMonitor.className='rack-monitor';rackMonitor.hidden=true;$('rackMonitorSlot').append(rackMonitor);
 const lineUphPanel=document.createElement('section');lineUphPanel.id='lineUphPanel';lineUphPanel.className='line-uph-panel';lineUphPanel.hidden=true;$('rackMonitorSlot').prepend(lineUphPanel);

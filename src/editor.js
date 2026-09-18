@@ -1,5 +1,6 @@
 import { closestPortPair, connectionAnchor, connectionKind, edgeRoute, equipmentDirectionControls, equipmentFlowPorts, equipmentPorts } from './route.js';
 import { equipmentVisualPosition } from './renderer.js';
+import { workspaceShortcut } from './shortcuts.js';
 
 const movable = item => Number.isFinite(item?.x) && Number.isFinite(item?.y);
 export function equipmentHitTarget(layout,state,point){const items=[...(layout?.equipment||[])].reverse(),movingMobile=items.filter(item=>{if(!['amr','agv'].includes(item.type))return false;const position=equipmentVisualPosition(layout,item,state);return Math.hypot(position.x-item.x,position.y-item.y)>.5;}),ordered=[...movingMobile,...items.filter(item=>!movingMobile.includes(item))];return ordered.find(item=>{if(!movable(item)||item.type==='processLine')return false;const wide=['stackerCrane','asrs'].includes(item.type)?72:['dock','source','sink'].includes(item.type)?52:42,tall=['stackerCrane','asrs'].includes(item.type)?54:42,position=equipmentVisualPosition(layout,item,state);return Math.abs(point.x-position.x)<wide&&Math.abs(point.y-position.y)<tall;});}
@@ -53,7 +54,7 @@ export class LayoutEditor {
     canvas.addEventListener('pointerleave',()=>this.pointerUp());
     canvas.addEventListener('wheel',e=>this.wheel(e),{passive:false});
     canvas.addEventListener('contextmenu',e=>{if(this.placementType||this.connecting){e.preventDefault();this.cancelModes();return;}if(!this.enabled)return;const hit=this.hitEdge(this.worldPoint(e));if(hit){e.preventDefault();this.selectEdge(hit.index,{x:e.clientX,y:e.clientY});}else this.selectEdge(null);});
-    canvas.ownerDocument.addEventListener('keydown',e=>{if(e.key==='Escape'){this.cancelModes();this.clearSelection();this.selectEdge(null);}});
+    canvas.ownerDocument.addEventListener('keydown',e=>{if(workspaceShortcut(e)==='escape'){e.preventDefault();this.cancelModes();this.clearSelection();this.selectEdge(null);}});
   }
   setEnabled(value){this.enabled=value;this.canvas.classList.toggle('editing',value);}
   setConnectionMode(value){this.connecting=value;this.connectionSource=null;this.connectionDrag=null;this.renderer.setConnectionMode(value,null);this.renderer.setConnectionPreview(null);this.onModeChange?.({connecting:value,sourceId:null,placement:this.placementType});this.onChange(false);}

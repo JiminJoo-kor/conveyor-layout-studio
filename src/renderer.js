@@ -253,6 +253,15 @@ const c=this.ctx,nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),
 
   drawCadFlow(state){
     const c=this.ctx,conveyors=this.layout.equipment.filter(item=>item.type==='conveyor'&&item.source?.origin==='dxf');
+    // Render the receiving end while AS/RS still owns the shared transfer.
+    for(const token of state.cadTokens||[]){
+      if(!token.edge||token.handoffAcceptedAt==null)continue;
+      const source=this.layout.equipment.find(item=>item.id===token.edge.from),target=this.layout.equipment.find(item=>item.id===token.edge.to);
+      if(!['asrs','stackerCrane'].includes(source?.type)||!target||['asrs','stackerCrane'].includes(target.type))continue;
+      const op=asrsOperationSnapshot(source,token,state.t||0),progress=op.outfeedProgress||0;if(op.phase!=='outfeed'||progress<=0)continue;
+      const common=this.layout.cadViewMode==='hybrid'?58:78,visualTarget=mobileHandoverNode(this.layout,target,true,{incoming:token.edge}),cargo=normalizedCargoSpec(this.layout),metrics=equipmentCargoMetrics(this.layout,cargo,target,common),mobile=['amr','agv'].includes(target.type),pose=mobile?mobileCargoHandoverPose(visualTarget,token.edge.toPort,source,progress,'receive',metrics.visualLength,common):handoverEndpointPose(visualTarget,token.edge.toPort,metrics.visualLength,true,source,progress,common),bounds=equipmentClipBounds(visualTarget,common),angle=(Number(visualTarget.rotation)||0)*Math.PI/180;
+      c.save();c.translate(visualTarget.x,visualTarget.y);c.rotate(angle);c.beginPath();c.rect(-bounds.width/2,-bounds.height/2,bounds.width,bounds.height);c.clip();c.rotate(-angle);c.translate(-visualTarget.x,-visualTarget.y);c.translate(pose.x,pose.y);c.rotate(Number.isFinite(token.cargoOrientation)?token.cargoOrientation:pose.angle);c.fillStyle=cargoColor(token.cargoType||token.flowKey,token.flowIndex,this.layout);c.strokeStyle=flowColor(token.flowKey,token.flowIndex);c.lineWidth=2;c.fillRect(-metrics.visualLength/2,-metrics.visualWidth/2,metrics.visualLength,metrics.visualWidth);c.strokeRect(-metrics.visualLength/2,-metrics.visualWidth/2,metrics.visualLength,metrics.visualWidth);c.restore();
+    }
     if(state.cadTokens){
       const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),cargo=normalizedCargoSpec(this.layout),visualLength=this.layout.cadViewMode==='hybrid'?58:78,metrics=stableCargoVisualMetrics(this.layout,cargo,visualLength),visualPositions=new Map();for(const item of nodes.values())if(item.type==='conveyor'){const tokens=state.cadTokens.filter(token=>!token.edge&&token.nodeId===item.id&&!this.handoverDescriptor(token,state,nodes,cargo));for(const [token,position] of conveyorVisualPositionMap(tokens,item,this.layout,cargo,metrics,visualLength))visualPositions.set(token,position);}
       for(const token of state.cadTokens){

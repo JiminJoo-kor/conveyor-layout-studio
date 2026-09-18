@@ -36,6 +36,10 @@ $('equipmentSearch').addEventListener('input',filterEquipmentCards);$('revealEqu
 const layoutActions=document.querySelector('.layout-actions');
 const shortcutHelp=document.createElement('details');shortcutHelp.className='shortcut-help';shortcutHelp.innerHTML='<summary>단축키 안내</summary><p><kbd>Delete</kbd> 선택 설비 / 연결선 삭제 (실행 중 제외)<br><kbd>Space</kbd> 시작 · 일시정지 · 재개<br><kbd>F</kbd> 전체 화면 맞춤<br><kbd>G</kbd> 선택 설비 위치 보기<br><kbd>E</kbd> 편집 모드 전환<br><kbd>Esc</kbd> 연결·배치 취소 / 선택 해제</p><small>입력칸·버튼 조작 중에는 단축키가 작동하지 않습니다. 삭제는 기존 삭제 버튼과 동일하게 연결선을 정리합니다.</small>';layoutActions.closest('.section-head').after(shortcutHelp);
 document.addEventListener('keydown',event=>{
+  const input=event.target;
+  if(event.key==='Enter'&&!event.isComposing&&input instanceof HTMLInputElement&&['number','text'].includes(input.type)&&input.closest('.equipment-parameter-card, .parameter-option-group')){
+    event.preventDefault();if(!input.reportValidity())return;input.blur();return;
+  }
   const action=workspaceShortcut(event);if(!action||document.body.classList.contains('project-empty'))return;
   if(action==='delete'){
     if(running){event.preventDefault();$('validation').textContent='삭제하려면 먼저 시뮬레이션을 일시정지해 주세요.';return;}

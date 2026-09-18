@@ -21,6 +21,17 @@ function setup(slots=[0,5],extra={}){
 }
 function advanceUntil(engine,predicate,max=10000){for(let i=0;i<max&&!predicate();i++)engine.step(.02);assert.ok(predicate(),'condition must be reached\n'+engine.flowDiagnosticText());}
 
+test('blocked first outlet cannot capture another stacker cargo by its original line name',()=>{
+ const {engine,rack,warehouse,name}=setup([0],{productTypes:2});
+ const other=Object.keys(warehouse.zones).find(n=>n!==name),options=engine.outgoing.get(rack.id);
+ const load=engine.prepareToken({id:99,nodeId:rack.id,flowKey:other,storageFlowKey:other,cargoType:name,originFlowKey:name,asrsPhase:'stored'});
+ engine.routeIndexForLine=()=>0;
+ engine.outboundLineForCargo=()=>({name,index:0});
+ assert.equal(engine.nodes.get(options[engine.previewRouteIndex(options,rack,load)].to).asrsStation.index,1);
+ assert.equal(engine.nodes.get(options[engine.selectRoute(options,rack,load)].to).asrsStation.index,1);
+ assert.equal(load.cargoType,name);
+});
+
 test('forked cargo uses the physical storage stacker independently of its original pattern',()=>{
  const {engine,warehouse,name}=setup([0],{productTypes:2});
  const other=Object.keys(warehouse.zones).find(n=>n!==name),first=engine.state.cadTokens[0];

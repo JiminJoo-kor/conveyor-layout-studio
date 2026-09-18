@@ -22,6 +22,16 @@ function layout(){return {displayMode:'cad',cargoSpec:{length:1200,width:800,wei
 function addBuffered(engine,id){const station=engine.nodes.get(stationId('rack',0,'in'));const token=engine.prepareToken({id,nodeId:station.id,flowKey:'A',cargoType:'A',readyAt:0,createdAt:0});engine.state.cadTokens.push(token);return token;}
 function addStored(engine,id,slot){const rack=engine.nodes.get('rack'),zone=engine.state.asrs.zones.A;zone.occupiedSlots[slot]=true;zone.inventory++;engine.state.asrs.inventory++;const token=engine.prepareToken({id,nodeId:'rack',flowKey:'A',cargoType:'A',storageFlowKey:'A',asrsPhase:'stored',asrsTarget:asrsTargetCell(rack,slot),readyAt:Infinity,createdAt:0});engine.state.cadTokens.push(token);return token;}
 
+for(const type of ['amr','agv'])test(`station follower keeps clear of cargo still being received by ${type}`,()=>{
+ const e=new CadFlowEngine(layout()),station=e.nodes.get(stationId('rack',0,'out')),receiver=e.nodes.get('sink');receiver.type=type;
+ const leader=e.prepareToken({id:90,nodeId:'sink',cargoOrientation:0});leader.incomingHandover={sourceId:station.id};leader.operationStep={phase:'receive',progress:.25};
+ const follower=e.prepareToken({id:91,nodeId:station.id,cargoOrientation:0});follower.motion=e.createMotion(station,station.parameters.length-2,{},follower);follower.motionState=follower.motion.controller.snapshot();
+ e.state.cadTokens=[leader,follower];e.applyOccupancyInterlocks(.02);
+ assert.ok(Math.abs(follower.motionLimit-(station.parameters.length-1.2*.75-station.parameters.safetyGap))<1e-8);
+ leader.operationStep={phase:'move',progress:0};e.applyOccupancyInterlocks(.02);
+ assert.ok(follower.motionLimit>=station.parameters.length);
+});
+
 test('batch station moving cargo retains edge-to-edge safety gap each simulation tick',()=>{
  const l=layout();l.equipment[1].parameters.stationSafetyGap=.3;
  l.equipment[2].type='conveyor';l.equipment[2].parameters={length:2,speed:.2,continuousHandover:1,safetyGap:.3};

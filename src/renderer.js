@@ -40,6 +40,31 @@ export function handoverEndpointPose(item,port,cargoLength,isTarget=false,other=
 export const pendingTransferPose=(source,target,edge,cargoLength,commonVisualLength=78)=>handoverEndpointPose(source,edge?.fromPort,cargoLength,false,target,0,commonVisualLength);
 
 export function mobileEquipmentRoute(layout,item,assignment=null){
+  const route=rawMobileEquipmentRoute(layout,item,assignment);
+  if(!route)return route;
+  const points=route.points||[route.start,route.end],vehicle=equipmentClipBounds(item),angle=(Number(item.rotation)||0)*Math.PI/180;
+  const halfX=(Math.abs(Math.cos(angle))*vehicle.width+Math.abs(Math.sin(angle))*vehicle.height)/2+4,halfY=(Math.abs(Math.sin(angle))*vehicle.width+Math.abs(Math.cos(angle))*vehicle.height)/2+4;
+  const obstacles=layout.equipment.filter(n=>n.id!==item.id&&!['agv','amr'].includes(n.type)).map(n=>{
+    const size=equipmentClipBounds(n,layout.cadViewMode==='hybrid'?58:78),a=(Number(n.rotation)||0)*Math.PI/180;
+    const x=(Math.abs(Math.cos(a))*size.width+Math.abs(Math.sin(a))*size.height)/2+halfX,y=(Math.abs(Math.sin(a))*size.width+Math.abs(Math.cos(a))*size.height)/2+halfY;
+    return {left:n.x-x,right:n.x+x,top:n.y-y,bottom:n.y+y};
+  });
+  const clear=p=>obstacles.every(b=>p.x<=b.left||p.x>=b.right||p.y<=b.top||p.y>=b.bottom);
+  if(clear(points[0])&&clear(points.at(-1)))return route;
+  const samples=[];for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)));for(let j=i===1?0:1;j<=steps;j++){const t=j/steps;samples.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,segment:i});}}
+  const first=samples.findIndex(clear),last=samples.findLastIndex(clear);
+  if(first<0){
+    const nearest=point=>{
+      const xs=[point.x,...obstacles.flatMap(b=>[b.left-1,b.right+1])],ys=[point.y,...obstacles.flatMap(b=>[b.top-1,b.bottom+1])];
+      let best=null,distance=Infinity;for(const x of xs)for(const y of ys){const p={x,y},d=Math.hypot(x-point.x,y-point.y);if(d<distance&&clear(p)){best=p;distance=d;}}
+      return best||point;
+    };
+    const start=nearest(points[0]),end=nearest(points.at(-1));return {...route,start,end,points:[start,...points.slice(1,-1),end]};
+  }
+  const start=samples[first],end=samples[last],trimmed=[{x:start.x,y:start.y},...points.slice(start.segment,end.segment),{x:end.x,y:end.y}].filter((p,i,list)=>!i||p.x!==list[i-1].x||p.y!==list[i-1].y);
+  return {...route,start:trimmed[0],end:trimmed.at(-1),points:trimmed};
+}
+function rawMobileEquipmentRoute(layout,item,assignment=null){
   const edges=layout.cadSchematic?.edges||[],byId=new Map(layout.equipment.map(node=>[node.id,node])),incoming=assignment?.incoming||edges.find(edge=>edge.to===item.id),outgoing=assignment?.outgoing||edges.find(edge=>edge.from===item.id),before=byId.get(incoming?.from),after=byId.get(outgoing?.to);
   if(before&&after&&(incoming.kind==='transfer'||outgoing.kind==='transfer')){const inPorts=closestPortPair(before,item),outPorts=closestPortPair(item,after),incomingPoints=edgeRoute(connectionAnchor(before,incoming.fromPort||inPorts?.fromPort),connectionAnchor(item,incoming.toPort||inPorts?.toPort),incoming),outgoingPoints=edgeRoute(connectionAnchor(item,outgoing.fromPort||outPorts?.fromPort),connectionAnchor(after,outgoing.toPort||outPorts?.toPort),outgoing),points=[...incomingPoints,...outgoingPoints.slice(1)].filter((point,index,list)=>!index||point.x!==list[index-1].x||point.y!==list[index-1].y);return{start:points[0],end:points.at(-1),points,axis:'orthogonal',source:'transfer-path'};}
   if(item?.shuttleRoute){const original=item.shuttleRoute.points||[item.shuttleRoute.start,item.shuttleRoute.end].filter(Boolean);if(original.length>=2){const origin=item.shuttleRoute.start||original[0],dx=Number.isFinite(Number(item.x))?Number(item.x)-origin.x:0,dy=Number.isFinite(Number(item.y))?Number(item.y)-origin.y:0,points=original.map(point=>({x:point.x+dx,y:point.y+dy}));return{...item.shuttleRoute,start:points[0],end:points.at(-1),points};}}

@@ -1,5 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { LayoutEditor } from '../src/editor.js';
+
+test('파라미터 목록 선택은 캔버스 단일 선택과 뷰 위치를 동기화한다',()=>{
+  const item={id:'cv',type:'conveyor',x:200,y:300},calls=[],editor=Object.create(LayoutEditor.prototype);
+  Object.assign(editor,{getLayout:()=>({equipment:[item]}),canvas:{width:1000,height:600},view:{zoom:2,x:0,y:0},renderer:{setMultiSelected:ids=>calls.push(ids),setMarquee(){},setView(){}},onSelect:selected=>calls.push(selected.id),onChange:rebuild=>calls.push(rebuild),onEdgeSelect(){}});
+  assert.equal(editor.selectEquipmentById('cv'),true);assert.deepEqual([...editor.selectedIds],['cv']);assert.deepEqual(editor.view,{zoom:2,x:100,y:-300});assert.deepEqual(calls,[['cv'],'cv',false]);
+  assert.equal(editor.selectEquipmentById('missing'),false);assert.equal(editor.view.zoom,2);
+});
 import { equipmentHitTarget, insertEquipmentIntoNearestEdge, isSelectedEdgeHit, itemsInRect, refreshEquipmentConnections, registerInboundDockLine, removeConnection, removeEquipmentAndReconnect, setEquipmentFlowDirection, snapUnit } from '../src/editor.js';
 
 test('운행 중인 AMR와 AGV는 배치 원점이 아니라 화면에 표시된 현재 위치에서 선택된다',()=>{

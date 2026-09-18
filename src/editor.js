@@ -60,6 +60,12 @@ export class LayoutEditor {
   beginPlacement(type){this.placementType=type;this.setConnectionMode(false);this.canvas.classList.add('placing');this.renderer.setPlacementPreview(type,null);this.onModeChange?.({connecting:false,sourceId:null,placement:type});this.onChange(false);}
   cancelModes(){this.placementType=null;this.canvas.classList.remove('placing');this.renderer.setPlacementPreview(null,null);this.setConnectionMode(false);}
   clearSelection(){this.selectedIds.clear();this.renderer.setMultiSelected([]);this.renderer.setMarquee(null);this.onSelect(null);this.onChange(false);}
+  selectEquipmentById(id,{reveal=true}={}){
+    const layout=this.getLayout(),item=layout.equipment.find(entry=>entry.id===id);if(!item)return false;
+    this.selectedIds=new Set([id]);this.selectedEdgeIndex=null;this.renderer.setMultiSelected([id]);this.renderer.setMarquee(null);this.onEdgeSelect?.(null,null);
+    if(reveal){const point=equipmentVisualPosition(layout,item,this.renderer.lastState),zoom=Math.max(1,this.view.zoom);this.view={zoom,x:this.canvas.width/2-point.x*zoom,y:this.canvas.height/2-point.y*zoom};this.renderer.setView(this.view);}
+    this.onSelect(item);this.onChange(false);return true;
+  }
   canvasPoint(event){const rect=this.canvas.getBoundingClientRect(),sx=this.canvas.width/rect.width,sy=this.canvas.height/rect.height;return{x:(event.clientX-rect.left)*sx,y:(event.clientY-rect.top)*sy};}
   worldPoint(event){const p=this.canvasPoint(event);return{x:(p.x-this.view.x)/this.view.zoom,y:(p.y-this.view.y)/this.view.zoom};}
   hit(point){return equipmentHitTarget(this.getLayout(),this.renderer.lastState,point);}

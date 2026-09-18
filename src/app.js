@@ -1,3 +1,4 @@
+import { reassignStationConnections } from './station-assignment.js';
 import { syncAsrsStations, positionAsrsStations, appendAsrsStationControls } from './asrs-stations.js';
 import { applyCommonParameters } from './parameter-policy.js';
 import { workspaceShortcut } from './shortcuts.js';
@@ -76,6 +77,8 @@ function editorChanged(rebuild) {
 function editorModeChanged(mode){$('connectEquipment').classList.toggle('active',mode.connecting);if(mode.selectionCount>1){$('connectionHint').hidden=false;$('connectionHint').textContent=`${mode.selectionCount}개 설비 선택됨 · 선택된 설비를 드래그하면 함께 이동합니다.`;}else if(mode.insertion){$('connectionHint').hidden=false;$('connectionHint').textContent=`자동 삽입 완료: 기존 연결선을 제거하고 ${mode.item.name} 양옆으로 다시 연결했습니다.`;}else if(mode.placement){$('connectionHint').hidden=false;$('connectionHint').textContent=`${mode.placement==='sink'?'출고 DOCK':mode.placement==='inboundDock'?'입고 DOCK':mode.placement.toUpperCase()} 배치 위치를 클릭하세요.${['sink','inboundDock'].includes(mode.placement)?' 배치 후 연결점을 연결하세요.':' 기존 연결선 위에 놓으면 선 사이에 자동 삽입됩니다.'}`;}else if(mode.connecting){const source=layout.equipment.find(item=>item.id===mode.sourceId);$('connectionHint').hidden=false;$('connectionHint').textContent=source?`${source.name}의 ${mode.fromPort} 연결점에서 원하는 도착 연결점까지 드래그하세요.`:'시작 설비의 연결점을 누른 채 도착 설비 연결점까지 드래그하세요. 초록점은 출력, 하늘색점은 입력입니다.';}else if(!$('connectionHint').textContent.startsWith('연결 완료')&&!$('connectionHint').textContent.startsWith('자동 삽입 완료'))$('connectionHint').hidden=true;}
 function connectEquipment(fromId,toId,fromPort,toPort){if(fromId===toId)return false;layout.cadSchematic??={lanes:[],inboundBranches:[],edges:[]};layout.cadSchematic.edges??=[];if(layout.cadSchematic.edges.some(edge=>edge.from===fromId&&edge.to===toId&&edge.fromPort===fromPort&&edge.toPort===toPort))return false;const from=layout.equipment.find(item=>item.id===fromId),to=layout.equipment.find(item=>item.id===toId);if(!from||!to)return false;const ports=fromPort&&toPort?{fromPort,toPort}:closestPortPair(from,to),kind=connectionKind(from,to);const edge={from:fromId,to:toId,kind,fromPort:ports.fromPort,toPort:ports.toPort,manual:true},graph=validateFlowGraph({...layout,cadSchematic:{...layout.cadSchematic,edges:[...layout.cadSchematic.edges,edge]}});if(!graph.valid){$('validation').textContent=graph.errors.join(' · ');return false;}layout.cadSchematic.edges.push(edge);$('connectionHint').hidden=false;$('connectionHint').textContent=`연결 완료: ${from.name} ${ports.fromPort} → ${to.name} ${ports.toPort}`;renderer.setLayout(layout);resetEngine();return true;}
 function selectEquipment(item) {
+  const station=item?.asrsStation?item:null;
+  document.getElementById('stationAssignmentPanel')?.remove();
   if(item?.asrsStation)item=layout.equipment.find(e=>e.id===item.asrsStation.parentId)||item;
   const changed=selectedEquipment?.id!==item?.id;
   selectedEquipment=item;
@@ -83,6 +86,20 @@ function selectEquipment(item) {
   $('deleteEquipment').disabled=!item;
   $('propName').value=item?.name||'';$('propX').value=item?.x??'';$('propY').value=item?.y??'';$('propRotation').value=item?.rotation??0;
   if(changed&&layout.displayMode==='cad')renderCadEquipmentParameters(item?.id||null);
+  if(station)showStationAssignment(station);
+}
+function showStationAssignment(station){
+ const panel=document.createElement('section');panel.id='stationAssignmentPanel';panel.className='parameter-option-group';
+ const title=document.createElement('strong');title.textContent='내부 스테이션 연결 설정';panel.append(title);
+ const selects=['AS/RS','라인','입출고'].map(name=>{const label=document.createElement('label'),s=document.createElement('select');label.append(name,s);panel.append(label);return s;});
+ const [warehouse,line,kind]=selects,add=(s,value,text)=>{const o=document.createElement('option');o.value=value;o.textContent=text;s.append(o);};
+ for(const n of layout.equipment.filter(n=>['asrs','stackerCrane'].includes(n.type)))add(warehouse,n.id,n.name||n.id);
+ warehouse.value=station.asrsStation.parentId;
+ const fill=()=>{line.replaceChildren();const p=layout.equipment.find(n=>n.id===warehouse.value);for(let i=0;i<(Number(p.parameters.productTypes)||3);i++)add(line,String(i),p.parameters.zoneNames?.[i]||'라인 '+(i+1));};fill();line.value=String(station.asrsStation.index);warehouse.onchange=fill;add(kind,'in','입고부');add(kind,'out','출고부');kind.value=station.asrsStation.kind;
+ const hint=document.createElement('small');hint.textContent='선택한 스테이션으로 외부 연결을 재지정합니다. 기존 스테이션은 유지되며 시뮬레이션은 초기화됩니다.';panel.append(hint);
+ const apply=document.createElement('button');apply.textContent='연결 재지정 적용';panel.append(apply);
+ apply.onclick=()=>{if(running){hint.textContent='일시정지 후 변경해 주세요.';return;}const target=layout.equipment.find(n=>n.asrsStation?.parentId===warehouse.value&&n.asrsStation.index===Number(line.value)&&n.asrsStation.kind===kind.value),previous=layout.cadSchematic.edges;try{reassignStationConnections(layout,station.id,target?.id);const check=validateFlowGraph(layout);if(!check.valid)throw Error(check.errors.join(' · '));resetEngine();selectEquipment(layout.equipment.find(n=>n.id===target.id));renderer.setSelected(target.id);renderer.draw(engine.state);}catch(error){layout.cadSchematic.edges=previous;hint.textContent=error.message;}};
+ cadParameterSection.prepend(panel);panel.scrollIntoView({block:'nearest'});
 }
 function selectConnection(edge,index,context){selectedConnectionIndex=edge&&Number.isInteger(index)?index:null;$('deleteConnection').disabled=selectedConnectionIndex===null;const menu=$('edgeContextMenu');if(context&&edge){menu.hidden=false;menu.style.left=`${Math.min(context.x,window.innerWidth-130)}px`;menu.style.top=`${Math.min(context.y,window.innerHeight-50)}px`;}else menu.hidden=true;if(edge){const from=layout.equipment.find(item=>item.id===edge.from),to=layout.equipment.find(item=>item.id===edge.to);$('connectionHint').hidden=false;$('connectionHint').textContent=`연결선 선택: ${from?.name||edge.from} → ${to?.name||edge.to}`;}}
 function deleteSelectedConnection(){if(selectedConnectionIndex===null)return;if(editor.removeEdge(selectedConnectionIndex)){selectedConnectionIndex=null;$('deleteConnection').disabled=true;$('edgeContextMenu').hidden=true;$('connectionHint').hidden=false;$('connectionHint').textContent='연결선을 삭제했습니다.';resetEngine();}}

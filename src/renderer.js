@@ -42,7 +42,7 @@ export const pendingTransferPose=(source,target,edge,cargoLength,commonVisualLen
 export function mobileEquipmentRoute(layout,item,assignment=null){
   const route=rawMobileEquipmentRoute(layout,item,assignment);
   if(!route)return route;
-  const points=route.points||[route.start,route.end],vehicle=equipmentClipBounds(item),angle=(Number(item.rotation)||0)*Math.PI/180;
+  const points=route.points||[route.start,route.end],cargo=stableCargoVisualMetrics(layout,normalizedCargoSpec(layout)),envelope=Math.max(44,Math.hypot(cargo.visualLength,cargo.visualWidth)+8),vehicle={width:envelope,height:envelope},angle=(Number(item.rotation)||0)*Math.PI/180;
   const halfX=(Math.abs(Math.cos(angle))*vehicle.width+Math.abs(Math.sin(angle))*vehicle.height)/2+4,halfY=(Math.abs(Math.sin(angle))*vehicle.width+Math.abs(Math.cos(angle))*vehicle.height)/2+4;
   const obstacles=layout.equipment.filter(n=>n.id!==item.id&&!['agv','amr'].includes(n.type)).map(n=>{
     const size=equipmentClipBounds(n,layout.cadViewMode==='hybrid'?58:78),a=(Number(n.rotation)||0)*Math.PI/180;

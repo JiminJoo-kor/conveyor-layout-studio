@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mobileEquipmentRoute,equipmentVisualPosition,mobileHandoverNode,equipmentClipBounds} from '../src/renderer.js';
+import {mobileEquipmentRoute,mobileDockCenter,equipmentVisualPosition,mobileHandoverNode,equipmentClipBounds} from '../src/renderer.js';
+test('vehicle docking uses its face rather than its center for all four station ports',()=>{
+ for(const rotation of [0,90,180,270])for(const port of ['left','right','top','bottom'])for(const type of ['amr','agv']){
+  const station={id:'s',type:'conveyor',x:100,y:100,rotation},vehicle={id:'v',type,x:0,y:0,rotation},layout={equipment:[station,vehicle]},p=mobileDockCenter(layout,vehicle,station,port),a=-rotation*Math.PI/180,dx=p.x-100,dy=p.y-100,x=dx*Math.cos(a)-dy*Math.sin(a),y=dx*Math.sin(a)+dy*Math.cos(a);
+  if(['left','right'].includes(port)){assert.ok(Math.abs(Math.abs(x)-(39+18+8))<1e-8);assert.ok(Math.abs(y)<1e-8);assert.equal(Math.sign(x),port==='left'?-1:1);}
+  else {assert.ok(Math.abs(Math.abs(y)-(14+13+8))<1e-8);assert.ok(Math.abs(x)<1e-8);assert.equal(Math.sign(y),port==='top'?-1:1);}
+ }
+});
 test('large carried cargo and wheels are included in mobile standby clearance',()=>{
  const rack={id:'r',type:'asrs',x:0,y:0},v={id:'v',type:'amr',x:0,y:0,shuttleRoute:{start:{x:0,y:0},end:{x:400,y:0}}};
  const layout={cargoSpec:{length:8,width:3,unit:'m'},equipment:[rack,v]},route=mobileEquipmentRoute(layout,v);

@@ -39,9 +39,22 @@ export function equipmentClipBounds(item,commonVisualLength=78){if(item?.type===
 export function handoverEndpointPose(item,port,cargoLength,isTarget=false,other=null,progress=0,commonVisualLength=78){const ports=equipmentPorts(item),resolved=port&&ports[port]?port:Object.entries(ports).sort((a,b)=>Math.hypot(a[1].x-(other?.x??item.x),a[1].y-(other?.y??item.y))-Math.hypot(b[1].x-(other?.x??item.x),b[1].y-(other?.y??item.y)))[0]?.[0],bounds=equipmentClipBounds(item,commonVisualLength),anchor=ports[resolved],dx=(anchor?.x??item.x)-item.x,dy=(anchor?.y??item.y)-item.y,axis=Math.abs(dx)>=Math.abs(dy)?{x:Math.sign(dx)||1,y:0}:{x:0,y:Math.sign(dy)||1},productPort=resolved?.startsWith('product-'),rotation=(Number(item?.rotation)||0)*Math.PI/180,localDirection=resolved==='left'?{x:-1,y:0}:resolved==='top'?{x:0,y:-1}:resolved==='bottom'?{x:0,y:1}:{x:1,y:0},standardOutward={x:localDirection.x*Math.cos(rotation)-localDirection.y*Math.sin(rotation),y:localDirection.x*Math.sin(rotation)+localDirection.y*Math.cos(rotation)},outward=productPort?axis:standardOutward,boundaryDistance=Math.abs(localDirection.x)?bounds.width/2:bounds.height/2,boundary=productPort?anchor:{x:item.x+outward.x*boundaryDistance,y:item.y+outward.y*boundaryDistance},ratio=Math.max(0,Math.min(1,Number(progress)||0)),offset=isTarget?cargoLength/2-cargoLength*ratio:-cargoLength/2+cargoLength*ratio,movement=isTarget?{x:-outward.x,y:-outward.y}:outward;return{x:boundary.x+outward.x*offset,y:boundary.y+outward.y*offset,angle:Math.atan2(movement.y,movement.x),port:resolved,bounds};}
 export const pendingTransferPose=(source,target,edge,cargoLength,commonVisualLength=78)=>handoverEndpointPose(source,edge?.fromPort,cargoLength,false,target,0,commonVisualLength);
 
+export function mobileDockCenter(layout,vehicle,station,port){
+  const anchor=connectionAnchor(station,port),a=(Number(station.rotation)||0)*Math.PI/180,dx=anchor.x-station.x,dy=anchor.y-station.y,lx=dx*Math.cos(a)+dy*Math.sin(a),ly=-dx*Math.sin(a)+dy*Math.cos(a),horizontal=Math.abs(lx)>=Math.abs(ly),sign=Math.sign(horizontal?lx:ly)||1;
+  const normal=horizontal?{x:sign*Math.cos(a),y:sign*Math.sin(a)}:{x:-sign*Math.sin(a),y:sign*Math.cos(a)},bounds=equipmentClipBounds(station,layout.cadViewMode==='hybrid'?58:78),body=equipmentClipBounds(vehicle),v=(Number(vehicle.rotation)||0)*Math.PI/180,extent=Math.abs(normal.x*Math.cos(v)+normal.y*Math.sin(v))*body.width/2+Math.abs(-normal.x*Math.sin(v)+normal.y*Math.cos(v))*body.height/2;
+  const boundary=horizontal?bounds.width/2:bounds.height/2;
+  return{x:station.x+normal.x*(boundary+extent+8),y:station.y+normal.y*(boundary+extent+8)};
+}
 export function mobileEquipmentRoute(layout,item,assignment=null){
-  const route=rawMobileEquipmentRoute(layout,item,assignment);
+  let route=rawMobileEquipmentRoute(layout,item,assignment);
   if(!route)return route;
+  const edges=layout.cadSchematic?.edges||[],incoming=assignment?.incoming||edges.find(e=>e.to===item.id),outgoing=assignment?.outgoing||edges.find(e=>e.from===item.id),before=layout.equipment.find(n=>n.id===incoming?.from),after=layout.equipment.find(n=>n.id===outgoing?.to);
+  if(route.source==='transfer-path'){
+    const points=[...(route.points||[route.start,route.end])];
+    if(before)points[0]=mobileDockCenter(layout,item,before,incoming.fromPort);
+    if(after)points[points.length-1]=mobileDockCenter(layout,item,after,outgoing.toPort);
+    route={...route,start:points[0],end:points.at(-1),points};
+  }
   const points=route.points||[route.start,route.end],cargo=stableCargoVisualMetrics(layout,normalizedCargoSpec(layout)),envelope=Math.max(44,Math.hypot(cargo.visualLength,cargo.visualWidth)+8),vehicle={width:envelope,height:envelope},angle=(Number(item.rotation)||0)*Math.PI/180;
   const halfX=(Math.abs(Math.cos(angle))*vehicle.width+Math.abs(Math.sin(angle))*vehicle.height)/2+4,halfY=(Math.abs(Math.sin(angle))*vehicle.width+Math.abs(Math.cos(angle))*vehicle.height)/2+4;
   const obstacles=layout.equipment.filter(n=>n.id!==item.id&&!['agv','amr'].includes(n.type)).map(n=>{

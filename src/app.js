@@ -145,7 +145,7 @@ function toggleRun() {
   if(!running&&layout.displayMode==='cad'&&!validateFlowGraph(layout).valid){resetEngine();return;}
   if(engine.state.t===0&&!resetEngine()) return;
   running=!running; $('runBtn').textContent=running?'일시정지':'재개'; last=0;
-  if(running) frame=requestAnimationFrame(loop); else {cancelAnimationFrame(frame);renderEvents();}
+  if(running){engine.state.simulationStarted=true;renderer.draw(engine.state);frame=requestAnimationFrame(loop);} else {cancelAnimationFrame(frame);renderEvents();}
 }
 function renderEvents() {
   const rows=engine.state.events.slice(-12).reverse();

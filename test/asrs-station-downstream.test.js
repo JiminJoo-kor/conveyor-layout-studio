@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CadFlowEngine,asrsTargetCell} from '../src/engine.js';
 import {stationId} from '../src/asrs-stations.js';
+test('receiver must finish receiving the previous station load before the next deposit',()=>{
+ const e=new CadFlowEngine(layout()),station=e.nodes.get(stationId('rack',0,'out'));
+ e.nodes.get('sink').type='amr';
+ const load={id:91,nodeId:'sink',incomingHandover:{sourceId:station.id},operationStep:{phase:'receive',progress:.5}};
+ e.state.cadTokens.push(load);assert.equal(e.stationDepositSafe(station,{id:92}),false);
+ load.operationStep={phase:'move',progress:0};assert.equal(e.stationDepositSafe(station,{id:92}),true);
+});
 test('outfeed station retains a straddled load when downstream permission is withdrawn',()=>{
  const l=layout();l.equipment[2].type='conveyor';l.equipment[2].parameters={length:5,speed:1,continuousHandover:1};
  const e=new CadFlowEngine(l),station=e.nodes.get(stationId('rack',0,'out')),edge=e.outgoing.get(station.id)[0];
@@ -18,14 +25,15 @@ function addStored(engine,id,slot){const rack=engine.nodes.get('rack'),zone=engi
 test('station checks straddled cargo and other inbound reservations before crane deposit',()=>{
  const e=new CadFlowEngine(layout()),station=e.nodes.get(stationId('rack',0,'out'));
  const t=e.prepareToken({id:1,nodeId:station.id,flowKey:'A'});e.state.cadTokens.push(t);
- assert.equal(e.stationDepositSafe(station,{id:2}),true);
+ assert.equal(e.stationDepositSafe(station,{id:2}),false);
  t.handoverStraddled=true;assert.equal(e.stationDepositSafe(station,{id:2}),false);
  t.handoverStraddled=false;t.motionState={position:station.parameters.length+.2};
  assert.equal(e.stationDepositSafe(station,{id:2}),false);
  t.motionState.position=station.parameters.length;
  e.transferReservations.set('test',{tokenId:99,edge:{to:station.id}});
  assert.equal(e.stationDepositSafe(station,{id:2}),false);
- e.transferReservations.clear();assert.equal(e.stationDepositSafe(station,{id:2}),true);
+ e.transferReservations.clear();assert.equal(e.stationDepositSafe(station,{id:2}),false);
+ e.state.cadTokens=[];assert.equal(e.stationDepositSafe(station,{id:2}),true);
 });
 test('station freezes existing cargo while a crane deposit is in progress',()=>{
  const e=new CadFlowEngine(layout()),station=e.nodes.get(stationId('rack',0,'out'));

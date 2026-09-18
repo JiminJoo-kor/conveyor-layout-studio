@@ -332,8 +332,15 @@ prepareToken(token){let edge=token.edge??null,readyAt=token.readyAt??0,nodeId=to
   stationDepositSafe(station,token){
     if(station?.asrsStation?.kind!=='out')return true;
     if(this.reservedInboundCount(station.id,token)>0)return false;
-    const end=equipmentLengthMeters(station,this.layout);
-    return !this.state.cadTokens.some(t=>t.nodeId===station.id&&(t.handoverStraddled||t.edge||Number(t.motion?.controller.position??t.motionState?.position)>end+1e-9));
+    // A new crane load may only land after the previous batch has completely left.
+    return !this.state.cadTokens.some(t=>{
+      if(t.nodeId===station.id)return true;
+      if(t.incomingHandover?.sourceId!==station.id)return false;
+      const receiver=this.nodes.get(t.nodeId);
+      if(!receiver||isTransport(receiver))return false;
+      const step=t.operationStep||equipmentSequenceSnapshot(receiver,t,this.state.t,this.layout);
+      return step?.phase==='receive'&&Number(step.progress)<1;
+    });
   }
   tryAsrsBatchDeposit(token,fromNode,toNode){
     const mission=token.retrievalMission,s=this.state;

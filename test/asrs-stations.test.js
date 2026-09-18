@@ -71,9 +71,9 @@ test('two retrieved loads land on outfeed station on exactly the same simulation
   assert.equal(a.nodeId,stationId('rack',0,'out'));assert.equal(b.nodeId,a.nodeId);assert.equal(a.nodeEnteredAt,b.nodeEnteredAt);assert.ok(Math.abs(a.motionState.position-b.motionState.position)>=engine.minimumFollowingSpacing(engine.nodes.get(a.nodeId),a));
   assert.equal(engine.state.events.find(e=>e.type==='asrs-batch-deposit-complete').count,2);
 });
-test('outfeed station auto sizing cannot be smaller than a complete retrieval load',()=>{
+test('outfeed station count replaces the old separate retrieval load setting',()=>{
   const l=layout();l.equipment[1].parameters.outfeedBufferCount=1;l.equipment[1].parameters.stationLineCounts={0:{out:1}};syncAsrsStations(l);
-  assert.equal(l.equipment.find(e=>e.id===stationId('rack',0,'out')).asrsStation.count,2);
+  assert.equal(l.equipment.find(e=>e.id===stationId('rack',0,'out')).asrsStation.count,1);
 });
 test('full rack can retrieve to release space for a pending infeed batch without deadlock',()=>{
   const l=layout();l.equipment[1].parameters.columns=2;const engine=new CadFlowEngine(l,{simDuration:200});engine.sources=[];

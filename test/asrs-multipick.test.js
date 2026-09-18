@@ -60,8 +60,8 @@ test('outbound add creates DOCK with named outbound lane and no source behavior'
   assert.equal(flowDisplayTitle('fallback','출고',item),item.parameters.lineName);
   const engine=new CadFlowEngine(layout);engine.step(10);assert.equal(engine.state.cadTokens.length,0);
 });
-test('ASRS and stacker crane expose a default-one carrying parameter',()=>{
-  for(const type of ['asrs','stackerCrane']){const field=parameterFieldsFor({type}).find(f=>f.key==='retrievalCarryCount');assert.equal(field.value,1);assert.equal(field.min,1);}
+test('ASRS hides the redundant carrying parameter',()=>{
+  for(const type of ['asrs','stackerCrane'])assert.equal(parameterFieldsFor({type}).some(f=>f.key==='retrievalCarryCount'),false);
 });
 
 for(const type of ['conveyor','amr','agv'])test(`multi-pick uses real ${type} receiver interlocks without load loss`,()=>{
@@ -94,4 +94,35 @@ test('parameter edits do not release a follower before the shared retrieval fini
   const {engine,rack}=setup();engine.scheduleAsrsBatchRetrieval();const [first,second]=engine.state.cadTokens,ready=first.readyAt;
   rack.parameters.retrievalCarryCount=3;rack.parameters.travelSpeed=10;engine.hotReloadEquipment(rack);
   assert.equal(second.readyAt,Infinity);assert.equal(first.readyAt,ready);assert.equal(first.retrievalMission.parameters.travelSpeed,2);
+});
+
+test('output station count overrides the legacy carry count and visits N cells',()=>{
+  const {engine}=setup([0,3,5],{retrievalCarryCount:1,outfeedBufferCount:3});
+  engine.scheduleAsrsBatchRetrieval();
+  const mission=engine.state.cadTokens[0].retrievalMission;
+  assert.deepEqual(mission.entries.map(e=>e.target.index),[0,3,5]);
+  advanceUntil(engine,()=>mission.pickedIds.length===3);
+  assert.deepEqual(engine.state.events.filter(e=>e.type==='asrs-cell-picked').map(e=>e.target.index),[0,3,5]);
+  advanceUntil(engine,()=>engine.state.completedProducts.length===3);
+});
+
+test('per-line output count overrides the common count',()=>{
+  const {engine}=setup([0,3,5],{retrievalCarryCount:1,outfeedBufferCount:3,stationLineCounts:{0:{out:2}}});
+  engine.scheduleAsrsBatchRetrieval();
+  assert.equal(engine.state.cadTokens[0].retrievalMission.entries.length,2);
+  assert.equal(engine.nodes.get('rack::station-1-out').asrsStation.count,2);
+});
+
+test('lower station count is not raised by a legacy carry setting',()=>{
+  const {engine}=setup([0,5],{retrievalCarryCount:4,outfeedBufferCount:1});
+  engine.scheduleAsrsBatchRetrieval();
+  assert.equal(engine.nodes.get('rack::station-1-out').asrsStation.count,1);
+  assert.equal(engine.state.cadTokens.filter(t=>t.asrsPhase==='retrieval').length,1);
+});
+
+test('ordinary retrieval fills N despite a stale release allowance',()=>{
+  const {engine,zone}=setup([0,5],{outfeedBufferCount:2});
+  zone.releaseRemaining=1;
+  engine.scheduleAsrsBatchRetrieval();
+  assert.equal(engine.state.cadTokens[0].retrievalMission.entries.length,2);
 });

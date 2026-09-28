@@ -1,0 +1,12 @@
+{
+ "schemaVersion":1,"id":"empty-box-stack-example","name":"빈 박스 3단 분배·재적재 예제","displayMode":"cad","cadViewMode":"schematic",
+ "canvas":{"width":1100,"height":430,"grid":20},"cargoSpec":{"length":1200,"width":800,"weight":2,"unit":"mm"},
+ "simulationParams":{"simDuration":600,"playback":1},
+ "equipment":[
+  {"id":"in","type":"dock","name":"빈 박스 입고","x":120,"y":200,"rotation":0,"source":{"origin":"dxf"},"parameters":{"dockRole":"inbound","lineName":"빈 박스","cargoType":"빈 박스","processTime":1,"injectionInterval":15,"initialStackCount":3,"boxHeight":0.2,"emptyBox":1}},
+  {"id":"unstack","type":"conveyor","equipmentRole":"boxDestacker","name":"입고용 분배기","x":340,"y":200,"rotation":0,"source":{"origin":"dxf","parameterLengthUnit":"m"},"parameters":{"length":4,"speed":0.5,"continuousHandover":1,"safetyGap":0.2,"loadCapacity":100,"stackLiftTime":2,"stackLowerTime":2,"stackMaxHeight":3}},
+  {"id":"stack","type":"conveyor","equipmentRole":"boxStacker","name":"출고용 적재기","x":590,"y":200,"rotation":0,"source":{"origin":"dxf","parameterLengthUnit":"m"},"parameters":{"length":4,"speed":0.5,"continuousHandover":1,"safetyGap":0.2,"loadCapacity":100,"stackTarget":3,"stackLiftTime":2,"stackLowerTime":2,"stackMaxHeight":3}},
+  {"id":"out","type":"dock","name":"빈 박스 출고","x":820,"y":200,"rotation":0,"source":{"origin":"dxf"},"parameters":{"dockRole":"outbound","lineName":"빈 박스 출고","processTime":1,"truckCapacity":8}}
+ ],
+ "cadSchematic":{"edges":[{"from":"in","to":"unstack","fromPort":"right","toPort":"left"},{"from":"unstack","to":"stack","fromPort":"right","toPort":"left"},{"from":"stack","to":"out","fromPort":"right","toPort":"left"}],"inboundBranches":[{"name":"빈 박스","cargoType":"빈 박스","nodeIds":["in"]}],"lanes":[]},"connections":[]
+}

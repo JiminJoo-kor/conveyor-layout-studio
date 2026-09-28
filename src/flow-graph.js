@@ -1,3 +1,4 @@
+import {variantValidationErrors} from './equipment-variants.js';
 // Equipment IDs and directed ports, not CAD names or drawing coordinates, own flow.
 export const isStorage = item => ['asrs', 'stackerCrane'].includes(item?.type);
 export const isTransport = item => ['conveyor', 'sorter'].includes(item?.type);
@@ -8,6 +9,7 @@ export const productPort = port => {
 export function validateFlowGraph(layout) {
   const errors = [], warnings = [], nodes = new Map();
   for (const item of layout.equipment || []) {
+    errors.push(...variantValidationErrors(item));
     if (!item.id || nodes.has(item.id)) errors.push(`설비 ID 중복/누락: ${item.id}`);
     nodes.set(item.id, item);
   }

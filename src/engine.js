@@ -145,6 +145,7 @@ export class CadFlowEngine {
       if(count<1)continue;
       const active=this.state.cadTokens.filter(t=>t.nodeId===storage.id&&t.asrsPhase==='retrieval'&&(asrsOwnedToken(storage,t).storageFlowKey||t.flowKey)===storageLine).length;
       let candidates=this.state.cadTokens.filter(t=>t.nodeId===storage.id&&t.asrsPhase==='stored'&&(t.storageFlowKey||t.flowKey)===storageLine&&this.asrsStackerKey(t,asrs)===stackerKey&&zone.occupiedSlots?.[t.asrsTarget?.index]);candidates=sequenceCandidates(this,storage,asrs,stackerKey,candidates,count).slice(0,Math.min(count,batchEnabled?Math.max(0,zone.releaseRemaining-active):Infinity));
+      if(Number.isFinite(limit)&&limit>0){let carried=0;candidates=candidates.filter(t=>{const load=t.stackLayers?.reduce((n,l)=>n+l.weight,0)??weight;if(carried+load>limit){carried=Infinity;return false;}carried+=load;return true;});}
       if(!candidates.length)continue;
       const entries=candidates.map(t=>({tokenId:t.id,target:{...asrsTargetCell(storage,t.asrsTarget.index)},zone:storageLine,cargoType:t.cargoType||t.flowKey,cargoOrientation:t.storedCargoOrientation??t.cargoOrientation}));
       const mission=buildRetrievalMission(storage,entries,asrsCycleProfile,this.state.t,stackerKey,asrs.stackers[stackerKey]?.position);
@@ -298,7 +299,7 @@ prepareToken(token){let edge=token.edge??null,readyAt=token.readyAt??0,nodeId=to
     const s=this.state,asrs=this.warehouseFor(storage);this.assignAsrsDestinationLine(token,token.edge);
     const stackerKey=this.asrsStackerKey(token,asrs),zone=asrs.zones[token.storageFlowKey||token.flowKey],loads=s.cadTokens.filter(t=>t.nodeId===station.id).sort((a,b)=>(Number(b.motion?.controller.position??b.motionState?.position)||0)-(Number(a.motion?.controller.position??a.motionState?.position)||0));
     const slots=zone?.occupiedSlots.map((v,i)=>!v&&!zone.reservedSlots?.[i]?i:-1).filter(i=>i>=0)||[];
-    if(loads.length<station.asrsStation.count||slots.length<loads.length||this.asrsLineBusy(stackerKey,token,asrs)||this.ensureAsrsLineMode(stackerKey,'inbound',asrs)||s.equipmentReliability?.[storage.id]?.available===false||s.equipmentReliability?.[station.id]?.available===false||!canEquipmentHandleCargo(storage,this.layout)||cargoSpec(this.layout).weight*loads.length>Number(storage.parameters?.loadCapacity||1000))return false;
+    if(loads.length<station.asrsStation.count||slots.length<loads.length||this.asrsLineBusy(stackerKey,token,asrs)||this.ensureAsrsLineMode(stackerKey,'inbound',asrs)||s.equipmentReliability?.[storage.id]?.available===false||s.equipmentReliability?.[station.id]?.available===false||!canEquipmentHandleCargo(storage,this.layout)||loads.reduce((sum,load)=>sum+(load.stackLayers?.reduce((n,l)=>n+l.weight,0)??cargoSpec(this.layout).weight),0)>Number(storage.parameters?.loadCapacity||1000))return false;
     // Wait for the real belt to accumulate the batch; never snap cargo into slots.
     let pickupPosition=equipmentLengthMeters(station,this.layout);
     for(const load of loads){if(load.motion&&load.motion.controller.position<pickupPosition-1e-6)return false;pickupPosition-=this.minimumFollowingSpacing(station,load);}

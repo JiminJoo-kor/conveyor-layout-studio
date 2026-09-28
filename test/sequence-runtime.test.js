@@ -25,3 +25,7 @@ test('a period with more releases than physical carry capacity continues across 
  for(let i=0;i<3000&&w.sequenceSchedules[names[0]].active;i++)e.step(.02);
  assert.equal(w.sequenceSchedules[names[0]].active,null);assert.equal(w.sequenceSchedules[names[0]].cursor,2);
 });
+test('ASRS multi-pick respects the total weight of every box in stacked loads',()=>{
+ const {engine:e,warehouse:w,names}=setup();for(const token of e.state.cadTokens)token.stackLayers=[{id:`${token.id}:0`,weight:300},{id:`${token.id}:1`,weight:300}];
+ e.step(2.1);assert.equal(w.pickMissions[names[0]].entries.length,1);
+});

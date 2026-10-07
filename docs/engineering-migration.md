@@ -63,3 +63,9 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - Empty sections remain visible with a short explanation so equipment types do not reorder themselves based on which controls they support.
 - Process Line participates in the same inspector instead of being omitted. The core summary uses the complete composed engineering cycle and approval state rather than the longest single-axis time.
 - Visual QA at the production 310 px inspector width verifies the top summary and lower AUTO/Flow/Detail sections without horizontal overflow. The browser regression checks the width constraint in addition to ordering, read-only separation, and default collapse state.
+
+## Phase 10 — Release verification
+
+- `npm run verify` runs the complete regression suite and syntax-checks every JavaScript module in `src`, `scripts`, and `api`, rather than checking only the three original entry files.
+- Release readiness additionally requires a 600-second audit of the approved production JSON plus the Parameter Master and Inspector browser regression pages.
+- Deployment remains tied to `main`; this migration branch must not be merged until the approved JSON artifact and the original source JSON are both retained.

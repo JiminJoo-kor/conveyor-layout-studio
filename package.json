@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "python -m http.server 4173",
     "test": "node --test",
-    "check": "node --check src/app.js && node --check src/engine.js && node --check src/renderer.js",
+    "check": "node scripts/check-syntax.mjs",
+    "verify": "npm test && npm run check",
     "audit-layout": "node scripts/audit-layout.mjs",
     "approve-engineering-motion": "node scripts/approve-engineering-motion.mjs"
   }

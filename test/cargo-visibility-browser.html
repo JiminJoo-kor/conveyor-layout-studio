@@ -1,6 +1,7 @@
 <!doctype html><html lang="ko"><meta charset="utf-8"><title>긴 컨베이어 물류 가시성 검증</title>
 <link rel="stylesheet" href="../styles.css"><body style="padding:20px"><h2>가시성 검증 · 5,500 m 컨베이어 / 1.2 × 0.8 m 물류 / 간격 0.2 m</h2>
 <p>테스트 전용 정지 장면입니다. 원본 물류 위치·크기를 변경하지 않습니다.</p>
+<button id="handoff">인계 양단 검증</button><button id="move">물류 이동 검증</button>
 <section class="canvas-card"><canvas id="layoutCanvas"></canvas></section>
 <script type="module">
 import {LayoutRenderer} from '../src/renderer.js';
@@ -8,7 +9,11 @@ import {installCargoDetail} from '../src/cargo-detail.js';
 import {CadFlowEngine} from '../src/engine.js';
 const item={id:'long',name:'긴 컨베이어',type:'conveyor',x:400,y:100,rotation:0,source:{origin:'dxf'},parameters:{length:5500,speed:.5,width:2}};
 const layout={id:'visibility-test',displayMode:'cad',cadViewMode:'schematic',canvas:{width:800,height:200,grid:20},cargoSpec:{length:1.2,width:.8,unit:'m'},equipment:[item],connections:[],cadSchematic:{edges:[],lanes:[]}};
+const next={...item,id:'next',name:'하류 컨베이어',x:600,parameters:{...item.parameters,length:10}};
+const edge={from:'long',to:'next',fromPort:'right',toPort:'left'};layout.equipment.push(next);layout.cadSchematic.edges.push(edge);
 const engine=new CadFlowEngine(layout),renderer=new LayoutRenderer(document.querySelector('canvas'),layout);
 const state={...engine.state,cadTokens:[{id:1,nodeId:'long',flowKey:'테스트',motionState:{position:2750},cargoOrientation:0},{id:2,nodeId:'long',flowKey:'테스트',motionState:{position:2751.4},cargoOrientation:0}]};
 renderer.setSelected('long');const panel=installCargoDetail(renderer);panel.open=true;renderer.draw(state);
+document.querySelector('#handoff').onclick=()=>{state.t+=1;state.cadTokens=[{...state.cadTokens[0],motion:{},motionState:{position:5500.6},predictiveRouteEdge:edge}];renderer.draw(state);};
+document.querySelector('#move').onclick=()=>{state.t+=1;state.cadTokens[0].motionState.position+=10;renderer.draw(state);};
 </script></body></html>

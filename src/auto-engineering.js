@@ -10,7 +10,10 @@ export const standardMotorCandidates=Object.freeze([
  {id:'IEC-3.7',powerKw:3.7,ratedTorqueNm:23.6,maxRpm:1500},
  {id:'IEC-5.5',powerKw:5.5,ratedTorqueNm:35,maxRpm:1500},
  {id:'IEC-7.5',powerKw:7.5,ratedTorqueNm:47.8,maxRpm:1500},
- {id:'IEC-11',powerKw:11,ratedTorqueNm:70,maxRpm:1500}
+ {id:'IEC-11',powerKw:11,ratedTorqueNm:70,maxRpm:1500},
+ {id:'IEC-15',powerKw:15,ratedTorqueNm:95.5,maxRpm:1500},
+ {id:'IEC-18.5',powerKw:18.5,ratedTorqueNm:117.8,maxRpm:1500},
+ {id:'IEC-22',powerKw:22,ratedTorqueNm:140.1,maxRpm:1500}
 ]);
 
 const positive=(value,fallback)=>Math.max(1e-6,Number.isFinite(Number(value))?Number(value):fallback);

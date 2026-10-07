@@ -23,6 +23,11 @@ test('no standard candidate is explicit instead of silently undersizing',()=>{
  assert.ok(standardMotorCandidates.length>3);
 });
 
+test('industrial high-power requirements select the next standard motor size',()=>{
+ const selection=selectStandardMotor({powerKw:13.567,motorTorqueNm:90.45,motorRpm:1432});
+ assert.equal(selection.status,'selected');assert.equal(selection.motor.id,'IEC-15');
+});
+
 test('engineering preview records cause action and impact for automatic changes',()=>{
  const item={id:'cv-1',type:'conveyor',parameters:{length:2,speed:1,acceleration:.1,deceleration:.1,autoMotionTuning:1}};
  const preview=engineeringPreview(item,{payloadKg:350,movingMassKg:80});

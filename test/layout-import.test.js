@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { cloneLayout, validateLayout } from '../src/layout.js';
+import { cloneLayout, validateLayout, removeUnreferencedLegacyDemoEquipment } from '../src/layout.js';
 
 const fixture = () => JSON.parse(readFileSync(new URL('./fixtures/generic-two-warehouses.json', import.meta.url), 'utf8'));
 test('valid legacy and CAD documents remain importable and executable', () => {
@@ -35,4 +35,9 @@ test('duplicate equipment identity remains a document error', () => {
   const layout = fixture();
   layout.equipment.push({...layout.equipment[0]});
   assert.equal(validateLayout(layout, { forExecution:false }).valid, false);
+});
+test('CAD import removes only unreferenced built-in demo equipment', () => {
+  const layout={displayMode:'cad',equipment:[{id:'line-1',type:'conveyor',nodes:[{id:'legacy'}]},{id:'robot-1',type:'robot',pickNode:'2-5'},{id:'line-2',type:'conveyor',nodes:[{id:'kept'}]},{id:'field',type:'conveyor'}],connections:[{from:'robot-1',to:'legacy'},{from:'kept',to:'field'}],cadSchematic:{edges:[{from:'line-2',to:'field'}]}};
+  assert.deepEqual(removeUnreferencedLegacyDemoEquipment(layout),['line-1','robot-1']);
+  assert.deepEqual(layout.equipment.map(item=>item.id),['line-2','field']);assert.deepEqual(layout.connections,[{from:'kept',to:'field'}]);
 });

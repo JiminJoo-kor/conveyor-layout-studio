@@ -67,3 +67,15 @@ export function validateLayout(layout, { forExecution = true } = {}) {
 export function cloneLayout(layout = defaultLayout) {
   return JSON.parse(JSON.stringify(layout));
 }
+
+const legacyDemoIds=new Set(defaultLayout.equipment.map(item=>item.id));
+export function removeUnreferencedLegacyDemoEquipment(layout){
+  if(layout?.displayMode!=='cad'||!layout?.cadSchematic||!Array.isArray(layout.equipment))return[];
+  const referenced=new Set((layout.cadSchematic.edges||[]).flatMap(edge=>[edge.from,edge.to]));
+  const removedItems=layout.equipment.filter(item=>legacyDemoIds.has(item.id)&&(Array.isArray(item.nodes)||item.durationParam||item.pickNode||item.placeNode||item.nodeId)&&!referenced.has(item.id));
+  if(!removedItems.length)return[];
+  const removedIds=new Set(removedItems.map(item=>item.id)),removedNodes=new Set(removedItems.flatMap(item=>(item.nodes||[]).map(node=>node.id)));
+  layout.equipment=layout.equipment.filter(item=>!removedIds.has(item.id));
+  if(Array.isArray(layout.connections))layout.connections=layout.connections.filter(connection=>!removedIds.has(connection.from)&&!removedIds.has(connection.to)&&!removedNodes.has(connection.from)&&!removedNodes.has(connection.to));
+  return [...removedIds];
+}

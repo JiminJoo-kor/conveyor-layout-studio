@@ -11,7 +11,7 @@ import { workspaceShortcut } from './shortcuts.js';
 import { updateDiverterParameter } from './diverter.js';
 import { appendDiverterControls } from './diverter-ui.js';
 import { validateFlowGraph } from './flow-graph.js';
-import { cloneLayout, defaultLayout, validateLayout } from './layout.js';
+import { cloneLayout, defaultLayout, validateLayout, removeUnreferencedLegacyDemoEquipment } from './layout.js';
 import { CadFlowEngine, defaultParams, SimulationEngine, simulationEventText, validateParams } from './engine.js';
 import { cargoColor, flowColor, LayoutRenderer } from './renderer.js';
 import { LayoutEditor, refreshEquipmentConnections } from './editor.js';
@@ -310,7 +310,7 @@ function rotateSelected(delta){if(!selectedEquipment)return;selectedEquipment.ro
 $('rotateLeft').addEventListener('click',()=>rotateSelected(-90));$('rotateRight').addEventListener('click',()=>rotateSelected(90));
 $('layoutFile').addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;
-  try {const candidate=JSON.parse((await file.text()).replace(/^\uFEFF/,'')), check=validateLayout(candidate,{forExecution:false});if(!check.valid)throw new Error(check.errors.join(' '));running=false;cancelAnimationFrame(frame);last=0;$('runBtn').textContent='시뮬레이션 시작';layout=candidate;ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);const ready=resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();layoutImportStatus.hidden=false;layoutImportStatus.textContent=ready?`${file.name} 불러오기 완료`:`${file.name} 불러오기 완료 · 실행 전 수정 필요: ${$('validation').textContent}`;}
+  try {const candidate=JSON.parse((await file.text()).replace(/^\uFEFF/,'')), check=validateLayout(candidate,{forExecution:false});if(!check.valid)throw new Error(check.errors.join(' '));const removedDemo=removeUnreferencedLegacyDemoEquipment(candidate);running=false;cancelAnimationFrame(frame);last=0;$('runBtn').textContent='시뮬레이션 시작';layout=candidate;ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);const ready=resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();layoutImportStatus.hidden=false;layoutImportStatus.textContent=ready?`${file.name} 불러오기 완료${removedDemo.length?` · 이전 데모 설비 ${removedDemo.length}대 정리`:''}`:`${file.name} 불러오기 완료 · 실행 전 수정 필요: ${$('validation').textContent}`;}
   catch(error){layoutImportStatus.hidden=false;layoutImportStatus.textContent='레이아웃 불러오기 실패: '+error.message;$('validation').textContent=layoutImportStatus.textContent;} finally{event.target.value='';}
 });
 writeParams(defaultParams);setProjectEmpty(true);syncFlowView();renderer.draw({t:0,cadTokens:[],source:[],product:[],locks:{},robot:{phase:'idle'}});renderEvents();

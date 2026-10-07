@@ -1,0 +1,12 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Parameter Master Browser Regression</title><style>body{font:14px system-ui;background:#101820;color:#e8f0f4;padding:24px}.pass{color:#62d6a7}.fail{color:#ff7a7a}table{border-collapse:collapse}th,td{padding:6px 10px;border:1px solid #38505f}input{width:90px}</style></head><body>
+<h1>Parameter Master Browser Regression</h1><p id="result">검증 중…</p><table><thead><tr><th>설비</th><th>파라미터</th><th>분류</th><th>표시</th></tr></thead><tbody id="fields"></tbody></table>
+<script type="module">
+import {parameterFieldsFor} from '../src/cad.js';
+const fixture=await fetch('./fixtures/generic-two-warehouses.json').then(response=>response.json());
+const representative=[...fixture.equipment,{id:'cv-browser',name:'Browser Conveyor',type:'conveyor',parameters:{length:5,speed:.8,acceleration:.4,deceleration:.5,autoMotionTuning:1}},{id:'asrs-browser',name:'Browser ASRS',type:'asrs',parameters:{rows:2,columns:3,levels:4,autoMotionTuning:1}}];
+const rows=[];for(const item of representative)for(const field of parameterFieldsFor(item))rows.push({item,field});
+document.querySelector('#fields').innerHTML=rows.map(({item,field})=>`<tr><td>${item.name||item.id}</td><td>${field.key}</td><td>${field.parameterKind}</td><td><input value="${field.value}" data-kind="${field.parameterKind}" ${field.readOnly?'readonly':''}></td></tr>`).join('');
+const automatic=rows.find(({item,field})=>item.id==='cv-browser'&&field.key==='acceleration')?.field,result=rows.find(({item,field})=>item.id==='asrs-browser'&&field.key==='cellCount')?.field,kinds=new Set(rows.map(({field})=>field.parameterKind));
+const checks=[fixture.equipment.length>0,automatic?.parameterKind==='AUTO'&&automatic.readOnly,result?.parameterKind==='RESULT'&&result.readOnly&&result.value===24,kinds.has('INPUT')&&kinds.has('AUTO')&&kinds.has('RESULT')];
+const output=document.querySelector('#result');output.className=checks.every(Boolean)?'pass':'fail';output.dataset.status=checks.every(Boolean)?'pass':'fail';output.textContent=checks.every(Boolean)?`PASS · fixture ${fixture.equipment.length}대 · field ${rows.length}개 · AUTO/RESULT readonly 유지`:`FAIL · ${JSON.stringify(checks)}`;
+</script></body></html>

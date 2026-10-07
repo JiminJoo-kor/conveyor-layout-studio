@@ -11,4 +11,11 @@
 
 운동 모델은 설비 동작이 다른 이유를 코드로 명시한다. Conveyor는 선형 이송, 포크는 적재 전진/빈 복귀, Lifter는 중력 영향을 받는 상승/하강, Turntable은 회전, 이동 로봇은 주행/회전/정지, AS/RS는 X 주행/Z 승강/포크의 독립 축이다. 이 매핑은 다음 단계의 공통 motion request와 축별 부하 계산 입력이 된다.
 
-다음 단계에서는 이 분류를 패널 섹션 순서와 배지에 연결한 뒤, 공통 motion request/result 및 원인→조치→영향 로그를 도입한다. 모터 선정은 이 결과의 torque/RPM/power 요구조건과 표준 후보 테이블을 사용하며 payload→kW 직접 매핑을 금지한다.
+`src/auto-engineering.js`는 다음 계산 경계를 제공한다.
+
+1. `solveMotionRequest`: 실제 거리와 목표속도 및 가감속 조건으로 삼각형/사다리꼴을 판정한다.
+2. `driveRequirements`: payload와 설비 이동질량을 힘, 출력축 torque, motor torque, RPM, power 요구조건으로 변환한다.
+3. `selectStandardMotor`: 세 요구조건을 모두 만족하는 첫 표준 모터를 선택하며 후보가 없으면 명시적으로 실패한다.
+4. `engineeringChangeLog`: 자동 변경을 원인, 조치, 영향으로 기록한다.
+
+Payload를 kW에 직접 대응시키지 않는다. 같은 payload도 속도, 가속도, 경사, 휠 반경, 감속비와 효율에 따라 다른 모터가 선택되어야 한다. 현재 계산은 UI/저장값을 직접 변경하지 않는 preview 경계이며, 설비별 상세 모델을 검증한 뒤 시뮬레이션에 연결한다.

@@ -15,3 +15,10 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - Continuous transport equipment uses the analytical engineering duration only when the compatibility gate returns `compatible`.
 - `review` and `unsupported` results keep the legacy runtime duration without changing saved parameters.
 - The legacy duration remains separately callable for audit and regression comparison.
+
+## Phase 3 — Composed equipment cycles
+
+- AMR, AGV, and Shuttle compare `receive + travel + transfer` as one cycle.
+- Fork compares `loaded forward + hold + empty return`.
+- Forklift preserves the current `load + loaded travel + unload` scope; the new empty-return axis is displayed but is not silently added to the legacy cycle.
+- Lifter preserves the current `load + upward travel + unload` scope; downward return remains outside the legacy cycle until the operational sequence explicitly includes it.

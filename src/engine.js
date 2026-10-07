@@ -64,12 +64,22 @@ export const legacyCadDuration=(item,layout,context={})=>{
   else duration=Number(p.cycleTime??p.processTime??1);
   return Math.max(.2,duration/Math.max(.01,equipmentAvailabilityFactor(item)));
 };
-const engineeringRuntimeTypes=new Set(['conveyor','processLine','sorter']);
+const engineeringRuntimeTypes=new Set(['conveyor','processLine','sorter','agv','amr','shuttle','forkingDevice','forklift','lift']);
+export const engineeringRuntimePlan=(item,layout)=>{
+  const p=item?.parameters||{},cargoLength=cargoSpec(layout).length,requests=motionRequestsFor(item,{cargoLengthM:cargoLength});
+  if(!engineeringRuntimeTypes.has(item?.type)||!requests.length)return null;
+  if(['conveyor','processLine','sorter'].includes(item.type))return{requests:[{...requests[0],distance:equipmentLengthMeters(item,layout)+cargoLength}],fixedSeconds:0,scope:'설비 길이 + 화물 길이의 완전 배출'};
+  if(['agv','amr','shuttle'].includes(item.type))return{requests:requests.map(axis=>axis.model==='receive'?{...axis,targetSpeed:Number(p.receiveSpeed)||cargoLength/Math.max(.1,Number(p.loadTime)||2)}:axis.model==='transfer'?{...axis,targetSpeed:Number(p.transferSpeed)||cargoLength/Math.max(.1,Number(p.unloadTime)||2)}:{...axis,targetSpeed:Number(p.travelSpeed)||Number(p.speed)||1.2}),fixedSeconds:0,scope:'인수 + 주행 + 인계'};
+  if(item.type==='forkingDevice'){const stroke=Math.max(.01,Number(p.strokeDistance)||1.5),legacy=Math.max(.2,Number(p.forkTime)||4);return{requests:requests.map(axis=>({...axis,targetSpeed:axis.model==='loaded-forward'?(Number(p.receiveSpeed)||2*stroke/legacy):(Number(p.transferSpeed)||2*stroke/legacy)})),fixedSeconds:Math.max(0,Number(p.holdTime)||0),scope:'전진 + 대기 + 복귀'};}
+  if(item.type==='forklift')return{requests:requests.filter(axis=>axis.model==='loaded-forward'),fixedSeconds:Number(p.loadTime||8)+Number(p.unloadTime||8),scope:'적재 + 적재주행 + 하역 (빈차 복귀 제외)'};
+  if(item.type==='lift')return{requests:requests.filter(axis=>axis.model==='up-with-gravity'),fixedSeconds:Number(p.loadTime||2)+Number(p.unloadTime||2),scope:'적재 + 상승 + 하역 (하강 복귀 제외)'};
+  return null;
+};
 export const engineeringRuntimeDecision=(item,layout,context={})=>{
-  const legacySeconds=legacyCadDuration(item,layout,context),cargoLength=cargoSpec(layout).length,baseRequest=motionRequestsFor(item,{cargoLengthM:cargoLength})[0];
-  if(!engineeringRuntimeTypes.has(item?.type)||!baseRequest)return{status:'unsupported',apply:false,legacySeconds,engineeringSeconds:null,motion:null};
-  const motion=solveMotionRequest({...baseRequest,distance:equipmentLengthMeters(item,layout)+cargoLength}),engineeringSeconds=motion.totalTime/Math.max(.01,equipmentAvailabilityFactor(item)),toleranceSeconds=Math.max(.1,legacySeconds*.02),apply=Math.abs(engineeringSeconds-legacySeconds)<=toleranceSeconds;
-  return{status:apply?'compatible':'review',apply,legacySeconds,engineeringSeconds,toleranceSeconds,motion};
+  const legacySeconds=legacyCadDuration(item,layout,context),plan=engineeringRuntimePlan(item,layout);
+  if(!plan)return{status:'unsupported',apply:false,legacySeconds,engineeringSeconds:null,motion:null,motions:[],scope:null};
+  const motions=plan.requests.map(solveMotionRequest),engineeringSeconds=Math.max(.2,(motions.reduce((sum,motion)=>sum+motion.totalTime,0)+plan.fixedSeconds)/Math.max(.01,equipmentAvailabilityFactor(item))),toleranceSeconds=Math.max(.1,legacySeconds*.02),apply=Math.abs(engineeringSeconds-legacySeconds)<=toleranceSeconds;
+  return{status:apply?'compatible':'review',apply,legacySeconds,engineeringSeconds,toleranceSeconds,motion:motions[0],motions,fixedSeconds:plan.fixedSeconds,scope:plan.scope};
 };
 export const cadDuration=(item,layout,context={})=>{const decision=engineeringRuntimeDecision(item,layout,context);return decision.apply?decision.engineeringSeconds:decision.legacySeconds;};
 // Receiver work already performed during the shared AS/RS handover must not

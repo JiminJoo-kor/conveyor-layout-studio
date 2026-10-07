@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {driveRequirements,engineeringPreview,motionRequestsFor,selectStandardMotor,solveMotionRequest,standardMotorCandidates} from '../src/auto-engineering.js';
+import {driveRequirements,engineeringPreview,loadedPayloadFor,motionRequestsFor,selectStandardMotor,solveFlatDriveMotion,solveMotionRequest,standardMotorCandidates} from '../src/auto-engineering.js';
 
 test('actual distance decides triangular versus trapezoidal profile',()=>{
  const short=solveMotionRequest({distance:.2,targetSpeed:2,automatic:false,acceleration:1,deceleration:1});
@@ -15,6 +15,18 @@ test('motor selection uses torque rpm and power requirements, never payload look
  assert.equal(selection.status,'selected');assert.ok(selection.motor.powerKw>=requirements.powerKw);assert.ok(selection.motor.ratedTorqueNm>=requirements.motorTorqueNm);assert.ok(selection.motor.maxRpm>=requirements.motorRpm);
  const samePayloadFaster=driveRequirements({payloadKg:350,movingMassKg:100,acceleration:1.2,targetSpeed:2,wheelRadiusM:.1,gearRatio:12,efficiency:.85});
  assert.ok(samePayloadFaster.powerKw>requirements.powerKw);assert.ok(samePayloadFaster.motorTorqueNm>requirements.motorTorqueNm);
+});
+
+test('flat conveyor uses maximum loaded quantity and drive limits before calculating motion',()=>{
+ const conveyor={type:'conveyor',parameters:{capacity:4}},loaded=loadedPayloadFor(conveyor,100),motion=solveFlatDriveMotion({equipmentType:'conveyor',distance:5.5,targetSpeed:20},{payloadKg:loaded.payloadKg,movingMassKg:80});
+ assert.deepEqual(loaded,{unitPayloadKg:100,loadCount:4,payloadKg:400});
+ assert.equal(motion.massKg,480);assert.equal(motion.requestedSpeed,20);assert.ok(motion.appliedSpeed<=2.5);assert.ok(motion.appliedSpeed<20);assert.ok(motion.acceleration<=.8);assert.ok(motion.deceleration<=1);assert.ok(motion.limitReasons.some(reason=>reason.includes('최고속도')));assert.ok(motion.limitReasons.some(reason=>reason.includes('RPM')));
+ assert.ok(motion.motorSelection.motor);assert.ok(motion.motorSelection.requirements.massKg===480);
+});
+
+test('short flat conveyor reports the physical peak speed without forcing a constant-speed section',()=>{
+ const motion=solveFlatDriveMotion({equipmentType:'conveyor',distance:.5,targetSpeed:2},{payloadKg:400,movingMassKg:80,drive:{gearRatio:4}});
+ assert.equal(motion.profileType,'triangular');assert.equal(motion.cruiseTime,0);assert.ok(motion.peakSpeed<motion.appliedSpeed);
 });
 
 test('no standard candidate is explicit instead of silently undersizing',()=>{

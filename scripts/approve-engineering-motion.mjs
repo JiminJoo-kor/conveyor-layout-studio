@@ -1,0 +1,21 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import {removeUnreferencedLegacyDemoEquipment,validateLayout} from '../src/layout.js';
+import {compactAsrsStations,syncAsrsStations} from '../src/asrs-stations.js';
+import {approveEngineeringMotionByType,productionMotionTypes} from '../src/engineering-approval.js';
+
+const input=process.argv[2],output=process.argv[3];
+if(!input||!output)throw Error('사용법: node scripts/approve-engineering-motion.mjs <input.json> <output.json>');
+const layout=JSON.parse((await readFile(input,'utf8')).replace(/^\uFEFF/,''));
+const documentValidation=validateLayout(layout,{forExecution:false});
+if(!documentValidation.valid)throw Error(`문서 검증 실패: ${documentValidation.errors.join(' | ')}`);
+const removedLegacyDemo=removeUnreferencedLegacyDemoEquipment(layout),approved=approveEngineeringMotionByType(layout);
+syncAsrsStations(layout);
+const executionValidation=validateLayout(layout);
+if(!executionValidation.valid)throw Error(`실행 검증 실패: ${executionValidation.errors.join(' | ')}`);
+const compact=compactAsrsStations(layout),roundTrip=structuredClone(compact);
+syncAsrsStations(roundTrip);
+const roundTripValidation=validateLayout(roundTrip);
+if(!roundTripValidation.valid)throw Error(`저장 왕복 검증 실패: ${roundTripValidation.errors.join(' | ')}`);
+await writeFile(output,`${JSON.stringify(compact,null,2)}\n`,'utf8');
+console.log(JSON.stringify({input:resolve(input),output:resolve(output),approvedTypes:productionMotionTypes,approvedEquipment:approved.length,removedLegacyDemo,storedEquipment:compact.equipment.length,restoredEquipment:roundTrip.equipment.length},null,2));

@@ -5,6 +5,7 @@ import {validateFlowGraph} from '../src/flow-graph.js';
 import {CadFlowEngine} from '../src/engine.js';
 import {compareLayoutEngineering} from '../src/engineering-compatibility.js';
 import {parameterFieldsFor} from '../src/cad.js';
+import {approveEngineeringMotionByType} from '../src/engineering-approval.js';
 
 const file=process.argv[2];
 if(!file)throw Error('사용법: node scripts/audit-layout.mjs <layout.json>');
@@ -13,8 +14,7 @@ const simulationSeconds=Math.max(1,Number(process.argv[3]||layout.simulationPara
 const approvedTypes=new Set((process.argv[4]||'').split(',').map(value=>value.trim()).filter(Boolean));
 const documentValidation=validateLayout(layout,{forExecution:false});
 const removedLegacyDemo=removeUnreferencedLegacyDemoEquipment(layout);
-const approvedEquipment=[];
-for(const item of layout.equipment)if(!item.asrsStation&&approvedTypes.has(item.type)){item.engineering={...(item.engineering||{}),motionRuntime:'approved'};approvedEquipment.push(item.id);}
+const approvedEquipment=approveEngineeringMotionByType(layout,approvedTypes);
 syncAsrsStations(layout);
 const graph=validateFlowGraph(layout),executionValidation=validateLayout(layout),engineeringItems=layout.equipment.filter(item=>!item.asrsStation),engineering=compareLayoutEngineering({...layout,equipment:engineeringItems}),kindCounts={},unknownFields=[];
 for(const item of layout.equipment.filter(item=>!item.asrsStation))for(const field of parameterFieldsFor(item)){kindCounts[field.parameterKind]=(kindCounts[field.parameterKind]||0)+1;if(!field.parameterKind)unknownFields.push(`${item.id}.${field.key}`);}

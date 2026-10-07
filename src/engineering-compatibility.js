@@ -8,13 +8,13 @@ const rounded=value=>Number(value.toFixed(3));
 // The legacy simulator measures continuous transport until the cargo has fully
 // cleared the equipment. Keep that scope here so a comparison isolates motion
 // dynamics instead of accidentally comparing two different travel distances.
-export function engineScopedMotionRequests(item,layout){return engineeringRuntimePlan(item,layout)?.requests||[];}
-export function engineScopedMotionRequest(item,layout){
- return engineScopedMotionRequests(item,layout)[0]||null;
+export function engineScopedMotionRequests(item,layout,context={}){return engineeringRuntimePlan(item,layout,context)?.requests||[];}
+export function engineScopedMotionRequest(item,layout,context={}){
+ return engineScopedMotionRequests(item,layout,context)[0]||null;
 }
 
 export function compareEngineeringDuration(item,layout,context={},tolerance=engineeringCompatibilityTolerance){
- const runtime=engineeringRuntimeDecision(item,layout,context),legacySeconds=runtime.legacySeconds,request=engineScopedMotionRequest(item,layout);
+ const runtime=engineeringRuntimeDecision(item,layout,context),legacySeconds=runtime.legacySeconds,request=engineScopedMotionRequest(item,layout,context);
  if(!request)return{equipmentId:item?.id,type:item?.type,status:'unsupported',applyEligible:false,legacySeconds:rounded(legacySeconds),engineeringSeconds:null,deltaSeconds:null,deltaPercent:null,reasons:['이 설비의 기존 사이클 범위 매핑이 아직 완료되지 않았습니다.']};
  const motion=runtime.motion,engineeringSeconds=runtime.engineeringSeconds,deltaSeconds=engineeringSeconds-legacySeconds,deltaPercent=legacySeconds?deltaSeconds/legacySeconds*100:0,limit=Math.max(Number(tolerance.absoluteSeconds)||0,legacySeconds*(Number(tolerance.relative)||0)),compatible=Math.abs(deltaSeconds)<=limit,reasons=[`기존 사이클 범위와 동일한 ${runtime.scope} 시간을 비교했습니다.`];
  if(runtime.motions.some(axis=>axis.automatic))reasons.push('AUTO 가감속값과 현재 시뮬레이션 가감속값의 차이를 검토해야 합니다.');

@@ -23,3 +23,10 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - Forklift preserves the current `load + loaded travel + unload` scope; the new empty-return axis is displayed but is not silently added to the legacy cycle.
 - Lifter preserves the current `load + upward travel + unload` scope; downward return remains outside the legacy cycle until the operational sequence explicitly includes it.
 - Turntable maps rotary motion. Turn Conveyor exposes transfer and rotary axes for engineering, but only rotary motion enters the current runtime CT because transfer is not part of the legacy sequence yet.
+
+## Phase 4 — AS/RS target-cell cycle
+
+- X and Z distances come from the actual target cell and the configured inbound or outbound handover position.
+- X/Z travel uses `max(X, Z)` for simultaneous mode and `X + Z` for sequential mode.
+- Fork extension and retraction are calculated independently, with the configured putaway or retrieval dwell between them.
+- Return travel preserves the existing cycle contract. Inbound station time is included; downstream outbound handover remains a separate handshake and is not counted twice.

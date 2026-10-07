@@ -64,8 +64,8 @@ export const legacyCadDuration=(item,layout,context={})=>{
   else duration=Number(p.cycleTime??p.processTime??1);
   return Math.max(.2,duration/Math.max(.01,equipmentAvailabilityFactor(item)));
 };
-const engineeringRuntimeTypes=new Set(['conveyor','processLine','sorter','agv','amr','shuttle','forkingDevice','forklift','lift','turntable']);
-export const engineeringRuntimePlan=(item,layout)=>{
+const engineeringRuntimeTypes=new Set(['conveyor','processLine','sorter','agv','amr','shuttle','forkingDevice','forklift','lift','turntable','asrs','stackerCrane']);
+export const engineeringRuntimePlan=(item,layout,context={})=>{
   const p=item?.parameters||{},cargoLength=cargoSpec(layout).length,requests=motionRequestsFor(item,{cargoLengthM:cargoLength});
   if(!engineeringRuntimeTypes.has(item?.type)||!requests.length)return null;
   if(['conveyor','processLine','sorter'].includes(item.type))return{requests:[{...requests[0],distance:equipmentLengthMeters(item,layout)+cargoLength}],fixedSeconds:0,scope:'설비 길이 + 화물 길이의 완전 배출'};
@@ -74,12 +74,16 @@ export const engineeringRuntimePlan=(item,layout)=>{
   if(item.type==='forklift')return{requests:requests.filter(axis=>axis.model==='loaded-forward'),fixedSeconds:Number(p.loadTime||8)+Number(p.unloadTime||8),scope:'적재 + 적재주행 + 하역 (빈차 복귀 제외)'};
   if(item.type==='lift')return{requests:requests.filter(axis=>axis.model==='up-with-gravity'),fixedSeconds:Number(p.loadTime||2)+Number(p.unloadTime||2),scope:'적재 + 상승 + 하역 (하강 복귀 제외)'};
   if(item.type==='turntable')return{requests:requests.filter(axis=>axis.model==='rotary'),fixedSeconds:0,scope:item.equipmentRole==='turnConveyor'?'회전 (이송 축은 기존 CT에서 제외)':'회전'};
+  if(['asrs','stackerCrane'].includes(item.type)){
+    const profile=asrsCycleProfile(item,context),verticalModel=context.operation==='retrieval'?'z-down-with-gravity':'z-up-with-gravity',selected=[requests.find(axis=>axis.model==='x-travel'),requests.find(axis=>axis.model===verticalModel),requests.find(axis=>axis.model==='fork-loaded'),requests.find(axis=>axis.model==='fork-empty')].filter(Boolean),scoped=selected.map(axis=>axis.model==='x-travel'?{...axis,distance:profile.horizontal}:axis.model.startsWith('z-')?{...axis,distance:profile.vertical,targetSpeed:context.operation==='retrieval'?(Number(p.downSpeed)||Number(p.liftSpeed)||1):(Number(p.liftSpeed)||1)}:{...axis,distance:profile.forkStroke});
+    return{requests:scoped,fixedSeconds:profile.infeed+profile.forkDwell,scope:`${context.operation==='retrieval'?'반출':'입고'} X/Z ${profile.simultaneous?'동시':'순차'} 이동 + Fork 왕복 + X/Z 복귀`,compose:motions=>{const x=motions.find(axis=>axis.model==='x-travel')?.totalTime||0,z=motions.find(axis=>axis.model.startsWith('z-'))?.totalTime||0,fork=motions.filter(axis=>axis.model.startsWith('fork-')).reduce((sum,axis)=>sum+axis.totalTime,0),travel=profile.simultaneous?Math.max(x,z):x+z;return travel+fork+travel;}};
+  }
   return null;
 };
 export const engineeringRuntimeDecision=(item,layout,context={})=>{
-  const legacySeconds=legacyCadDuration(item,layout,context),plan=engineeringRuntimePlan(item,layout);
+  const legacySeconds=legacyCadDuration(item,layout,context),plan=engineeringRuntimePlan(item,layout,context);
   if(!plan)return{status:'unsupported',apply:false,legacySeconds,engineeringSeconds:null,motion:null,motions:[],scope:null};
-  const motions=plan.requests.map(solveMotionRequest),engineeringSeconds=Math.max(.2,(motions.reduce((sum,motion)=>sum+motion.totalTime,0)+plan.fixedSeconds)/Math.max(.01,equipmentAvailabilityFactor(item))),toleranceSeconds=Math.max(.1,legacySeconds*.02),apply=Math.abs(engineeringSeconds-legacySeconds)<=toleranceSeconds;
+  const motions=plan.requests.map(solveMotionRequest),motionSeconds=plan.compose?plan.compose(motions):motions.reduce((sum,motion)=>sum+motion.totalTime,0),engineeringSeconds=Math.max(.2,(motionSeconds+plan.fixedSeconds)/Math.max(.01,equipmentAvailabilityFactor(item))),toleranceSeconds=Math.max(.1,legacySeconds*.02),apply=Math.abs(engineeringSeconds-legacySeconds)<=toleranceSeconds;
   return{status:apply?'compatible':'review',apply,legacySeconds,engineeringSeconds,toleranceSeconds,motion:motions[0],motions,fixedSeconds:plan.fixedSeconds,scope:plan.scope};
 };
 export const cadDuration=(item,layout,context={})=>{const decision=engineeringRuntimeDecision(item,layout,context);return decision.apply?decision.engineeringSeconds:decision.legacySeconds;};

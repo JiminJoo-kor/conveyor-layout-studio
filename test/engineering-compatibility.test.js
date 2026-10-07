@@ -25,8 +25,8 @@ test('automatic tuning mismatch is review-only and does not mutate parameters',(
 });
 
 test('layout audit keeps unmapped equipment explicit instead of applying it',()=>{
- const conveyor={id:'cv',type:'conveyor',parameters:{length:5,speed:.5,motionProfile:1,autoMotionTuning:0}},asrs={id:'rack',type:'asrs',parameters:{}};
- const results=compareLayoutEngineering({cargoSpec:{length:1.2,unit:'m'},equipment:[conveyor,asrs]});
+ const conveyor={id:'cv',type:'conveyor',parameters:{length:5,speed:.5,motionProfile:1,autoMotionTuning:0}},robot={id:'robot',type:'robot',parameters:{pickTime:2,placeTime:2}};
+ const results=compareLayoutEngineering({cargoSpec:{length:1.2,unit:'m'},equipment:[conveyor,robot]});
  assert.equal(results.length,2);
  assert.equal(results[1].status,'unsupported');
  assert.equal(results[1].applyEligible,false);
@@ -59,4 +59,16 @@ test('turntable maps rotary motion without silently adding turn-conveyor transfe
  assert.deepEqual(turnResult.motions.map(axis=>axis.model),['rotary']);assert.equal(turnResult.scope,'회전');assert.equal(turnResult.status,'compatible');assert.equal(cadDuration(turntable,layout(turntable)),turnResult.engineeringSeconds);
  const turnConveyor={id:'turn-cv',type:'turntable',equipmentRole:'turnConveyor',parameters:{length:2,speed:.5,rotationTime:6,rotationAngleDeg:90,autoMotionTuning:1}},turnConveyorResult=compareEngineeringDuration(turnConveyor,layout(turnConveyor));
  assert.deepEqual(turnConveyorResult.motions.map(axis=>axis.model),['rotary']);assert.match(turnConveyorResult.scope,/이송 축은 기존 CT에서 제외/);
+});
+
+test('ASRS composes target-cell X Z and fork axes with simultaneous travel and return',()=>{
+ const rack={id:'rack',type:'asrs',parameters:{rows:2,columns:4,levels:3,columnPitch:1.5,levelHeight:1.5,infeedColumn:1,infeedLevel:1,outfeedColumn:4,outfeedLevel:1,infeedTime:1,travelSpeed:2,liftSpeed:1,downSpeed:1.2,travelAcceleration:.5,travelDeceleration:.5,liftAcceleration:.5,liftDeceleration:.5,forkStroke:.8,forkSpeed:.4,forkAcceleration:1,forkDeceleration:1,putawayTime:.5,retrievalTime:.75,simultaneousMotion:1,autoMotionTuning:0}},rackLayout=layout(rack),putaway={slotIndex:14,operation:'putaway'},putawayResult=compareEngineeringDuration(rack,rackLayout,putaway);
+ assert.deepEqual(putawayResult.motions.map(axis=>axis.model),['x-travel','z-up-with-gravity','fork-loaded','fork-empty']);assert.match(putawayResult.scope,/입고 X\/Z 동시 이동/);assert.equal(putawayResult.status,'compatible');assert.equal(cadDuration(rack,rackLayout,putaway),putawayResult.engineeringSeconds);
+ const retrieval={slotIndex:14,operation:'retrieval'},retrievalResult=compareEngineeringDuration(rack,rackLayout,retrieval);
+ assert.deepEqual(retrievalResult.motions.map(axis=>axis.model),['x-travel','z-down-with-gravity','fork-loaded','fork-empty']);assert.match(retrievalResult.scope,/반출 X\/Z 동시 이동/);assert.equal(retrievalResult.status,'compatible');
+});
+
+test('ASRS sequential setting sums X and Z instead of taking the slower axis',()=>{
+ const rack={id:'rack-sequential',type:'stackerCrane',parameters:{rows:1,columns:4,levels:3,columnPitch:1.5,levelHeight:1.5,infeedColumn:1,infeedLevel:1,travelSpeed:2,liftSpeed:1,travelAcceleration:.5,travelDeceleration:.5,liftAcceleration:.5,liftDeceleration:.5,forkStroke:.8,forkSpeed:.4,forkAcceleration:1,forkDeceleration:1,putawayTime:.5,simultaneousMotion:0,autoMotionTuning:0}},result=compareEngineeringDuration(rack,layout(rack),{slotIndex:7,operation:'putaway'});
+ assert.match(result.scope,/순차 이동/);assert.equal(result.status,'compatible');
 });

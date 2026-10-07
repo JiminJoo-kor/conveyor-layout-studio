@@ -61,6 +61,13 @@ test('turntable maps rotary motion without silently adding turn-conveyor transfe
  assert.deepEqual(turnConveyorResult.motions.map(axis=>axis.model),['rotary']);assert.match(turnConveyorResult.scope,/이송 축은 기존 CT에서 제외/);
 });
 
+test('pneumatic actuator compares extend hold and retract before runtime adoption',()=>{
+ const actuator={id:'air',type:'station',equipmentRole:'pneumatic',parameters:{strokeDistance:.4,speed:.25,returnSpeed:.5,holdTime:.3,acceleration:.8,deceleration:.8,autoMotionTuning:0,cycleTime:1}},actuatorLayout=layout(actuator),review=compareEngineeringDuration(actuator,actuatorLayout);
+ assert.deepEqual(review.motions.map(axis=>axis.model),['extend','retract']);assert.equal(review.fixedSeconds,.3);assert.equal(review.scope,'전진 + 대기 + 복귀');assert.equal(review.status,'review');assert.equal(cadDuration(actuator,actuatorLayout),legacyCadDuration(actuator,actuatorLayout));
+ actuator.parameters.cycleTime=review.engineeringSeconds;const accepted=compareEngineeringDuration(actuator,actuatorLayout);
+ assert.equal(accepted.status,'compatible');assert.equal(cadDuration(actuator,actuatorLayout),accepted.engineeringSeconds);
+});
+
 test('ASRS composes target-cell X Z and fork axes with simultaneous travel and return',()=>{
  const rack={id:'rack',type:'asrs',parameters:{rows:2,columns:4,levels:3,columnPitch:1.5,levelHeight:1.5,infeedColumn:1,infeedLevel:1,outfeedColumn:4,outfeedLevel:1,infeedTime:1,travelSpeed:2,liftSpeed:1,downSpeed:1.2,travelAcceleration:.5,travelDeceleration:.5,liftAcceleration:.5,liftDeceleration:.5,forkStroke:.8,forkSpeed:.4,forkAcceleration:1,forkDeceleration:1,putawayTime:.5,retrievalTime:.75,simultaneousMotion:1,autoMotionTuning:0}},rackLayout=layout(rack),putaway={slotIndex:14,operation:'putaway'},putawayResult=compareEngineeringDuration(rack,rackLayout,putaway);
  assert.deepEqual(putawayResult.motions.map(axis=>axis.model),['x-travel','z-up-with-gravity','fork-loaded','fork-empty']);assert.match(putawayResult.scope,/입고 X\/Z 동시 이동/);assert.equal(putawayResult.status,'compatible');assert.equal(cadDuration(rack,rackLayout,putaway),putawayResult.engineeringSeconds);

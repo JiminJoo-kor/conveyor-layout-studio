@@ -66,6 +66,7 @@ export function installCargoDetail(renderer){
     camera=advanceCamera(camera,target,{locked:lock.checked,smooth:key===cameraKey&&mode.value==='cargo'});cameraKey=key;
     detail.setView(camera);
     const rangeText=find('[data-range-text]'),range=find('[data-range]');
+    const paint=view=>{view.ctx.setTransform(1,0,0,1,0,0);view.ctx.fillStyle='#071019';view.ctx.fillRect(0,0,view.canvas.width,view.canvas.height);view.draw(state);};
     if(owner.type==='conveyor'){
       const length=equipmentLengthMeters(owner,renderer.layout),r=viewportRange(owner,camera,length,owner.asrsStation?.visualLength||common,800,260,conveyorFlowSign(owner));
       range.style.left=`${r.start*100}%`;range.style.width=`${(r.end-r.start)*100}%`;
@@ -73,6 +74,7 @@ export function installCargoDetail(renderer){
     }else{rangeText.textContent=lock.checked?'화면 위치·배율 고정 중':'현재 설비의 국소 확대 · 컨베이어 선택 시 거리 구간 표시';range.style.width='0%';}
     const nodes=new Map(renderer.layout.equipment.map(e=>[e.id,e])),handover=active&&mode.value==='cargo'&&find('[data-pair]').checked&&!lock.checked?renderer.handoverDescriptor(active,state,nodes,cargo):null;
     find('[data-secondary]').hidden=!handover;
+    find('.cargo-range').hidden=Boolean(handover)||owner.type!=='conveyor';
     find('.cargo-detail-views').classList.toggle('paired',Boolean(handover));
     find('[data-primary-title]').textContent=handover?`상류 출구 · ${handover.source.name||handover.source.id} → 인계 ${Math.round(handover.raw*100)}%`:'물류 국소 확대';
     if(handover){
@@ -80,12 +82,12 @@ export function installCargoDetail(renderer){
       if(!secondary){secondary=new LayoutRenderer(otherCanvas,{...renderer.layout,canvas:{...renderer.layout.canvas,width:800,height:260}});secondary.visibilityAid=false;const ctx=secondary.ctx;secondary.ctx=new Proxy(ctx,{get(t,k){if(k==='fillText')return()=>{};const v=Reflect.get(t,k,t);return typeof v==='function'?v.bind(t):v;},set(t,k,v){return Reflect.set(t,k,k==='lineWidth'?Math.min(v,1.5/secondary.view.zoom):v,t);}});}
       for(const [view,equipment,port,other,isTarget] of [[detail,handover.source,handover.edge?.fromPort,handover.target,false],[secondary,handover.target,handover.edge?.toPort,handover.source,true]]){
         const visual=mobileHandoverNode(renderer.layout,equipment,isTarget,active.mobileRoute||(isTarget?{incoming:handover.edge}:{outgoing:handover.edge})),m=equipmentCargoMetrics(renderer.layout,cargo,equipment,common),position=handoverEndpointPose(visual,port,m.visualLength,isTarget,other,.5,common);
-        view.layout=renderer.layout;view.flowFilter=renderer.flowFilter;view.setView(detailCamera(position,{w:m.visualLength,h:m.visualWidth},800,260,Number(find('[data-zoom]').value)));view.draw(state);
+        view.layout=renderer.layout;view.flowFilter=renderer.flowFilter;view.setView(detailCamera(position,{w:m.visualLength,h:m.visualWidth},800,260,Number(find('[data-zoom]').value)));paint(view);
       }
       find('[data-secondary-title]').textContent=`하류 입구 · ${handover.target.name||handover.target.id} · 별도 화면 (실제 거리 아님)`;
       rangeText.textContent='인계 양단을 각각 확대 중 · 두 화면의 배율과 실제 설비 간 거리는 다를 수 있습니다.';range.style.width='0%';
       displayOwner=handover.source;
-    }else detail.draw(state);
+    }else paint(detail);
     status.textContent=`${owner.name||owner.id} · ${mode.options[mode.selectedIndex].text} ${mode.value==='cargo'&&tracked!=null?'#'+tracked:''} · ${Number(state.t||0).toFixed(1)}초${mode.value==='cargo'&&!record?' · '+(active?'내부 작업 / 인계 중 (3D LIVE 참조)':'표시 중인 물류 없음 / 완료'):''}`;
   }
   renderer.onDraw=update;

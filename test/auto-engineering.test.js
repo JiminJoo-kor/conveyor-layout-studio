@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {driveRequirements,engineeringPreview,loadedPayloadFor,motionRequestsFor,selectStandardMotor,solveFlatDriveMotion,solveMotionRequest,standardMotorCandidates} from '../src/auto-engineering.js';
+import {driveRequirements,engineeringPreview,loadedPayloadFor,maximumDrivePayload,motionRequestsFor,selectStandardMotor,solveFlatDriveMotion,solveMotionRequest,standardMotorCandidates} from '../src/auto-engineering.js';
 
 test('actual distance decides triangular versus trapezoidal profile',()=>{
  const short=solveMotionRequest({distance:.2,targetSpeed:2,automatic:false,acceleration:1,deceleration:1});
@@ -21,7 +21,13 @@ test('flat conveyor uses maximum loaded quantity and drive limits before calcula
  const conveyor={type:'conveyor',parameters:{capacity:4}},loaded=loadedPayloadFor(conveyor,100),motion=solveFlatDriveMotion({equipmentType:'conveyor',distance:5.5,targetSpeed:20},{payloadKg:loaded.payloadKg,movingMassKg:80});
  assert.deepEqual(loaded,{unitPayloadKg:100,loadCount:4,payloadKg:400});
  assert.equal(motion.massKg,480);assert.equal(motion.requestedSpeed,20);assert.ok(motion.appliedSpeed<=2.5);assert.ok(motion.appliedSpeed<20);assert.ok(motion.acceleration<=.8);assert.ok(motion.deceleration<=1);assert.ok(motion.limitReasons.some(reason=>reason.includes('최고속도')));assert.ok(motion.limitReasons.some(reason=>reason.includes('RPM')));
- assert.ok(motion.motorSelection.motor);assert.ok(motion.motorSelection.requirements.massKg===480);
+ assert.ok(motion.motorSelection.motor);assert.ok(motion.motorSelection.requirements.massKg===480);assert.ok(motion.motorSelection.maxPayloadKg>=400);assert.ok(motion.motorSelection.loadUtilization>0);
+});
+
+test('selected drive reverses torque and power limits into maximum cargo payload',()=>{
+ const motor=standardMotorCandidates.find(candidate=>candidate.id==='IEC-1.5'),result=maximumDrivePayload(motor,{movingMassKg:80,acceleration:.8,targetSpeed:1,wheelRadiusM:.08,gearRatio:12,efficiency:.85,serviceFactor:1.25});
+ assert.ok(result.payloadKg>0);assert.ok(result.totalMassKg>result.payloadKg);assert.ok(['기동 토크','연속 출력'].includes(result.limitingFactor));
+ const faster=maximumDrivePayload(motor,{movingMassKg:80,acceleration:.8,targetSpeed:2,wheelRadiusM:.08,gearRatio:12,efficiency:.85,serviceFactor:1.25});assert.ok(faster.payloadKg<=result.payloadKg);
 });
 
 test('short flat conveyor reports the physical peak speed without forcing a constant-speed section',()=>{

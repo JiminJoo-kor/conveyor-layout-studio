@@ -69,3 +69,11 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - `npm run verify` runs the complete regression suite and syntax-checks every JavaScript module in `src`, `scripts`, and `api`, rather than checking only the three original entry files.
 - Release readiness additionally requires a 600-second audit of the approved production JSON plus the Parameter Master and Inspector browser regression pages.
 - Deployment remains tied to `main`; this migration branch must not be merged until the approved JSON artifact and the original source JSON are both retained.
+
+## Phase 11 — Flat conveyor drive physics
+
+- 평지 컨베이어 AUTO 계산은 단위 물류 중량에 최대 적재개수를 곱한 만재 하중을 사용한다.
+- 가속도는 거리 비율로 역산하지 않고 설비별 허용 가감속, 운전저항, 등가 이동질량, 모터 토크·RPM·동력 한계로 결정한다.
+- 요청속도, 구동계 적용속도, 거리 내 실제 최고속도를 분리하고 제한 원인을 기록한다.
+- UI에서는 프로파일 모양의 수식어 대신 목표속도 도달 여부와 구간별 거리·시간을 표시한다.
+- 명시적으로 승인된 AUTO motion만 계산된 속도와 가감속을 실제 시뮬레이션에 적용한다.

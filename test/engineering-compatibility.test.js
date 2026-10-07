@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compareEngineeringDuration,compareLayoutEngineering,engineScopedMotionRequest,engineScopedMotionRequests} from '../src/engineering-compatibility.js';
-import {cadDuration,engineeringRuntimeDecision,legacyCadDuration} from '../src/engine.js';
+import {cadDuration,engineeringRuntimeDecision,legacyCadDuration,runtimeMotionConfig} from '../src/engine.js';
 
 const layout=item=>({cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[item]});
 
@@ -47,6 +47,12 @@ test('reviewed motion requires an explicit per-equipment runtime approval',()=>{
  const approved=engineeringRuntimeDecision(item,itemLayout),comparison=compareEngineeringDuration(item,itemLayout);
  assert.equal(approved.status,'approved');assert.equal(approved.apply,true);assert.equal(cadDuration(item,itemLayout),approved.engineeringSeconds);assert.notEqual(cadDuration(item,itemLayout),legacyCadDuration(item,itemLayout));
  assert.equal(comparison.status,'approved');assert.equal(comparison.applyEligible,true);assert.ok(comparison.reasons.some(reason=>reason.includes('검토 승인')));
+});
+
+test('approved automatic conveyor runs at the physics-limited speed',()=>{
+ const item={id:'cv-physical',type:'conveyor',engineering:{motionRuntime:'approved'},parameters:{length:5.5,speed:20,capacity:4,autoMotionTuning:1}},itemLayout={cargoSpec:{length:2000,width:1300,weight:100,unit:'mm'},equipment:[item]},config=runtimeMotionConfig(item,itemLayout);
+ assert.ok(config.targetSpeed<20);assert.ok(config.targetSpeed<=2.5);assert.equal(config.acceleration,.8);assert.equal(config.deceleration,1);
+ item.engineering.motionRuntime='review';assert.equal(runtimeMotionConfig(item,itemLayout).targetSpeed,20);
 });
 
 test('mobile and fork cycles compose every legacy phase before runtime adoption',()=>{

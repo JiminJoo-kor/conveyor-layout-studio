@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "python -m http.server 4173",
+    "dev": "node scripts/serve.mjs",
     "test": "node --test",
     "check": "node scripts/check-syntax.mjs",
     "verify": "npm test && npm run check",

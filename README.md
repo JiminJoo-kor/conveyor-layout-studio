@@ -70,6 +70,7 @@ ES 모듈을 사용하므로 로컬 웹 서버에서 실행해야 합니다. `np
 - `npm run audit-layout -- <layout.json> 600`: 실제 레이아웃을 저장 왕복한 뒤 600초 운전하여 그래프, 물동량, AS/RS, 출고 트럭, 교착 상태를 확인합니다.
 - `test/parameter-master-browser.html`: INPUT/AUTO/RESULT 분류, 읽기 전용 표시, AS/RS 단일 저장을 브라우저에서 검증합니다.
 - `test/inspector-order-browser.html`: Inspector 순서, Engineering Detail 기본 접힘, AUTO 분리, 310px 폭 오버플로를 브라우저에서 검증합니다.
+- `test/flat-drive-browser.html`: 평지 컨베이어의 만재질량, 구동계 속도 제한, 실제 최고속도, 모터 선정을 브라우저에서 검증합니다.
 - 프로덕션은 `main` 브랜치에 연결되어 있으므로 검증 브랜치를 병합하기 전 승인 JSON과 원본 JSON을 모두 보존합니다.
 
 ## 최종 목표를 위한 확장 순서

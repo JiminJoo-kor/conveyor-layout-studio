@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compareEngineeringDuration,compareLayoutEngineering,engineScopedMotionRequest} from '../src/engineering-compatibility.js';
+import {cadDuration,engineeringRuntimeDecision,legacyCadDuration} from '../src/engine.js';
 
 const layout=item=>({cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[item]});
 
@@ -30,4 +31,11 @@ test('layout audit keeps unmapped equipment explicit instead of applying it',()=
  assert.equal(results[1].status,'unsupported');
  assert.equal(results[1].applyEligible,false);
  assert.equal(results[1].engineeringSeconds,null);
+});
+
+test('runtime uses engineering motion only through the compatibility gate',()=>{
+ const compatible={id:'cv-manual',type:'conveyor',parameters:{length:5,speed:1,acceleration:.8,deceleration:1,motionProfile:1,autoMotionTuning:0}},compatibleLayout=layout(compatible),accepted=engineeringRuntimeDecision(compatible,compatibleLayout);
+ assert.equal(accepted.status,'compatible');assert.equal(accepted.apply,true);assert.equal(cadDuration(compatible,compatibleLayout),accepted.engineeringSeconds);assert.notEqual(cadDuration(compatible,compatibleLayout),legacyCadDuration(compatible,compatibleLayout));
+ const review={id:'cv-review',type:'conveyor',parameters:{length:2,speed:1.5,acceleration:.2,deceleration:.2,motionProfile:1,autoMotionTuning:1}},reviewLayout=layout(review),rejected=engineeringRuntimeDecision(review,reviewLayout);
+ assert.equal(rejected.status,'review');assert.equal(rejected.apply,false);assert.equal(cadDuration(review,reviewLayout),legacyCadDuration(review,reviewLayout));
 });

@@ -10,6 +10,7 @@ import { validateLayout } from './layout.js';
 import { movingDiverter, diverterEnabled, diverterAllowsEdge, diverterBranch, diverterRouteIndex, diverterAvailableIndex, advanceDiverterTransfer } from './diverter.js';
 import { DeterministicReliability, KinematicMotion, kinematicTravelDuration, motionConfigFor, motionProfileProgressAtTime } from './kinematics.js';
 import { handoverProgress, OccupancyManager } from './occupancy.js';
+import { motionRequestsFor, solveMotionRequest } from './auto-engineering.js';
 
 const findEquipment = (layout, type) => layout.equipment.find(item => item.type === type);
 const findAll = (layout, type) => layout.equipment.filter(item => item.type === type);
@@ -48,7 +49,7 @@ return{status:outbound?'outbound':'inbound',label:outbound?'배출중':'입고�
 export const equipmentAvailabilityFactor=item=>{const p=item?.parameters||{},availability=Math.max(1,Math.min(100,Number(p.availability??100)))/100,efficiency=Math.max(1,Math.min(100,Number(p.efficiency??100)))/100;return availability*efficiency;};
 export const canEquipmentHandleCargo=(item,layout)=>{const limit=Number(item?.parameters?.loadCapacity),weight=cargoSpec(layout).weight;return!Number.isFinite(limit)||limit<=0||weight<=limit;};
 export const equipmentLoadSpeedFactor=(item,layout,occupancy=1)=>{const p=item?.parameters||{},performance=Math.max(0,Math.min(1,Number(p.performance??(Number(p.efficiency??100)/100)))),limit=Math.max(.01,Number(p.loadCapacity)||Infinity),ratio=Number.isFinite(limit)?cargoSpec(layout).weight*Math.max(1,occupancy)/limit:0,derateStart=Math.max(0,Math.min(1,Number(p.loadDerateStart??.7))),minimum=Math.max(.05,Math.min(1,Number(p.minimumLoadedSpeed??.5))),loadFactor=item?.type==='conveyor'?(ratio<=1?1:minimum):ratio<=derateStart?1:Math.max(minimum,1-(ratio-derateStart)/(Math.max(.001,1-derateStart))*(1-minimum));return performance*loadFactor;};
-export const cadDuration=(item,layout,context={})=>{
+export const legacyCadDuration=(item,layout,context={})=>{
   const p=item?.parameters||{};let duration;
   if(['conveyor','processLine','sorter'].includes(item?.type)){const distance=equipmentLengthMeters(item,layout)+cargoSpec(layout).length;duration=kinematicTravelDuration(distance,motionConfigFor(item));}
   else if(['asrs','stackerCrane'].includes(item?.type))duration=asrsCycleDuration(item,context);
@@ -63,6 +64,14 @@ export const cadDuration=(item,layout,context={})=>{
   else duration=Number(p.cycleTime??p.processTime??1);
   return Math.max(.2,duration/Math.max(.01,equipmentAvailabilityFactor(item)));
 };
+const engineeringRuntimeTypes=new Set(['conveyor','processLine','sorter']);
+export const engineeringRuntimeDecision=(item,layout,context={})=>{
+  const legacySeconds=legacyCadDuration(item,layout,context),cargoLength=cargoSpec(layout).length,baseRequest=motionRequestsFor(item,{cargoLengthM:cargoLength})[0];
+  if(!engineeringRuntimeTypes.has(item?.type)||!baseRequest)return{status:'unsupported',apply:false,legacySeconds,engineeringSeconds:null,motion:null};
+  const motion=solveMotionRequest({...baseRequest,distance:equipmentLengthMeters(item,layout)+cargoLength}),engineeringSeconds=motion.totalTime/Math.max(.01,equipmentAvailabilityFactor(item)),toleranceSeconds=Math.max(.1,legacySeconds*.02),apply=Math.abs(engineeringSeconds-legacySeconds)<=toleranceSeconds;
+  return{status:apply?'compatible':'review',apply,legacySeconds,engineeringSeconds,toleranceSeconds,motion};
+};
+export const cadDuration=(item,layout,context={})=>{const decision=engineeringRuntimeDecision(item,layout,context);return decision.apply?decision.engineeringSeconds:decision.legacySeconds;};
 // Receiver work already performed during the shared AS/RS handover must not
 // restart after ownership changes. Durations are simulation seconds.
 export const equipmentReceiveDuration=(item,layout,token=null)=>{

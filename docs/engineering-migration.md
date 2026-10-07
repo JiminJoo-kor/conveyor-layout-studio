@@ -9,3 +9,9 @@
 - Other equipment is deliberately reported as `unsupported` until its composed legacy cycle is mapped. This prevents a single-axis motion time from being mistaken for the full cycle of Fork, Lift, AMR/AGV, Turntable, or AS/RS.
 
 Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect only `compatible` motion to the simulation behind an explicit migration gate.
+
+## Phase 2 — Runtime connection
+
+- Continuous transport equipment uses the analytical engineering duration only when the compatibility gate returns `compatible`.
+- `review` and `unsupported` results keep the legacy runtime duration without changing saved parameters.
+- The legacy duration remains separately callable for audit and regression comparison.

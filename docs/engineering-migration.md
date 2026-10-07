@@ -62,3 +62,4 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - AUTO, RESULT, and STATUS fields can no longer fall through into the Basic INPUT section. Unassigned calculated or diagnostic controls move to Engineering Detail, which remains collapsed by default.
 - Empty sections remain visible with a short explanation so equipment types do not reorder themselves based on which controls they support.
 - Process Line participates in the same inspector instead of being omitted. The core summary uses the complete composed engineering cycle and approval state rather than the longest single-axis time.
+- Visual QA at the production 310 px inspector width verifies the top summary and lower AUTO/Flow/Detail sections without horizontal overflow. The browser regression checks the width constraint in addition to ordering, read-only separation, and default collapse state.

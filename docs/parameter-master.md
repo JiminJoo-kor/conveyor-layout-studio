@@ -23,3 +23,5 @@ Payload를 kW에 직접 대응시키지 않는다. 같은 payload도 속도, 가
 설비별 preview는 하나의 대표값으로 축약하지 않는다. AS/RS는 X 주행, Z 상승, Z 하강, 적재 포크, 빈 포크를 각각 계산한다. AMR·AGV는 인수, 주행, 인계로 나누고, Lifter는 중력 방향이 다른 상승과 하강을 분리한다. `equipmentRole=turnConveyor`와 `equipmentRole=pneumatic`도 각각 transfer/rotary 및 extend/retract 요청을 만든다. 모터 후보는 이 축별 요구조건 중 가장 큰 power 요구 축을 기준으로 선정하되 모든 축 결과를 함께 반환한다.
 
 선택 설비 카드의 `AUTO ENGINEERING`은 preview 결과만 표시한다. Motor, Peak Torque, RPM, Required Power, 축별 프로파일과 원인→조치→영향 로그는 읽기 전용이며 입력 컨트롤이나 별도 저장 키를 만들지 않는다. 물류 중량은 공통 cargo spec을 사용하고, 설비 이동질량은 현재 설비별 보수적 기본 가정을 표시한다. 이후 실제 기구 데이터가 제공되면 `movingMassKg`로 명시할 수 있다.
+
+설비 Inspector는 사용자의 읽기 순서에 맞춰 `설비명/상태 및 핵심 결과 → 기본 설정(INPUT) → 물류/기구 → MOTION → AUTO ENGINEERING → Flow/Connection → Engineering Detail`로 재배치한다. 기존 DOM 입력과 이벤트 핸들러를 새로 만들지 않고 같은 노드를 섹션으로 이동하므로 저장 및 시뮬레이션 동작은 유지된다. Engineering Detail은 기본 접힘이다.

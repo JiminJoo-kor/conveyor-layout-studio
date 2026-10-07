@@ -1,3 +1,4 @@
+import {distanceLabel,inputDisplayValue,inputStoredValue} from './distance-units.js';
 import {isStackEquipment,isSequenceRack,sequenceConfig} from './equipment-variants.js';
 import {createSequenceSchedule} from './sequence-rack.js';
 
@@ -11,7 +12,7 @@ export function appendStackControls(items,root,layout,onChange){
   if(isStackEquipment(item)){
    const group=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent=item.equipmentRole==='boxStacker'?'빈 박스 적재 · 스토퍼':'적층 박스 분배 · 스토퍼';group.append(legend);card.append(group);
    const fields=[...(item.equipmentRole==='boxStacker'?[['stackTarget','완성 적재 수량(개)',1,1,1]]:[]),['stackLiftTime','들어올림 시간(초)',1,.01,.01],['stackLowerTime','내려놓음 시간(초)',1,.01,.01],['stackMaxHeight','최대 적재 높이(m)',10,.01,.01]];
-   for(const [key,label,fallback,min,step] of fields){const input=number(group,label,p[key]??fallback,min,step);input.addEventListener('change',()=>{if(input.reportValidity())onChange(item,key,Number(input.value));});}
+   for(const [key,label,fallback,min,step] of fields){const input=number(group,distanceLabel(key,label),inputDisplayValue(key,p[key]??fallback),inputDisplayValue(key,min),inputDisplayValue(key,step));input.addEventListener('change',()=>{if(input.reportValidity())onChange(item,key,inputStoredValue(key,input.value));});}
    paragraph(group,'일체형 컨베이어의 길이·속도·가감속·안전간격·연속 인계는 위 컨베이어 파라미터를 사용합니다. 하류 수신 승인 및 꼬리 통과 완료 전에는 다음 묶음을 받지 않습니다. 적재기는 동일 종류·규격의 빈 박스만 받습니다.');
   }
   if(isSequenceRack(item)){
@@ -20,7 +21,7 @@ export function appendStackControls(items,root,layout,onChange){
   }
   if(layout.equipment.some(isStackEquipment)&&(item.type==='source'||item.type==='dock'&&p.dockRole==='inbound')){
    const group=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent='입고 물품 적층';group.append(legend);card.append(group);
-   for(const [key,label,fallback,min,step] of [...(layout.equipment.some(e=>e.equipmentRole==='boxDestacker')?[['initialStackCount','투입 적층 수량(단)',1,1,1]]:[]),['boxHeight','박스 1단 높이(m)',.2,.001,.001]]){const input=number(group,label,p[key]??fallback,min,step);input.addEventListener('change',()=>{if(input.reportValidity())onChange(item,key,Number(input.value));});}
+   for(const [key,label,fallback,min,step] of [...(layout.equipment.some(e=>e.equipmentRole==='boxDestacker')?[['initialStackCount','투입 적층 수량(단)',1,1,1]]:[]),['boxHeight','박스 1단 높이(m)',.2,.001,.001]]){const input=number(group,distanceLabel(key,label),inputDisplayValue(key,p[key]??fallback),inputDisplayValue(key,min),inputDisplayValue(key,step));input.addEventListener('change',()=>{if(input.reportValidity())onChange(item,key,inputStoredValue(key,input.value));});}
    const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=p.emptyBox!==0;label.append('빈 박스',check);group.append(label);check.addEventListener('change',()=>onChange(item,'emptyBox',check.checked?1:0));
   }
  }

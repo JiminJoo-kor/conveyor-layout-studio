@@ -1,3 +1,4 @@
+import {historyCount,historyNotice} from './history-memory.js';
 import {inputDisplayValue} from './distance-units.js';
 import {PlaybackBudget} from './playback-budget.js';
 import {parameterInputField,parameterInputValue} from './parameter-display.js';
@@ -116,7 +117,8 @@ function updateDashboard({rack=true}={}) {
   $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
   $('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
   $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
-  $('moved').textContent=k.movedItems; $('completed').textContent=k.completedBoxes==null?engine.state.completedProducts.length:`${engine.state.completedProducts.length}묶음 / ${k.completedBoxes}박스`;
+  $('moved').textContent=k.movedItems; $('completed').textContent=k.completedBoxes==null?historyCount(engine.state,'completedProducts'):`${historyCount(engine.state,'completedProducts')}묶음 / ${k.completedBoxes}박스`;
+  $('completed').title=historyNotice(engine.state);
   updateFlowLegend();
   renderEvents();
   renderSimulationReport();
@@ -181,6 +183,7 @@ function toggleRun() {
   if(running){engine.state.simulationStarted=true;renderer.draw(engine.state);frame=requestAnimationFrame(loop);} else {cancelAnimationFrame(frame);renderEvents();}
 }
 function renderEvents() {
+  let notice=$('memoryHistoryNotice');if(!notice){notice=document.createElement('small');notice.id='memoryHistoryNotice';notice.style.cssText='display:block;font-size:12px;line-height:1.5';$('exportEvents').after(notice);}const text=historyNotice(engine.state);if(notice.textContent!==text)notice.textContent=text;notice.hidden=!text;
   const rows=engine.state.events.slice(-12).reverse();
   $('eventRows').innerHTML=rows.length?rows.map(e=>`<tr><td>${format(e.t)}</td><td>${eventLabel(e.type)}</td><td>${e.equipmentId||e.kind||''}</td><td>#${e.trayId||e.productId||'-'}</td></tr>`).join(''):'<tr><td colspan="4">아직 이벤트가 없습니다.</td></tr>';
 }

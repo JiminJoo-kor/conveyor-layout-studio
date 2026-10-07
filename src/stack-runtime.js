@@ -1,3 +1,4 @@
+import {completedBoxCount} from './history-memory.js';
 import {isStackEquipment} from './equipment-variants.js';
 import {createStackMachine,canStackMachineReceive,receiveStack,advanceStackMachine,startStackRelease,completeStackRelease,stackMachineStatus} from './stack-machine.js';
 
@@ -20,7 +21,7 @@ export function installStackRuntime(Engine,{cargoSpec,equipmentLengthMeters,carg
  const planned=p.plannedEdgeForToken;
  p.plannedEdgeForToken=function(token,item,...args){if(isStackEquipment(item)&&token.stackOutputFor!==item.id){token.predictiveRouteEdge=null;return null;}return planned.call(this,token,item,...args);};
  const kpis=p.getKpis;
- p.getKpis=function(){const result=kpis.call(this);if(!this.layout.equipment.some(isStackEquipment))return result;const ids=new Set();for(const token of this.state.cadTokens)for(const layer of token.stackLayers||[{id:token.id}])ids.add(layer.id);for(const m of Object.values(this.state.stackMachines||{}))for(const layer of [...m.held,...m.deck])ids.add(layer.id);result.wip=ids.size;result.completedBoxes=this.state.completedProducts.reduce((n,t)=>n+(t.stackLayers?.length||1),0);return result;};
+ p.getKpis=function(){const result=kpis.call(this);if(!this.layout.equipment.some(isStackEquipment))return result;const ids=new Set();for(const token of this.state.cadTokens)for(const layer of token.stackLayers||[{id:token.id}])ids.add(layer.id);for(const m of Object.values(this.state.stackMachines||{}))for(const layer of [...m.held,...m.deck])ids.add(layer.id);result.wip=ids.size;result.completedBoxes=completedBoxCount(this.state);return result;};
  const diagnostic=p.flowDiagnosticText;
  p.flowDiagnosticText=function(){let text=diagnostic.call(this);if(this.state.stackMachines)text+='\r\n\r\n=== 적재·분배 상태 (보유 박스 포함) ===\r\n'+Object.entries(this.state.stackMachines).map(([id,m])=>`${id} | ${m.phase} | 보유 ${m.held.length} | 바닥 ${m.deck.length} | 배출 ${m.outgoing.length} | 스토퍼 ${m.stopperUp?'상승':'하강'} | 잔여 ${stackMachineStatus(m).remainingPercent.toFixed(1)}%`).join('\r\n');for(const w of Object.values(this.state.warehouses))if(w.sequenceSchedules)text+='\r\n=== 독립 출고 서열 ===\r\n'+Object.entries(w.sequenceSchedules).map(([key,s])=>`${w.equipmentId}/${key} | 다음 주기 ${s.nextDue}초 | 작업 ${s.active?.productIds.join(',')||'-'} | 인계 ${s.active?.completedIds.join(',')||'-'}`).join('\r\n');return text;};
  const outfeedBlocked=p.conveyorOutfeedWillBlock;

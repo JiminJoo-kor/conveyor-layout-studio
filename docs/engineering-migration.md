@@ -30,3 +30,9 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - X/Z travel uses `max(X, Z)` for simultaneous mode and `X + Z` for sequential mode.
 - Fork extension and retraction are calculated independently, with the configured putaway or retrieval dwell between them.
 - Return travel preserves the existing cycle contract. Inbound station time is included; downstream outbound handover remains a separate handshake and is not counted twice.
+
+## Phase 5 — AS/RS Station Conveyor ownership
+
+- AS/RS parameters remain parent-owned. Generated Station Conveyor dimensions, motion values, and internal edges are runtime projections and are omitted from exported layout JSON.
+- The parent stores only `stationInterfaces`: interface identity, line/kind binding, and an optional user-adjusted relative placement. This is connection metadata, not a duplicate engineering parameter set.
+- External connections are serialized against the parent's `product-N-in/out` ports. Loading calls the existing reconciliation path to regenerate Station Conveyors and internal edges while preserving interface IDs and placements.

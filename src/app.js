@@ -5,7 +5,7 @@ import {PlaybackBudget} from './playback-budget.js';
 import {parameterInputField,parameterInputValue} from './parameter-display.js';
 import {appendStackControls} from './stack-ui.js';
 import { reassignStationOwnership, stationLineLabel } from './station-assignment.js';
-import { syncAsrsStations, positionAsrsStations, appendAsrsStationControls } from './asrs-stations.js';
+import { syncAsrsStations, positionAsrsStations, appendAsrsStationControls, compactAsrsStations } from './asrs-stations.js';
 import { applyCommonParameters } from './parameter-policy.js';
 import { workspaceShortcut } from './shortcuts.js';
 import { updateDiverterParameter } from './diverter.js';
@@ -198,7 +198,7 @@ function download(name,text,type='application/json'){const a=document.createElem
 $('runBtn').addEventListener('click',toggleRun);
 $('flowView').addEventListener('change',()=>{renderer.setFlowFilter($('flowView').value);renderer.draw(engine.state);});
 $('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(frame);resetEngine();$('runBtn').textContent='시뮬레이션 시작';});
-$('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify({...layout,simulationParams:readParams()},null,2)));
+$('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify({...compactAsrsStations(layout),simulationParams:readParams()},null,2)));
 $('exportEvents').addEventListener('click',()=>{const safeName=(layout.name||'simulation').replace(/[\\/:*?"<>|]+/g,'_');download(`${safeName}-events.txt`,simulationEventText(engine.state,layout),'text/plain;charset=utf-8');});
 $('exportDiagnostics').addEventListener('click',()=>{const safeName=(layout.name||'simulation').replace(/[\\/:*?"<>|]+/g,'_'),text=engine instanceof CadFlowEngine?engine.flowDiagnosticText():'CAD 시뮬레이션에서 사용할 수 있습니다.';download(`${safeName}-stall-diagnostic.txt`,text,'text/plain;charset=utf-8');});
 $('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hidden;$('editorTools').hidden=!active;editor.setEnabled(active);$('editorToggle').textContent=active?'편집 종료':'편집 모드';});

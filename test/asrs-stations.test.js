@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { asrsStationSpec,syncAsrsStations,stationId,positionAsrsStations } from '../src/asrs-stations.js';
+import { asrsStationSpec,syncAsrsStations,stationId,positionAsrsStations,compactAsrsStations } from '../src/asrs-stations.js';
 import { connectableEquipmentPorts,equipmentPorts } from '../src/route.js';
 import { CadFlowEngine,asrsTargetCell } from '../src/engine.js';
 import { validateFlowGraph } from '../src/flow-graph.js';
@@ -88,6 +88,20 @@ test('derived conveyors reconnect by product port, survive repeated sync and JSO
   const saved=JSON.parse(JSON.stringify(l));syncAsrsStations(saved);assert.deepEqual(saved,l);assert.equal(new Set(saved.equipment.map(e=>e.id)).size,7);
   assert.deepEqual(connectableEquipmentPorts(l.equipment.find(e=>e.id==='rack')),{});
   assert.deepEqual(Object.keys(connectableEquipmentPorts(l.equipment.find(e=>e.id===stationId('rack',0,'in')))),['left']);
+});
+test('storage keeps one parent-owned ASRS configuration and regenerates derived interfaces',()=>{
+  const l=layout();syncAsrsStations(l);const child=l.equipment.find(e=>e.asrsStation?.kind==='in');
+  child.asrsStation.placement={x:-123,y:45,rotation:90};positionAsrsStations(l);
+  const saved=compactAsrsStations(l),rack=saved.equipment.find(e=>e.id==='rack');
+  assert.equal(saved.equipment.some(e=>e.asrsStation),false);
+  assert.equal(saved.cadSchematic.edges.some(e=>e.asrsStationInternal),false);
+  assert.ok(saved.cadSchematic.edges.some(e=>e.to==='rack'&&e.toPort==='product-1-in'));
+  assert.deepEqual(rack.parameters.stationInterfaces.find(entry=>entry.id===child.id).placement,{x:-123,y:45,rotation:90});
+  assert.equal(JSON.stringify(saved).includes('continuousHandover'),false);
+  syncAsrsStations(saved);const restored=saved.equipment.find(e=>e.id===child.id);
+  assert.deepEqual(restored.asrsStation.placement,{x:-123,y:45,rotation:90});
+  assert.deepEqual([restored.x,restored.y,restored.rotation],[l.equipment.find(e=>e.id===child.id).x,l.equipment.find(e=>e.id===child.id).y,l.equipment.find(e=>e.id===child.id).rotation]);
+  assert.ok(validateFlowGraph(saved).valid);
 });
 test('cargo sizing and per-line capacity determine physical and visual conveyor length',()=>{
   const l=layout(),rack=l.equipment[1];rack.parameters.stationLineCounts={1:{in:3,out:1}};syncAsrsStations(l);

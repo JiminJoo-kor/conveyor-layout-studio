@@ -6,6 +6,23 @@ export const hasAsrsStations=item=>['asrs','stackerCrane'].includes(item?.type);
 export const stationId=(parent,index,kind)=>`${parent}::station-${index+1}-${kind}`;
 const portIndex=port=>{const match=/^product-(\d+)-(in|out)$/.exec(port||'');return match?Number(match[1])-1:null;};
 
+// Persist only the parent-owned interface identity and placement. Station conveyors,
+// their calculated parameters, and their internal edges are rebuilt by sync.
+export function compactAsrsStations(layout){
+  const result=structuredClone(layout),children=new Map(result.equipment.filter(e=>e.asrsStation).map(e=>[e.id,e]));
+  for(const parent of result.equipment.filter(hasAsrsStations)){
+    parent.parameters??={};
+    parent.parameters.stationInterfaces=[...children.values()].filter(child=>child.asrsStation.parentId===parent.id).map(child=>({id:child.id,index:child.asrsStation.index,kind:child.asrsStation.kind,...(child.asrsStation.placement?{placement:child.asrsStation.placement}:{})}));
+  }
+  result.equipment=result.equipment.filter(e=>!e.asrsStation);
+  if(result.cadSchematic?.edges)result.cadSchematic.edges=result.cadSchematic.edges.filter(edge=>!edge.asrsStationInternal).map(edge=>{
+    const compact={...edge};
+    for(const end of ['from','to']){const child=children.get(compact[end]);if(!child)continue;const station=child.asrsStation;compact[end]=station.parentId;compact[`${end}Port`]=`product-${station.index+1}-${station.kind}`;}
+    return compact;
+  });
+  return result;
+}
+
 function inboundLineIndex(nodeId,edges,branches){
   let frontier=[nodeId];const seen=new Set();
   while(frontier.length){const matches=new Set();for(const id of frontier)branches.forEach((branch,index)=>{if(branch.nodeIds?.includes(id))matches.add(index);});if(matches.size===1)return [...matches][0];if(matches.size>1)return null;
@@ -57,10 +74,10 @@ export function syncAsrsStations(layout){
     const count=Math.max(1,Math.round(Number(parent.parameters?.productTypes)||3));
     if(parent.parameters.productTypes==null)parent.parameters.productTypes=count;
     for(let index=0;index<count;index++)for(const kind of ['in','out']){
-      const retained=[...old.values()].find(n=>n.asrsStation.parentId===parent.id&&n.asrsStation.index===index&&n.asrsStation.kind===kind);
-      const id=retained?.id||stationId(parent.id,index,kind),spec=asrsStationSpec(parent,layout,kind,index),name=parent.parameters?.zoneNames?.[index]||layout.cadSchematic.inboundBranches?.[index]?.name||`품목 ${index+1}`;
+      const retained=[...old.values()].find(n=>n.asrsStation.parentId===parent.id&&n.asrsStation.index===index&&n.asrsStation.kind===kind),storedInterface=parent.parameters.stationInterfaces?.find(entry=>entry.index===index&&entry.kind===kind);
+      const id=retained?.id||storedInterface?.id||stationId(parent.id,index,kind),spec=asrsStationSpec(parent,layout,kind,index),name=parent.parameters?.zoneNames?.[index]||layout.cadSchematic.inboundBranches?.[index]?.name||`품목 ${index+1}`;
       const item=retained||{id,type:'conveyor',x:0,y:0,rotation:0};
-      Object.assign(item,{name:`${parent.name||'AS/RS'} · ${name} ${kind==='in'?'입고':'출고'} CV`,asrsStation:{placement:item.asrsStation?.placement,parentId:parent.id,index,kind,...spec},source:{origin:'dxf',parameterLengthUnit:'m',reason:'asrs-station'},reviewStatus:'approved',parameters:{length:spec.length,width:spec.width,speed:spec.speed,safetyGap:spec.gap,continuousHandover:1,handoverDelay:0,acceleration:Number(parent.parameters?.stationAcceleration)||.8,deceleration:Number(parent.parameters?.stationDeceleration)||.8,loadCapacity:Math.max(Number(parent.parameters?.loadCapacity)||1000,(Number(layout.cargoSpec?.weight)||100)*spec.count),availability:100,efficiency:100}});
+      Object.assign(item,{name:`${parent.name||'AS/RS'} · ${name} ${kind==='in'?'입고':'출고'} CV`,asrsStation:{placement:item.asrsStation?.placement||storedInterface?.placement,parentId:parent.id,index,kind,...spec},source:{origin:'dxf',parameterLengthUnit:'m',reason:'asrs-station'},reviewStatus:'approved',parameters:{length:spec.length,width:spec.width,speed:spec.speed,safetyGap:spec.gap,continuousHandover:1,handoverDelay:0,acceleration:Number(parent.parameters?.stationAcceleration)||.8,deceleration:Number(parent.parameters?.stationDeceleration)||.8,loadCapacity:Math.max(Number(parent.parameters?.loadCapacity)||1000,(Number(layout.cargoSpec?.weight)||100)*spec.count),availability:100,efficiency:100}});
       layout.equipment.push(item);
       edges.push(kind==='in'?{from:id,to:parent.id,fromPort:'right',toPort:`product-${index+1}-in`,kind:'warehouse',asrsStationInternal:parent.id}:{from:parent.id,to:id,fromPort:`product-${index+1}-out`,toPort:'left',kind:'warehouse',asrsStationInternal:parent.id});
     }

@@ -1,4 +1,5 @@
 import { parameterFieldsFor } from './cad.js';
+import { equipmentLengthMeters } from './engine.js';
 
 export const structuralParameterKeys = new Set(['rows','columns','levels','productTypes','stackerCount','length','shuttleDistance','travelDistance','liftHeight','strokeDistance','infeedColumn','infeedLevel','outfeedColumn','outfeedLevel','stationConveyorsEnabled','infeedBufferCount','outfeedBufferCount','stationConveyorSpeed','stationSafetyGap']);
 // Identity, cargo filters, port mappings, route membership and dock roles never copy.
@@ -12,7 +13,7 @@ export function applyCommonParameters(layout, source, requested=null) {
     if(target.asrsStation||source.asrsStation||target===source||target.type!==source.type||source.type==='dock'&&target.parameters?.dockRole!==source.parameters?.dockRole)continue;
     target.parameters??={};
     for(const key of keys)if(source.parameters?.[key]!==undefined)target.parameters[key]=structuredClone(source.parameters[key]);
-    if(keys.includes('length')) {target.source??={};target.source.parameterLengthUnit='m';}
+    if(keys.includes('length')) {target.parameters.length=equipmentLengthMeters(source,layout);target.source??={};target.source.parameterLengthUnit='m';}
     changed.push(target);
   }
   return {keys,changed,structural:keys.some(key=>structuralParameterKeys.has(key))};

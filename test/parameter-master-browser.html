@@ -2,11 +2,13 @@
 <h1>Parameter Master Browser Regression</h1><p id="result">검증 중…</p><table><thead><tr><th>설비</th><th>파라미터</th><th>분류</th><th>표시</th></tr></thead><tbody id="fields"></tbody></table>
 <script type="module">
 import {parameterFieldsFor} from '../src/cad.js';
+import {compareEngineeringDuration} from '../src/engineering-compatibility.js';
 const fixture=await fetch('./fixtures/generic-two-warehouses.json').then(response=>response.json());
 const representative=[...fixture.equipment,{id:'cv-browser',name:'Browser Conveyor',type:'conveyor',parameters:{length:5,speed:.8,acceleration:.4,deceleration:.5,autoMotionTuning:1}},{id:'asrs-browser',name:'Browser ASRS',type:'asrs',parameters:{rows:2,columns:3,levels:4,autoMotionTuning:1}}];
 const rows=[];for(const item of representative)for(const field of parameterFieldsFor(item))rows.push({item,field});
 document.querySelector('#fields').innerHTML=rows.map(({item,field})=>`<tr><td>${item.name||item.id}</td><td>${field.key}</td><td>${field.parameterKind}</td><td><input value="${field.value}" data-kind="${field.parameterKind}" ${field.readOnly?'readonly':''}></td></tr>`).join('');
 const automatic=rows.find(({item,field})=>item.id==='cv-browser'&&field.key==='acceleration')?.field,result=rows.find(({item,field})=>item.id==='asrs-browser'&&field.key==='cellCount')?.field,kinds=new Set(rows.map(({field})=>field.parameterKind));
-const checks=[fixture.equipment.length>0,automatic?.parameterKind==='AUTO'&&automatic.readOnly,result?.parameterKind==='RESULT'&&result.readOnly&&result.value===24,kinds.has('INPUT')&&kinds.has('AUTO')&&kinds.has('RESULT')];
+const conveyor=representative.find(item=>item.id==='cv-browser'),compatibility=compareEngineeringDuration(conveyor,{cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[conveyor]});
+const checks=[fixture.equipment.length>0,automatic?.parameterKind==='AUTO'&&automatic.readOnly,result?.parameterKind==='RESULT'&&result.readOnly&&result.value===24,kinds.has('INPUT')&&kinds.has('AUTO')&&kinds.has('RESULT'),['compatible','review'].includes(compatibility.status)&&Number.isFinite(compatibility.legacySeconds)&&Number.isFinite(compatibility.engineeringSeconds)];
 const output=document.querySelector('#result');output.className=checks.every(Boolean)?'pass':'fail';output.dataset.status=checks.every(Boolean)?'pass':'fail';output.textContent=checks.every(Boolean)?`PASS · fixture ${fixture.equipment.length}대 · field ${rows.length}개 · AUTO/RESULT readonly 유지`:`FAIL · ${JSON.stringify(checks)}`;
 </script></body></html>

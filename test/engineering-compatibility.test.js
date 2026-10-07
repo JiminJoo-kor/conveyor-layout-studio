@@ -40,6 +40,15 @@ test('runtime uses engineering motion only through the compatibility gate',()=>{
  assert.equal(rejected.status,'review');assert.equal(rejected.apply,false);assert.equal(cadDuration(review,reviewLayout),legacyCadDuration(review,reviewLayout));
 });
 
+test('reviewed motion requires an explicit per-equipment runtime approval',()=>{
+ const item={id:'cv-approved',type:'conveyor',parameters:{length:2,speed:1.5,acceleration:.2,deceleration:.2,motionProfile:1,autoMotionTuning:1}},itemLayout=layout(item),review=engineeringRuntimeDecision(item,itemLayout);
+ assert.equal(review.status,'review');assert.equal(review.apply,false);
+ item.engineering={motionRuntime:'approved'};
+ const approved=engineeringRuntimeDecision(item,itemLayout),comparison=compareEngineeringDuration(item,itemLayout);
+ assert.equal(approved.status,'approved');assert.equal(approved.apply,true);assert.equal(cadDuration(item,itemLayout),approved.engineeringSeconds);assert.notEqual(cadDuration(item,itemLayout),legacyCadDuration(item,itemLayout));
+ assert.equal(comparison.status,'approved');assert.equal(comparison.applyEligible,true);assert.ok(comparison.reasons.some(reason=>reason.includes('검토 승인')));
+});
+
 test('mobile and fork cycles compose every legacy phase before runtime adoption',()=>{
  const amr={id:'amr',type:'amr',parameters:{receiveSpeed:.6,travelSpeed:1.5,transferSpeed:.4,shuttleDistance:6,acceleration:.8,deceleration:.8,autoMotionTuning:0}},amrLayout=layout(amr),amrResult=compareEngineeringDuration(amr,amrLayout);
  assert.deepEqual(engineScopedMotionRequests(amr,amrLayout).map(axis=>axis.model),['receive','drive','transfer']);assert.equal(amrResult.scope,'인수 + 주행 + 인계');assert.equal(amrResult.status,'compatible');assert.equal(cadDuration(amr,amrLayout),amrResult.engineeringSeconds);

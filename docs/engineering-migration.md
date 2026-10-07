@@ -47,3 +47,10 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - The supplied 93-equipment project validated and ran through a compact JSON round-trip without graph errors. Generated Station Conveyors were recreated as six runtime projections with six internal edges.
 - The Stacker Crane requires 13.567 kW and 90.45 Nm at 1432 rpm. The standard IEC candidate list now continues through 15, 18.5, and 22 kW, so the first valid candidate is 15 kW instead of an ambiguous `no candidate` result.
 - Equipment outside the compatibility tolerance remains on the legacy simulator duration. The audit does not silently apply the shorter AUTO result.
+
+## Phase 8 — Reviewed runtime approval gate
+
+- A `review` result still retains the legacy duration by default. No existing project changes behavior merely by being loaded.
+- After equipment-level validation, `engineering.motionRuntime: "approved"` opts only that equipment into the calculated motion duration. Approval metadata is separate from user-entered parameters and does not overwrite acceleration, speed, or cycle-time values.
+- AUTO ENGINEERING displays approved mismatches as `APPROVED · SIM 적용`, keeping the old and calculated durations visible for traceability.
+- The production audit accepts an optional comma-separated equipment-type list after the duration. This runs an approval candidate without modifying the source JSON, so throughput, WIP, AS/RS counts, and stalls can be compared before saving approval metadata.

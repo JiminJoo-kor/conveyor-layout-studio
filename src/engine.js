@@ -84,8 +84,8 @@ export const engineeringRuntimePlan=(item,layout,context={})=>{
 export const engineeringRuntimeDecision=(item,layout,context={})=>{
   const legacySeconds=legacyCadDuration(item,layout,context),plan=engineeringRuntimePlan(item,layout,context);
   if(!plan)return{status:'unsupported',apply:false,legacySeconds,engineeringSeconds:null,motion:null,motions:[],scope:null};
-  const motions=plan.requests.map(solveMotionRequest),motionSeconds=plan.compose?plan.compose(motions):motions.reduce((sum,motion)=>sum+motion.totalTime,0),engineeringSeconds=Math.max(.2,(motionSeconds+plan.fixedSeconds)/Math.max(.01,equipmentAvailabilityFactor(item))),toleranceSeconds=Math.max(.1,legacySeconds*.02),apply=Math.abs(engineeringSeconds-legacySeconds)<=toleranceSeconds;
-  return{status:apply?'compatible':'review',apply,legacySeconds,engineeringSeconds,toleranceSeconds,motion:motions[0],motions,fixedSeconds:plan.fixedSeconds,scope:plan.scope};
+  const motions=plan.requests.map(solveMotionRequest),motionSeconds=plan.compose?plan.compose(motions):motions.reduce((sum,motion)=>sum+motion.totalTime,0),engineeringSeconds=Math.max(.2,(motionSeconds+plan.fixedSeconds)/Math.max(.01,equipmentAvailabilityFactor(item))),toleranceSeconds=Math.max(.1,legacySeconds*.02),compatible=Math.abs(engineeringSeconds-legacySeconds)<=toleranceSeconds,approved=item?.engineering?.motionRuntime==='approved',apply=compatible||approved;
+  return{status:compatible?'compatible':approved?'approved':'review',apply,approved,legacySeconds,engineeringSeconds,toleranceSeconds,motion:motions[0],motions,fixedSeconds:plan.fixedSeconds,scope:plan.scope};
 };
 export const cadDuration=(item,layout,context={})=>{const decision=engineeringRuntimeDecision(item,layout,context);return decision.apply?decision.engineeringSeconds:decision.legacySeconds;};
 // Receiver work already performed during the shared AS/RS handover must not

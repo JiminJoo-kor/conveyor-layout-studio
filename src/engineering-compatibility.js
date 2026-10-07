@@ -16,10 +16,11 @@ export function engineScopedMotionRequest(item,layout,context={}){
 export function compareEngineeringDuration(item,layout,context={},tolerance=engineeringCompatibilityTolerance){
  const runtime=engineeringRuntimeDecision(item,layout,context),legacySeconds=runtime.legacySeconds,request=engineScopedMotionRequest(item,layout,context);
  if(!request)return{equipmentId:item?.id,type:item?.type,status:'unsupported',applyEligible:false,legacySeconds:rounded(legacySeconds),engineeringSeconds:null,deltaSeconds:null,deltaPercent:null,reasons:['이 설비의 기존 사이클 범위 매핑이 아직 완료되지 않았습니다.']};
- const motion=runtime.motion,engineeringSeconds=runtime.engineeringSeconds,deltaSeconds=engineeringSeconds-legacySeconds,deltaPercent=legacySeconds?deltaSeconds/legacySeconds*100:0,limit=Math.max(Number(tolerance.absoluteSeconds)||0,legacySeconds*(Number(tolerance.relative)||0)),compatible=Math.abs(deltaSeconds)<=limit,reasons=[`기존 사이클 범위와 동일한 ${runtime.scope} 시간을 비교했습니다.`];
+ const motion=runtime.motion,engineeringSeconds=runtime.engineeringSeconds,deltaSeconds=engineeringSeconds-legacySeconds,deltaPercent=legacySeconds?deltaSeconds/legacySeconds*100:0,limit=Math.max(Number(tolerance.absoluteSeconds)||0,legacySeconds*(Number(tolerance.relative)||0)),compatible=Math.abs(deltaSeconds)<=limit,approved=runtime.approved&&!compatible,reasons=[`기존 사이클 범위와 동일한 ${runtime.scope} 시간을 비교했습니다.`];
  if(runtime.motions.some(axis=>axis.automatic))reasons.push('AUTO 가감속값과 현재 시뮬레이션 가감속값의 차이를 검토해야 합니다.');
  if(!compatible)reasons.push(`CT 차이 ${Math.abs(deltaSeconds).toFixed(3)}초가 허용범위 ${limit.toFixed(3)}초를 초과했습니다.`);
- return{equipmentId:item.id,type:item.type,status:compatible?'compatible':'review',applyEligible:compatible,legacySeconds:rounded(legacySeconds),engineeringSeconds:rounded(engineeringSeconds),deltaSeconds:rounded(deltaSeconds),deltaPercent:rounded(deltaPercent),toleranceSeconds:rounded(limit),motion,motions:runtime.motions,fixedSeconds:runtime.fixedSeconds,scope:runtime.scope,reasons};
+ if(approved)reasons.push('설비별 검토 승인을 통해 계산된 motion을 시뮬레이션에 적용합니다.');
+ return{equipmentId:item.id,type:item.type,status:compatible?'compatible':approved?'approved':'review',applyEligible:compatible||approved,legacySeconds:rounded(legacySeconds),engineeringSeconds:rounded(engineeringSeconds),deltaSeconds:rounded(deltaSeconds),deltaPercent:rounded(deltaPercent),toleranceSeconds:rounded(limit),motion,motions:runtime.motions,fixedSeconds:runtime.fixedSeconds,scope:runtime.scope,reasons};
 }
 
 export function compareLayoutEngineering(layout,contextByEquipment={}){

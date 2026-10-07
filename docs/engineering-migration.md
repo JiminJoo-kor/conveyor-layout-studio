@@ -55,3 +55,10 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - AUTO ENGINEERING displays approved mismatches as `APPROVED · SIM 적용`, keeping the old and calculated durations visible for traceability.
 - The production audit accepts an optional comma-separated equipment-type list after the duration. This runs an approval candidate without modifying the source JSON, so throughput, WIP, AS/RS counts, and stalls can be compared before saving approval metadata.
 - After the staged production audit passes, `npm run approve-engineering-motion -- <input> <output>` creates a separate compact approved layout. It preserves the source file, removes only unreferenced built-in demo equipment, stores approval metadata on validated parent equipment, and verifies the regenerated AS/RS interfaces before writing.
+
+## Phase 9 — Inspector information hierarchy
+
+- Every equipment card now keeps the same visible order: equipment/status and core results, Basic INPUT, Logistics/Mechanism, MOTION, AUTO ENGINEERING, Flow/Connection, then collapsed Engineering Detail.
+- AUTO, RESULT, and STATUS fields can no longer fall through into the Basic INPUT section. Unassigned calculated or diagnostic controls move to Engineering Detail, which remains collapsed by default.
+- Empty sections remain visible with a short explanation so equipment types do not reorder themselves based on which controls they support.
+- Process Line participates in the same inspector instead of being omitted. The core summary uses the complete composed engineering cycle and approval state rather than the longest single-axis time.

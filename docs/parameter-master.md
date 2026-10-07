@@ -19,3 +19,5 @@
 4. `engineeringChangeLog`: 자동 변경을 원인, 조치, 영향으로 기록한다.
 
 Payload를 kW에 직접 대응시키지 않는다. 같은 payload도 속도, 가속도, 경사, 휠 반경, 감속비와 효율에 따라 다른 모터가 선택되어야 한다. 현재 계산은 UI/저장값을 직접 변경하지 않는 preview 경계이며, 설비별 상세 모델을 검증한 뒤 시뮬레이션에 연결한다.
+
+설비별 preview는 하나의 대표값으로 축약하지 않는다. AS/RS는 X 주행, Z 상승, Z 하강, 적재 포크, 빈 포크를 각각 계산한다. AMR·AGV는 인수, 주행, 인계로 나누고, Lifter는 중력 방향이 다른 상승과 하강을 분리한다. `equipmentRole=turnConveyor`와 `equipmentRole=pneumatic`도 각각 transfer/rotary 및 extend/retract 요청을 만든다. 모터 후보는 이 축별 요구조건 중 가장 큰 power 요구 축을 기준으로 선정하되 모든 축 결과를 함께 반환한다.

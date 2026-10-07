@@ -49,4 +49,4 @@ export function parameterDefinition(type,key){
 }
 
 export function parameterKindFor(item,key){return parameterDefinition(item?.type,key)?.kind??I;}
-export function motionModelsFor(item){return equipmentMotionModels[item?.type]??[];}
+export function motionModelsFor(item){if(item?.equipmentRole==='turnConveyor')return['transfer','rotary'];if(item?.equipmentRole==='pneumatic')return['extend','retract'];return equipmentMotionModels[item?.type]??[];}

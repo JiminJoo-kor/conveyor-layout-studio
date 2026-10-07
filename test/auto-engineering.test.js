@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {driveRequirements,engineeringPreview,selectStandardMotor,solveMotionRequest,standardMotorCandidates} from '../src/auto-engineering.js';
+import {driveRequirements,engineeringPreview,motionRequestsFor,selectStandardMotor,solveMotionRequest,standardMotorCandidates} from '../src/auto-engineering.js';
 
 test('actual distance decides triangular versus trapezoidal profile',()=>{
  const short=solveMotionRequest({distance:.2,targetSpeed:2,automatic:false,acceleration:1,deceleration:1});
@@ -29,4 +29,19 @@ test('engineering preview records cause action and impact for automatic changes'
  assert.deepEqual(preview.motionModels,['linear']);assert.equal(preview.motions.length,1);assert.equal(preview.changes.length,2);
  for(const log of preview.changes){assert.ok(log.cause);assert.match(log.action,/→/);assert.match(log.impact,/CT/);}
  assert.ok(['selected','no-candidate'].includes(preview.motorSelection.status));
+});
+
+test('equipment-specific axes map to independent motion requests',()=>{
+ const asrs={id:'rack',type:'asrs',parameters:{columns:5,columnPitch:1.5,levels:3,levelHeight:2,travelSpeed:2,liftSpeed:1,downSpeed:1.2,forkStroke:.8,forkSpeed:.4,autoMotionTuning:1}};
+ const axes=motionRequestsFor(asrs);assert.deepEqual(axes.map(axis=>axis.model),['x-travel','z-up-with-gravity','z-down-with-gravity','fork-loaded','fork-empty']);assert.deepEqual(axes.map(axis=>axis.distance),[6,4,4,.8,.8]);
+ const preview=engineeringPreview(asrs,{payloadKg:350,movingMassKg:500});assert.equal(preview.motions.length,5);assert.equal(preview.motorSelection.axisRequirements.length,5);assert.equal(preview.motorSelection.requirements.model,'z-up-with-gravity');
+});
+
+test('fork lift mobile rotary turn conveyor and pneumatic preserve distinct phases',()=>{
+ assert.deepEqual(motionRequestsFor({id:'fork',type:'forkingDevice',parameters:{strokeDistance:1}}).map(x=>x.model),['loaded-forward','empty-return']);
+ assert.deepEqual(motionRequestsFor({id:'lift',type:'lift',parameters:{liftHeight:3}}).map(x=>x.model),['up-with-gravity','down-with-gravity']);
+ assert.deepEqual(motionRequestsFor({id:'amr',type:'amr',parameters:{}},{cargoLengthM:1}).map(x=>x.model),['receive','drive','transfer']);
+ assert.deepEqual(motionRequestsFor({id:'turn',type:'turntable',parameters:{}}).map(x=>x.model),['rotary']);
+ assert.deepEqual(motionRequestsFor({id:'turn-cv',type:'turntable',equipmentRole:'turnConveyor',parameters:{}}).map(x=>x.model),['transfer','rotary']);
+ assert.deepEqual(motionRequestsFor({id:'air',type:'station',equipmentRole:'pneumatic',parameters:{}}).map(x=>x.model),['extend','retract']);
 });

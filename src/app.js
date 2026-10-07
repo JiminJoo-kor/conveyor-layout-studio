@@ -1,3 +1,4 @@
+import {installCargoDetail} from './cargo-detail.js';
 import {historyCount,historyNotice} from './history-memory.js';
 import {inputDisplayValue} from './distance-units.js';
 import {PlaybackBudget} from './playback-budget.js';
@@ -24,6 +25,7 @@ const $ = id => document.getElementById(id);
 const emptyLayout={schemaVersion:defaultLayout.schemaVersion,id:'empty-layout',name:'파일을 열어주세요',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},canvas:{width:1200,height:650,grid:20},equipment:[],connections:[],displayMode:'cad',cadViewMode:'schematic',cadSchematic:{lanes:[],inboundBranches:[],edges:[]}};
 let layout = cloneLayout(emptyLayout), engine = new SimulationEngine(cloneLayout(defaultLayout), defaultParams);
 let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, frame = null, last = 0;
+installCargoDetail(renderer);
 let selectedEquipment = null;
 let selectedConnectionIndex = null;
 let pendingCadCandidates = [];

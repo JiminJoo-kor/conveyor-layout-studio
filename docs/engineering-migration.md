@@ -22,3 +22,4 @@ Next: expose the Conveyor compatibility result in AUTO ENGINEERING, then connect
 - Fork compares `loaded forward + hold + empty return`.
 - Forklift preserves the current `load + loaded travel + unload` scope; the new empty-return axis is displayed but is not silently added to the legacy cycle.
 - Lifter preserves the current `load + upward travel + unload` scope; downward return remains outside the legacy cycle until the operational sequence explicitly includes it.
+- Turntable maps rotary motion. Turn Conveyor exposes transfer and rotary axes for engineering, but only rotary motion enters the current runtime CT because transfer is not part of the legacy sequence yet.

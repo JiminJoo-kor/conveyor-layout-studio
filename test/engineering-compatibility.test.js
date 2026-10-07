@@ -53,3 +53,10 @@ test('forklift and lift preserve the legacy one-way cycle scope',()=>{
  const lift={id:'lift',type:'lift',parameters:{liftHeight:6,liftSpeed:2,loadTime:1,unloadTime:2,acceleration:.5,deceleration:.5,autoMotionTuning:0}},liftResult=compareEngineeringDuration(lift,layout(lift));
  assert.deepEqual(liftResult.motions.map(axis=>axis.model),['up-with-gravity']);assert.match(liftResult.scope,/하강 복귀 제외/);assert.equal(liftResult.fixedSeconds,3);assert.equal(liftResult.status,'compatible');
 });
+
+test('turntable maps rotary motion without silently adding turn-conveyor transfer',()=>{
+ const turntable={id:'turn',type:'turntable',parameters:{rotationTime:6,rotationAngleDeg:90,autoMotionTuning:1}},turnResult=compareEngineeringDuration(turntable,layout(turntable));
+ assert.deepEqual(turnResult.motions.map(axis=>axis.model),['rotary']);assert.equal(turnResult.scope,'회전');assert.equal(turnResult.status,'compatible');assert.equal(cadDuration(turntable,layout(turntable)),turnResult.engineeringSeconds);
+ const turnConveyor={id:'turn-cv',type:'turntable',equipmentRole:'turnConveyor',parameters:{length:2,speed:.5,rotationTime:6,rotationAngleDeg:90,autoMotionTuning:1}},turnConveyorResult=compareEngineeringDuration(turnConveyor,layout(turnConveyor));
+ assert.deepEqual(turnConveyorResult.motions.map(axis=>axis.model),['rotary']);assert.match(turnConveyorResult.scope,/이송 축은 기존 CT에서 제외/);
+});

@@ -64,7 +64,7 @@ export const legacyCadDuration=(item,layout,context={})=>{
   else duration=Number(p.cycleTime??p.processTime??1);
   return Math.max(.2,duration/Math.max(.01,equipmentAvailabilityFactor(item)));
 };
-const engineeringRuntimeTypes=new Set(['conveyor','processLine','sorter','agv','amr','shuttle','forkingDevice','forklift','lift']);
+const engineeringRuntimeTypes=new Set(['conveyor','processLine','sorter','agv','amr','shuttle','forkingDevice','forklift','lift','turntable']);
 export const engineeringRuntimePlan=(item,layout)=>{
   const p=item?.parameters||{},cargoLength=cargoSpec(layout).length,requests=motionRequestsFor(item,{cargoLengthM:cargoLength});
   if(!engineeringRuntimeTypes.has(item?.type)||!requests.length)return null;
@@ -73,6 +73,7 @@ export const engineeringRuntimePlan=(item,layout)=>{
   if(item.type==='forkingDevice'){const stroke=Math.max(.01,Number(p.strokeDistance)||1.5),legacy=Math.max(.2,Number(p.forkTime)||4);return{requests:requests.map(axis=>({...axis,targetSpeed:axis.model==='loaded-forward'?(Number(p.receiveSpeed)||2*stroke/legacy):(Number(p.transferSpeed)||2*stroke/legacy)})),fixedSeconds:Math.max(0,Number(p.holdTime)||0),scope:'전진 + 대기 + 복귀'};}
   if(item.type==='forklift')return{requests:requests.filter(axis=>axis.model==='loaded-forward'),fixedSeconds:Number(p.loadTime||8)+Number(p.unloadTime||8),scope:'적재 + 적재주행 + 하역 (빈차 복귀 제외)'};
   if(item.type==='lift')return{requests:requests.filter(axis=>axis.model==='up-with-gravity'),fixedSeconds:Number(p.loadTime||2)+Number(p.unloadTime||2),scope:'적재 + 상승 + 하역 (하강 복귀 제외)'};
+  if(item.type==='turntable')return{requests:requests.filter(axis=>axis.model==='rotary'),fixedSeconds:0,scope:item.equipmentRole==='turnConveyor'?'회전 (이송 축은 기존 CT에서 제외)':'회전'};
   return null;
 };
 export const engineeringRuntimeDecision=(item,layout,context={})=>{

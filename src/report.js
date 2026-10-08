@@ -1,5 +1,6 @@
 import { validateFlowGraph } from './flow-graph.js';
 import { cadDuration, equipmentLengthMeters } from './engine.js';
+import {buildWhatIfScenarios,estimateLayoutEnergy,explainBottleneck} from './decision-support.js';
 const unitScale=units=>units==='mm'?.001:units==='cm'?.01:units==='m'?1:null;
 const position=item=>item?.source?.cadPosition;
 const name=item=>item?.name||item?.type||'-';
@@ -13,5 +14,6 @@ export function buildSimulationReport(layout,engine,targetUph=0){
   const rows=(layout.cadSchematic?.edges||[]).map((edge,index)=>{const from=byId.get(edge.from),to=byId.get(edge.to);if(!from||!to)return null;const moving=['conveyor','processLine','agv','amr','forklift'].includes(from.type),distance=moving?equipmentLengthMeters(from,layout):0,move=moving?cadDuration(from,layout):0,work=cadDuration(to,layout),ct=move+work;return{process:`${name(from)} → ${name(to)}`,distance,move,work,ct,kind:edge.kind,index};}).filter(Boolean),maxCt=Math.max(0,...rows.map(row=>row.ct));
   rows.forEach(row=>row.bottleneck=maxCt>0&&row.ct===maxCt);
   const kpis=engine.getKpis(),realizable=kpis.throughput||0,target=Number(targetUph)||realizable;
-  return{corrections,topology:(layout.cadSchematic?.edges||[]).filter(edge=>byId.has(edge.from)&&byId.has(edge.to)).map(edge=>`${name(byId.get(edge.from))} [${edge.fromPort||'자동 출구'}] → ${name(byId.get(edge.to))} [${edge.toPort||'자동 입구'}]`),timingBasis:'명목 단독 운전 시간 — 실제 대기·병렬·인터락 CT는 완료 물류 KPI를 참조',rows,kpis,targetUph:target,realizableUph:realizable,eightHours:realizable*8,twelveHours:realizable*12};
+  const bottleneckAnalysis=explainBottleneck(rows),whatIf=buildWhatIfScenarios(rows,realizable),energy=estimateLayoutEnergy(layout,{hours:8,utilization:Number(kpis?.utilization?.asrs)||.65});
+  return{corrections,topology:(layout.cadSchematic?.edges||[]).filter(edge=>byId.has(edge.from)&&byId.has(edge.to)).map(edge=>`${name(byId.get(edge.from))} [${edge.fromPort||'자동 출구'}] → ${name(byId.get(edge.to))} [${edge.toPort||'자동 입구'}]`),timingBasis:'명목 단독 운전 시간 — 실제 대기·병렬·인터락 CT는 완료 물류 KPI를 참조',rows,kpis,targetUph:target,realizableUph:realizable,eightHours:realizable*8,twelveHours:realizable*12,bottleneckAnalysis,whatIf,energy};
 }

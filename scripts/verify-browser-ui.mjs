@@ -21,6 +21,8 @@ const evaluate=async expression=>{
 };
 const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 
+await send('Page.reload',{ignoreCache:true});
+await wait(1000);
 const layoutText=await readFile(path.resolve(layoutPath),'utf8');
 await evaluate(`(async()=>{const input=document.querySelector('#layoutFile'),transfer=new DataTransfer(),file=new File([${JSON.stringify(layoutText)}],'browser-verification.json',{type:'application/json'});transfer.items.add(file);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;})()`);
 await wait(1500);

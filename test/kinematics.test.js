@@ -25,6 +25,9 @@ test('컨베이어 프레임은 롤러와 현장 지지대를 화면 기하로 �
  const normal=conveyorFrameGeometry(78,24,false),compact=conveyorFrameGeometry(58,16,true);
  assert.equal(normal.supports.length,2);
  assert.equal(compact.supports.length,0);
+ assert.deepEqual(normal.endDrums,[-35,35]);
+ assert.equal(normal.railInset,3);
+ assert.equal(compact.railInset,2);
  assert.ok(normal.rollers.length>compact.rollers.length);
  assert.ok(normal.rollers.every(x=>x>-39&&x<39));
  assert.ok(compact.rollers.every(x=>x>-29&&x<29));

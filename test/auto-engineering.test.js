@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {driveRequirements,engineeringPreview,loadedPayloadFor,maximumDrivePayload,motionRequestsFor,selectStandardMotor,solveFlatDriveMotion,solveMotionRequest,standardMotorCandidates,verifyDriveRoundTrip} from '../src/auto-engineering.js';
+import {axisDriveRequirements,driveRequirements,engineeringPreview,loadedPayloadFor,maximumDrivePayload,motionRequestsFor,selectStandardMotor,solveFlatDriveMotion,solveMotionRequest,standardMotorCandidates,verifyDriveRoundTrip} from '../src/auto-engineering.js';
 
 test('actual distance decides triangular versus trapezoidal profile',()=>{
  const short=solveMotionRequest({distance:.2,targetSpeed:2,automatic:false,acceleration:1,deceleration:1});
@@ -68,7 +68,12 @@ test('engineering preview records cause action and impact for automatic changes'
 test('equipment-specific axes map to independent motion requests',()=>{
  const asrs={id:'rack',type:'asrs',parameters:{columns:5,columnPitch:1.5,levels:3,levelHeight:2,travelSpeed:2,liftSpeed:1,downSpeed:1.2,forkStroke:.8,forkSpeed:.4,autoMotionTuning:1}};
  const axes=motionRequestsFor(asrs);assert.deepEqual(axes.map(axis=>axis.model),['x-travel','z-up-with-gravity','z-down-with-gravity','fork-loaded','fork-empty']);assert.deepEqual(axes.map(axis=>axis.distance),[6,4,4,.8,.8]);
- const preview=engineeringPreview(asrs,{payloadKg:350,movingMassKg:500});assert.equal(preview.motions.length,5);assert.equal(preview.motorSelection.axisRequirements.length,5);assert.equal(preview.motorSelection.requirements.model,'z-up-with-gravity');
+ const preview=engineeringPreview(asrs,{payloadKg:350,movingMassKg:500});assert.equal(preview.motions.length,5);assert.equal(preview.motorSelection.axisRequirements.length,5);assert.equal(preview.motorSelection.requirements.model,'all-axis-envelope');assert.equal(preview.motorSelection.criticalRequirement.model,'z-down-with-gravity');
+});
+
+test('gravity rotary and empty return axes use distinct physical requirements',()=>{
+ const up=axisDriveRequirements({model:'up-with-gravity',acceleration:.5,deceleration:.7,peakSpeed:.8,inclineDeg:90},{payloadKg:300,movingMassKg:200}),down=axisDriveRequirements({model:'down-with-gravity',acceleration:.5,deceleration:.7,peakSpeed:.8,inclineDeg:-90},{payloadKg:300,movingMassKg:200}),loaded=axisDriveRequirements({model:'fork-loaded',acceleration:.5,peakSpeed:.5},{payloadKg:300,movingMassKg:100}),empty=axisDriveRequirements({model:'fork-empty',acceleration:.5,peakSpeed:.5},{payloadKg:300,movingMassKg:100}),rotary=axisDriveRequirements({model:'rotary',acceleration:.4,peakSpeed:.6},{payloadKg:300,movingMassKg:100,drive:{rotaryRadiusM:.8}});
+ assert.equal(up.operatingMode,'적재 구동');assert.equal(down.operatingMode,'하강 제동');assert.ok(down.motorTorqueNm>up.motorTorqueNm);assert.equal(empty.operatingMode,'빈 복귀');assert.ok(empty.massKg<loaded.massKg);assert.equal(rotary.driveFamily,'rotary');assert.ok(rotary.inertiaKgM2>0);assert.ok(rotary.motorTorqueNm>0);
 });
 
 test('fork lift mobile rotary turn conveyor and pneumatic preserve distinct phases',()=>{

@@ -51,8 +51,13 @@ test('reviewed motion requires an explicit per-equipment runtime approval',()=>{
 
 test('approved automatic conveyor runs at the physics-limited speed',()=>{
  const item={id:'cv-physical',type:'conveyor',engineering:{motionRuntime:'approved'},parameters:{length:5.5,speed:20,capacity:4,autoMotionTuning:1}},itemLayout={cargoSpec:{length:2000,width:1300,weight:100,unit:'mm'},equipment:[item]},config=runtimeMotionConfig(item,itemLayout);
- assert.ok(config.targetSpeed<20);assert.ok(config.targetSpeed<=2.5);assert.equal(config.acceleration,.8);assert.equal(config.deceleration,1);
+ assert.ok(config.targetSpeed<20);assert.ok(config.targetSpeed<=2.5);assert.equal(config.acceleration,.8);assert.equal(config.deceleration,1);assert.equal(config.driveSectionCount,1);
  item.engineering.motionRuntime='review';assert.equal(runtimeMotionConfig(item,itemLayout).targetSpeed,20);
+});
+
+test('approved long conveyor runtime uses every planned drive section',()=>{
+ const item={id:'cv-sectioned',type:'conveyor',engineering:{motionRuntime:'approved'},parameters:{length:13,speed:1.2,capacity:10,autoMotionTuning:1}},itemLayout={cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[item]},config=runtimeMotionConfig(item,itemLayout);
+ assert.equal(config.driveSectionCount,3);assert.ok(Number.isFinite(config.targetSpeed));assert.ok(config.targetSpeed>0);assert.ok(config.targetSpeed<=1.2);
 });
 
 test('mobile and fork cycles compose every legacy phase before runtime adoption',()=>{

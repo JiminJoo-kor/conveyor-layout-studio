@@ -11,6 +11,7 @@
     "audit-layout": "node scripts/audit-layout.mjs",
     "compare-engineering-runs": "node scripts/compare-engineering-runs.mjs",
     "rank-engineering-candidates": "node scripts/rank-engineering-candidates.mjs",
+    "review-speed-units": "node scripts/review-speed-units.mjs",
     "approve-engineering-motion": "node scripts/approve-engineering-motion.mjs"
   }
 }

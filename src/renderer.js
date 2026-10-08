@@ -210,7 +210,7 @@ export class LayoutRenderer {
     for (let x = 0; x < width; x += grid) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,height); c.stroke(); }
     for (let y = 0; y < height; y += grid) { c.beginPath(); c.moveTo(0,y); c.lineTo(width,y); c.stroke(); }
     if(['raw','hybrid'].includes(this.layout.cadViewMode))this.drawDxfGeometry();
-    if(this.layout.displayMode==='cad'&&this.layout.cadViewMode!=='raw')this.drawCadSchematic(state);
+    if(this.layout.displayMode==='cad'&&this.layout.cadViewMode!=='raw'){this.drawCadSchematic(state);this.drawSelectedEdgeEndpoints();}
     const lines = this.layout.equipment.filter(item=>isNodeConveyor(item)&&this.isVisible(item));
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
     if(this.layout.displayMode!=='cad')this.drawConnections();
@@ -232,6 +232,8 @@ export class LayoutRenderer {
   drawDirectionControls(){if(!this.selectedId)return;const item=this.layout.equipment.find(node=>node.id===this.selectedId);if(!item||item.type==='processLine')return;const c=this.ctx,active=item.parameters?.flowDirection;for(const control of equipmentDirectionControls(item)){c.save();c.beginPath();c.arc(control.x,control.y,13,0,Math.PI*2);c.fillStyle=active===control.direction?'rgba(0,255,136,.95)':'rgba(5,18,29,.96)';c.strokeStyle=active===control.direction?COLORS.green:COLORS.yellow;c.lineWidth=2;c.fill();c.stroke();c.fillStyle=active===control.direction?'#05231a':'#fff2a8';c.font='bold 15px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(control.label,control.x,control.y+1);c.restore();}}
 
   drawMarquee(){if(!this.marquee)return;const {x,y,w,h}=this.marquee,c=this.ctx;c.save();c.fillStyle='rgba(0,212,255,.1)';c.strokeStyle=COLORS.cyan;c.lineWidth=1.5;c.setLineDash([6,4]);c.fillRect(x,y,w,h);c.strokeRect(x,y,w,h);c.restore();}
+
+  drawSelectedEdgeEndpoints(){const edge=this.layout.cadSchematic?.edges?.[this.selectedEdgeIndex];if(!edge)return;const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),fromNode=nodes.get(edge.from),toNode=nodes.get(edge.to);if(!fromNode||!toNode)return;const inferred=closestPortPair(fromNode,toNode),points=[{...connectionAnchor(fromNode,edge.fromPort||inferred?.fromPort),label:'시작'},{...connectionAnchor(toNode,edge.toPort||inferred?.toPort),label:'종료'}],c=this.ctx;c.save();for(const point of points){c.setLineDash([]);c.fillStyle='#061019';c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.beginPath();c.arc(point.x,point.y,9,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=COLORS.yellow;c.font='bold 7px monospace';c.textAlign='center';c.textBaseline='bottom';c.fillText(point.label,point.x,point.y-11);}c.restore();}
 
   drawDxfGeometry(){
     const c=this.ctx,geometry=this.layout.dxfGeometry||[];if(!geometry.length)return;

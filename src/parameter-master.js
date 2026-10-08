@@ -7,6 +7,7 @@ const shared={
   autoMotionTuning:I,motionProfile:I,loadDerateStart:I,minimumLoadedSpeed:I
 };
 const input=(...keys)=>Object.fromEntries(keys.map(key=>[key,I]));
+const pneumaticFields={...input('strokeDistance','speed','returnSpeed','holdTime','pressureBar','frictionCoefficient','externalForceN','pneumaticEfficiency','pneumaticServiceFactor'),cylinderBoreMm:A,cylinderRodMm:R,requiredForceN:R,extendForceN:R,retractForceN:R};
 
 // This is an inventory of persisted engineering parameters, including controls
 // rendered outside parameterFieldsFor. It deliberately does not rename keys so
@@ -30,11 +31,11 @@ export const equipmentParameterMaster=Object.freeze({
   sorter:{...input('length','speed','destinations','loadCapacity','safetyGap'),...shared},
   lift:{...input('liftHeight','liftSpeed','downSpeed','loadTime','unloadTime','levels','loadCapacity'),...shared},
   robot:{...input('pickTime','placeTime','loadCapacity')},
-  station:{...input('processTime','operators')},
+  station:{...input('processTime','operators'),...pneumaticFields},
   buffer:{...input('capacity')}
 });
 
-export const pneumaticParameterMaster=Object.freeze({...input('strokeDistance','speed','returnSpeed','holdTime','pressureBar','frictionCoefficient','externalForceN','pneumaticEfficiency','pneumaticServiceFactor'),cylinderBoreMm:A,cylinderRodMm:R,requiredForceN:R,extendForceN:R,retractForceN:R,...shared});
+export const pneumaticParameterMaster=Object.freeze({...pneumaticFields,...shared});
 
 export const equipmentMotionModels=Object.freeze({
   conveyor:['linear'],processLine:['linear'],sorter:['linear'],diverter:['linear-transfer'],

@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { asrsDepthPresentation, asrsSceneModel, isoPoint } from '../src/asrs-monitor.js';
+import { asrsDepthPresentation, asrsLiveDisplayPolicy, asrsSceneModel, isoPoint } from '../src/asrs-monitor.js';
 import { asrsRackCells } from '../src/renderer.js';
+
+test('3D LIVE 표시 단계는 2D와 같은 간단·운전·Engineering 규칙을 사용한다',()=>{
+  const minimal=asrsLiveDisplayPolicy('minimal'),operations=asrsLiveDisplayPolicy('operations'),engineering=asrsLiveDisplayPolicy('engineering'),selected=asrsLiveDisplayPolicy('minimal',true);
+  assert.equal(minimal.showStations,false);assert.equal(minimal.showOperation,false);
+  assert.equal(operations.showOperation,true);assert.equal(operations.showTiming,false);
+  assert.equal(engineering.showTarget,true);assert.equal(engineering.showTiming,true);
+  assert.equal(selected.selected,true);assert.equal(selected.showTarget,true);
+});
 
 test('교차 라인 출고 중에도 2D와 LIVE의 랙 순서·수량·점유 셀이 일치한다',()=>{
   const equipment={id:'rack',parameters:{columns:8,levels:4,rows:2}};

@@ -22,3 +22,11 @@ test('운영 핵심 분석과 엔지니어링 상세를 서로 다른 우선순�
  assert.equal(analysisTabMeta('drive').group,'detail');
  assert.match(analysisTabMeta('changes').description,/원인.*조치.*영향/);
 });
+
+test('각 탭은 고유 분석 패널을 가진다',()=>{
+ for(const tab of ['production','ct','wip','bottleneck','drive','events','changes']){
+  assert.equal(normalizeAnalysisTab(tab),tab);
+  assert.ok(analysisTabMeta(tab).title);
+  assert.ok(analysisTabMeta(tab).description);
+ }
+});

@@ -34,6 +34,8 @@ export const equipmentParameterMaster=Object.freeze({
   buffer:{...input('capacity')}
 });
 
+export const pneumaticParameterMaster=Object.freeze({...input('strokeDistance','speed','returnSpeed','holdTime','pressureBar','frictionCoefficient','externalForceN','pneumaticEfficiency','pneumaticServiceFactor'),cylinderBoreMm:A,cylinderRodMm:R,requiredForceN:R,extendForceN:R,retractForceN:R,...shared});
+
 export const equipmentMotionModels=Object.freeze({
   conveyor:['linear'],processLine:['linear'],sorter:['linear'],diverter:['linear-transfer'],
   forkingDevice:['loaded-forward','empty-return'],forklift:['loaded-forward','empty-return'],
@@ -48,5 +50,5 @@ export function parameterDefinition(type,key){
   return kind?{key,kind,editable:kind===I,source:kind===I?'user':'engineering'}:null;
 }
 
-export function parameterKindFor(item,key){return parameterDefinition(item?.type,key)?.kind??I;}
+export function parameterKindFor(item,key){return(item?.equipmentRole==='pneumatic'?pneumaticParameterMaster[key]:null)??parameterDefinition(item?.type,key)?.kind??I;}
 export function motionModelsFor(item){if(item?.equipmentRole==='turnConveyor')return['transfer','rotary'];if(item?.equipmentRole==='pneumatic')return['extend','retract'];return equipmentMotionModels[item?.type]??[];}

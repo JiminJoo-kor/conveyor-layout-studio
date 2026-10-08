@@ -20,3 +20,8 @@ test('engineering result explicitly marks an out-of-range motor candidate for re
  assert.match(html,/표준 후보 범위 검토/);
  assert.match(html,/원인[\s\S]*조치[\s\S]*영향/);
 });
+
+test('pneumatic result shows cylinder force instead of an IEC motor',()=>{
+ const view=engineeringPresentation({preview:{movingMassKg:10,motorSelection:null,actuatorSelection:{status:'selected',pressureBar:6,utilizationPercent:72.5,requirements:{requiredForceN:210},cylinder:{id:'ISO-CYL-25',boreMm:25,rodMm:10,extendForceN:250,retractForceN:230}},motions:[],changes:[]},load:{unitPayloadKg:20,loadCount:1,payloadKg:20},compatibility:{status:'compatible',scope:'전진 + 대기 + 복귀',legacySeconds:2,engineeringSeconds:2,deltaSeconds:0}}),html=engineeringPanelMarkup(view);
+ assert.equal(view.deviceType,'pneumatic');assert.equal(view.selectionStatus,'SELECTED');assert.match(html,/표준 실린더 선정 완료[\s\S]*ISO-CYL-25/);assert.match(html,/Required Force[\s\S]*Extend Force[\s\S]*Retract Force/);assert.doesNotMatch(html,/Required Torque/);
+});

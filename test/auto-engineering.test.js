@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {axisDriveRequirements,driveRequirements,engineeringPreview,loadedPayloadFor,maximumDrivePayload,motionRequestsFor,selectStandardMotor,solveFlatDriveMotion,solveMotionRequest,standardMotorCandidates,verifyDriveRoundTrip} from '../src/auto-engineering.js';
+import {axisDriveRequirements,driveRequirements,engineeringPreview,loadedPayloadFor,maximumDrivePayload,motionRequestsFor,pneumaticRequirements,selectStandardCylinder,selectStandardMotor,solveFlatDriveMotion,solveMotionRequest,standardMotorCandidates,verifyDriveRoundTrip} from '../src/auto-engineering.js';
 
 test('actual distance decides triangular versus trapezoidal profile',()=>{
  const short=solveMotionRequest({distance:.2,targetSpeed:2,automatic:false,acceleration:1,deceleration:1});
@@ -74,6 +74,16 @@ test('equipment-specific axes map to independent motion requests',()=>{
 test('gravity rotary and empty return axes use distinct physical requirements',()=>{
  const up=axisDriveRequirements({model:'up-with-gravity',acceleration:.5,deceleration:.7,peakSpeed:.8,inclineDeg:90},{payloadKg:300,movingMassKg:200}),down=axisDriveRequirements({model:'down-with-gravity',acceleration:.5,deceleration:.7,peakSpeed:.8,inclineDeg:-90},{payloadKg:300,movingMassKg:200}),loaded=axisDriveRequirements({model:'fork-loaded',acceleration:.5,peakSpeed:.5},{payloadKg:300,movingMassKg:100}),empty=axisDriveRequirements({model:'fork-empty',acceleration:.5,peakSpeed:.5},{payloadKg:300,movingMassKg:100}),rotary=axisDriveRequirements({model:'rotary',acceleration:.4,peakSpeed:.6},{payloadKg:300,movingMassKg:100,drive:{rotaryRadiusM:.8}});
  assert.equal(up.operatingMode,'적재 구동');assert.equal(down.operatingMode,'하강 제동');assert.ok(down.motorTorqueNm>up.motorTorqueNm);assert.equal(empty.operatingMode,'빈 복귀');assert.ok(empty.massKg<loaded.massKg);assert.equal(rotary.driveFamily,'rotary');assert.ok(rotary.inertiaKgM2>0);assert.ok(rotary.motorTorqueNm>0);
+});
+
+test('pneumatic actuator selects a standard bore from extend and annular retract force',()=>{
+ const requirements=pneumaticRequirements({payloadKg:20,movingMassKg:10,acceleration:1,frictionCoefficient:.1,externalForceN:50,serviceFactor:1.5}),selection=selectStandardCylinder(requirements,{pressureBar:6,efficiency:.85});
+ assert.equal(selection.status,'selected');assert.ok(selection.cylinder.extendForceN>=requirements.requiredForceN);assert.ok(selection.cylinder.retractForceN>=requirements.requiredForceN);assert.ok(selection.cylinder.extendForceN>selection.cylinder.retractForceN);assert.ok(selection.utilizationPercent<=100);
+});
+
+test('pneumatic engineering never reports an IEC motor selection',()=>{
+ const item={id:'air',type:'station',equipmentRole:'pneumatic',parameters:{strokeDistance:.4,speed:.25,returnSpeed:.4,pressureBar:6,autoMotionTuning:1}},preview=engineeringPreview(item,{payloadKg:20,movingMassKg:10});
+ assert.equal(preview.motorSelection,null);assert.equal(preview.actuatorSelection.status,'selected');assert.match(preview.actuatorSelection.cylinder.id,/ISO-CYL/);
 });
 
 test('fork lift mobile rotary turn conveyor and pneumatic preserve distinct phases',()=>{

@@ -16,6 +16,10 @@ export const standardMotorCandidates=Object.freeze([
  {id:'IEC-22',powerKw:22,ratedTorqueNm:140.1,maxRpm:1500}
 ]);
 
+export const standardCylinderCandidates=Object.freeze([
+ {id:'ISO-CYL-20',boreMm:20,rodMm:8},{id:'ISO-CYL-25',boreMm:25,rodMm:10},{id:'ISO-CYL-32',boreMm:32,rodMm:12},{id:'ISO-CYL-40',boreMm:40,rodMm:16},{id:'ISO-CYL-50',boreMm:50,rodMm:20},{id:'ISO-CYL-63',boreMm:63,rodMm:20},{id:'ISO-CYL-80',boreMm:80,rodMm:25},{id:'ISO-CYL-100',boreMm:100,rodMm:32},{id:'ISO-CYL-125',boreMm:125,rodMm:40},{id:'ISO-CYL-160',boreMm:160,rodMm:50}
+]);
+
 export const equipmentDriveDefaults=Object.freeze({
  conveyor:Object.freeze({movingMassKg:80,mechanicalMaxSpeed:2.5,accelerationLimit:0.8,decelerationLimit:1,rollingResistance:0.03,wheelRadiusM:0.08,gearRatio:12,efficiency:0.85,serviceFactor:1.25}),
  sorter:Object.freeze({movingMassKg:120,mechanicalMaxSpeed:2.5,accelerationLimit:0.8,decelerationLimit:1,rollingResistance:0.03,wheelRadiusM:0.08,gearRatio:12,efficiency:0.85,serviceFactor:1.25}),
@@ -83,6 +87,17 @@ export function axisDriveRequirements(motion,{payloadKg=0,movingMassKg=0,drive={
  return{model,driveFamily:pneumatic?'pneumatic':'linear',operatingMode:downward?'하강 제동':empty?'빈 복귀':/loaded|up-with-gravity/.test(model)?'적재 구동':'구동',...requirements};
 }
 
+export function pneumaticRequirements({payloadKg=0,movingMassKg=0,acceleration=.8,frictionCoefficient=.08,externalForceN=0,serviceFactor=1.5}={}){
+ const mass=Math.max(0,Number(payloadKg)||0)+Math.max(0,Number(movingMassKg)||0),factor=Math.max(1,Number(serviceFactor)||1.5),inertia=mass*positive(acceleration,.8),friction=mass*9.80665*Math.max(0,Number(frictionCoefficient)||0),requiredForceN=(inertia+friction+Math.max(0,Number(externalForceN)||0))*factor;
+ return{massKg:rounded(mass),inertiaForceN:rounded(inertia),frictionForceN:rounded(friction),externalForceN:rounded(Math.max(0,Number(externalForceN)||0)),requiredForceN:rounded(requiredForceN),serviceFactor:factor};
+}
+
+export function selectStandardCylinder(requirements,{pressureBar=6,efficiency=.85,candidates=standardCylinderCandidates}={}){
+ const pressurePa=positive(pressureBar,6)*1e5,eta=Math.max(.05,Math.min(1,Number(efficiency)||.85)),force=(boreMm,rodMm=0)=>pressurePa*Math.PI*((boreMm/1000)**2-(rodMm/1000)**2)/4*eta;
+ const evaluated=candidates.map(candidate=>({...candidate,extendForceN:rounded(force(candidate.boreMm)),retractForceN:rounded(force(candidate.boreMm,candidate.rodMm))})),selected=evaluated.find(candidate=>candidate.extendForceN+1e-9>=requirements.requiredForceN&&candidate.retractForceN+1e-9>=requirements.requiredForceN);
+ return selected?{status:'selected',cylinder:selected,requirements,pressureBar:positive(pressureBar,6),efficiency:eta,utilizationPercent:rounded(requirements.requiredForceN/Math.min(selected.extendForceN,selected.retractForceN)*100)}:{status:'no-candidate',cylinder:null,requirements,pressureBar:positive(pressureBar,6),efficiency:eta,utilizationPercent:null};
+}
+
 export function selectStandardMotor(requirements,candidates=standardMotorCandidates){
  const selected=candidates.find(motor=>motor.powerKw+1e-9>=requirements.powerKw&&motor.ratedTorqueNm+1e-9>=requirements.motorTorqueNm&&motor.maxRpm+1e-9>=requirements.motorRpm);
  return selected?{status:'selected',motor:selected,requirements}:{status:'no-candidate',motor:null,requirements};
@@ -111,6 +126,10 @@ export function motionRequestsFor(item,{cargoLengthM=1.2}={}){
 export function engineeringPreview(item,{payloadKg=0,movingMassKg,drive={}}={}){
  const defaults=equipmentDriveDefaults[item.type],effectiveMovingMass=Math.max(0,Number(movingMassKg??item.parameters?.movingMassKg??defaults?.movingMassKg??100)||0),requests=motionRequestsFor(item,drive),flatDrive=Boolean(defaults)&&item.parameters?.autoMotionTuning!==0,motions=requests.map(axis=>flatDrive?solveFlatDriveMotion(axis,{payloadKg,movingMassKg:effectiveMovingMass,drive}):solveMotionRequest(axis));if(!motions.length)return{equipmentId:item.id,motionModels:motionModelsFor(item),motions:[],motorSelection:null,changes:[]};
  if(flatDrive){const critical=motions.reduce((worst,current)=>(current.motorSelection?.requirements?.powerKw||0)>(worst.motorSelection?.requirements?.powerKw||0)?current:worst),changes=[];for(const motion of motions)for(const [key,valueKey] of [[motion.accelerationKey,'acceleration'],[motion.decelerationKey,'deceleration']]){const before=Number(item.parameters?.[key]),after=motion[valueKey];if(Number.isFinite(before)&&Math.abs(before-after)>1e-9&&!changes.some(log=>log.parameter===key))changes.push(engineeringChangeLog({equipmentId:item.id,parameter:key,before,after,cause:`${motion.model} 만재질량·운전저항·구동계 한계`,impact:`실제 최고속도 ${motion.peakSpeed.toFixed(3)}m/s · CT ${motion.totalTime.toFixed(3)}s`}));}return{equipmentId:item.id,motionModels:motionModelsFor(item),motions,motorSelection:critical.motorSelection,changes,payloadKg,movingMassKg:effectiveMovingMass};}
+ if(item.equipmentRole==='pneumatic'){
+  const criticalAcceleration=Math.max(...motions.map(motion=>motion.acceleration)),requirements=pneumaticRequirements({payloadKg,movingMassKg:effectiveMovingMass,acceleration:criticalAcceleration,frictionCoefficient:item.parameters?.frictionCoefficient,externalForceN:item.parameters?.externalForceN,serviceFactor:item.parameters?.pneumaticServiceFactor}),actuatorSelection=selectStandardCylinder(requirements,{pressureBar:item.parameters?.pressureBar,efficiency:item.parameters?.pneumaticEfficiency});
+  return{equipmentId:item.id,motionModels:motionModelsFor(item),motions,motorSelection:null,actuatorSelection,changes:[],payloadKg,movingMassKg:effectiveMovingMass};
+ }
  const requirements=motions.map(motion=>axisDriveRequirements(motion,{payloadKg,movingMassKg:effectiveMovingMass,drive})),critical=requirements.reduce((worst,current)=>current.powerKw>worst.powerKw?current:worst),envelope={...critical,model:'all-axis-envelope',powerKw:Math.max(...requirements.map(axis=>axis.powerKw)),motorTorqueNm:Math.max(...requirements.map(axis=>axis.motorTorqueNm)),motorRpm:Math.max(...requirements.map(axis=>axis.motorRpm))},motorSelection=selectStandardMotor(envelope),changes=[];
  for(const motion of motions)for(const [key,valueKey] of [[motion.accelerationKey,'acceleration'],[motion.decelerationKey,'deceleration']]){const before=Number(item.parameters?.[key]),after=motion[valueKey];if(Number.isFinite(before)&&Math.abs(before-after)>1e-9&&!changes.some(log=>log.parameter===key))changes.push(engineeringChangeLog({equipmentId:item.id,parameter:key,before,after,cause:`${motion.model} 실제 이동거리와 목표속도에 필요한 가감속 프로파일`,impact:`${motion.profileType} · CT ${motion.totalTime.toFixed(3)}s`}));}
  return{equipmentId:item.id,motionModels:motionModelsFor(item),motions,motorSelection:{...motorSelection,criticalRequirement:critical,axisRequirements:requirements},changes,payloadKg,movingMassKg:effectiveMovingMass};

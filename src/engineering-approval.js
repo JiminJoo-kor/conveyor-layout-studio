@@ -15,3 +15,10 @@ export function approveEngineeringMotionByType(layout,types=productionMotionType
  }
  return approved;
 }
+
+export function approveEngineeringMotionById(layout,ids=[]){
+ const selected=new Set(ids),selectedTypes=new Set((layout?.equipment||[]).filter(item=>selected.has(item.id)).map(item=>item.type)),approved=approveEngineeringMotionByType(layout,selectedTypes);
+ const approvedSet=new Set(approved);
+ for(const item of layout?.equipment||[])if(!selected.has(item.id)&&approvedSet.has(item.id)){delete item.engineering?.motionRuntime;if(item.engineering&&!Object.keys(item.engineering).length)delete item.engineering;approvedSet.delete(item.id);}
+ return [...approvedSet];
+}

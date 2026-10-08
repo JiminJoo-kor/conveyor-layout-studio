@@ -1,15 +1,21 @@
 import {syncAsrsStations} from './asrs-stations.js';
-import {approveEngineeringMotionByType} from './engineering-approval.js';
+import {approveEngineeringMotionById,approveEngineeringMotionByType} from './engineering-approval.js';
+import {buildEngineeringMotionAudit} from './engineering-compatibility.js';
 import {captureMeasuredRun,compareMeasuredRuns,recommendedMeasurementWindow} from './engineering-run-comparison.js';
 import {CadFlowEngine} from './engine.js';
 import {cloneLayout,removeUnreferencedLegacyDemoEquipment,validateLayout} from './layout.js';
 
-export function buildEngineeringComparisonLayouts(sourceLayout,types){
+export function rankEngineeringCandidates(sourceLayout,type){
+ const layout=cloneLayout(sourceLayout);removeUnreferencedLegacyDemoEquipment(layout);syncAsrsStations(layout);
+ return buildEngineeringMotionAudit(layout).rows.filter(row=>row.status==='review'&&(!type||row.type===type)).sort((a,b)=>Math.abs(b.deltaSeconds)-Math.abs(a.deltaSeconds));
+}
+
+export function buildEngineeringComparisonLayouts(sourceLayout,types,ids){
  const baselineLayout=cloneLayout(sourceLayout),engineeringLayout=cloneLayout(sourceLayout);
  removeUnreferencedLegacyDemoEquipment(baselineLayout);removeUnreferencedLegacyDemoEquipment(engineeringLayout);
  syncAsrsStations(baselineLayout);syncAsrsStations(engineeringLayout);
- const approvedEquipment=approveEngineeringMotionByType(engineeringLayout,types);
- return{baselineLayout,engineeringLayout,approvedEquipment,approvedTypes:types?[...types]:null};
+ const approvedEquipment=ids?.length?approveEngineeringMotionById(engineeringLayout,ids):approveEngineeringMotionByType(engineeringLayout,types);
+ return{baselineLayout,engineeringLayout,approvedEquipment,approvedTypes:types?[...types]:null,requestedEquipment:ids?[...ids]:null};
 }
 
 function simulate(layout,seconds,kind){
@@ -20,7 +26,7 @@ function simulate(layout,seconds,kind){
  return{run,details:{putaways:engine.state.asrs.putaways,retrievals:engine.state.asrs.retrievals,inventory:engine.state.asrs.inventory,outboundTrucks:engine.state.outboundTrucks,stall:engine.state.stall}};
 }
 
-export function runEngineeringComparison(sourceLayout,configuredSeconds=0,types){
- const window=recommendedMeasurementWindow(sourceLayout,configuredSeconds),{baselineLayout,engineeringLayout,approvedEquipment,approvedTypes}=buildEngineeringComparisonLayouts(sourceLayout,types),baseline=simulate(baselineLayout,window.seconds,'baseline'),engineering=simulate(engineeringLayout,window.seconds,'engineering');
- return{measurementWindow:window,approvedTypes,approvedEquipment,baseline,engineering,comparison:compareMeasuredRuns(baseline.run,engineering.run)};
+export function runEngineeringComparison(sourceLayout,configuredSeconds=0,types,ids){
+ const window=recommendedMeasurementWindow(sourceLayout,configuredSeconds),{baselineLayout,engineeringLayout,approvedEquipment,approvedTypes,requestedEquipment}=buildEngineeringComparisonLayouts(sourceLayout,types,ids),baseline=simulate(baselineLayout,window.seconds,'baseline'),engineering=simulate(engineeringLayout,window.seconds,'engineering');
+ return{measurementWindow:window,approvedTypes,requestedEquipment,approvedEquipment,baseline,engineering,comparison:compareMeasuredRuns(baseline.run,engineering.run)};
 }

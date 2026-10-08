@@ -10,6 +10,7 @@
     "verify": "npm test && npm run check",
     "audit-layout": "node scripts/audit-layout.mjs",
     "compare-engineering-runs": "node scripts/compare-engineering-runs.mjs",
+    "rank-engineering-candidates": "node scripts/rank-engineering-candidates.mjs",
     "approve-engineering-motion": "node scripts/approve-engineering-motion.mjs"
   }
 }

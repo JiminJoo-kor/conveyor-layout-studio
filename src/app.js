@@ -25,6 +25,7 @@ import { compareEngineeringDuration } from './engineering-compatibility.js';
 import { arrangeEquipmentInspector } from './inspector-layout.js';
 import { planConveyorDriveSections } from './drive-sections.js';
 import { productionKpiState } from './kpi-state.js';
+import { selectWorkspaceButton, workspaceNavigationState } from './workspace-navigation.js';
 
 const $ = id => document.getElementById(id);
 const emptyLayout={schemaVersion:defaultLayout.schemaVersion,id:'empty-layout',name:'파일을 열어주세요',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},canvas:{width:1200,height:650,grid:20},equipment:[],connections:[],displayMode:'cad',cadViewMode:'schematic',cadSchematic:{lanes:[],inboundBranches:[],edges:[]}};
@@ -67,6 +68,14 @@ $('openEditorTools').addEventListener('click',()=>{$('editorToggle').click();doc
 $('workspaceNavigator').addEventListener('click',event=>{const button=event.target.closest('[data-navigate-equipment]');if(button)editor.selectEquipmentById(button.dataset.navigateEquipment);});
 const rackMonitor=document.createElement('section');rackMonitor.id='rackMonitor';rackMonitor.className='rack-monitor';rackMonitor.hidden=true;$('rackMonitorSlot').append(rackMonitor);
 const lineUphPanel=document.createElement('section');lineUphPanel.id='lineUphPanel';lineUphPanel.className='line-uph-panel';lineUphPanel.hidden=true;$('rackMonitorSlot').prepend(lineUphPanel);
+const studioModeButtons=[$('modeDesign'),$('modeSimulation'),$('modeAnalysis')],layoutViewButtons=[$('view2d'),$('view3d'),$('viewSplit')];
+function syncWorkspaceNavigation(){const state=workspaceNavigationState(layout,document.body.classList.contains('project-empty'));$('modeSimulation').disabled=!state.ready;$('modeAnalysis').disabled=!state.ready;$('view3d').disabled=!state.has3d;$('viewSplit').disabled=!state.splitReady;$('view3d').title=state.has3d?'AS/RS 3D LIVE 모니터로 이동':'AS/RS 설비가 있는 프로젝트에서 사용할 수 있습니다.';}
+function navigateWorkspace(button,buttons,target){if(button.disabled||!target)return;selectWorkspaceButton(buttons,button);target.scrollIntoView({behavior:'smooth',block:'start'});target.classList.add('navigation-focus');setTimeout(()=>target.classList.remove('navigation-focus'),900);}
+$('modeDesign').addEventListener('click',()=>navigateWorkspace($('modeDesign'),studioModeButtons,document.querySelector('.canvas-card')));
+$('modeSimulation').addEventListener('click',()=>navigateWorkspace($('modeSimulation'),studioModeButtons,$('operationsPanel')));
+$('modeAnalysis').addEventListener('click',()=>navigateWorkspace($('modeAnalysis'),studioModeButtons,$('simulationReport')));
+$('view2d').addEventListener('click',()=>navigateWorkspace($('view2d'),layoutViewButtons,document.querySelector('.canvas-card')));
+$('view3d').addEventListener('click',()=>navigateWorkspace($('view3d'),layoutViewButtons,rackMonitor));
 const visualWindows=new Map();
 for(const [type,label] of [['sequenceRack','서열렉'],['boxStacker','출고용 적재기'],['boxDestacker','입고용 분배기'],['inboundDock','입고 시작'],['dock','트럭/도크'],['handoffPoint','H/P'],['sorter','소터'],['lift','리프트'],['asrs','AS/RS'],['sink','출고 완료']]){if(document.querySelector(`[data-add="${type}"]`))continue;const button=document.createElement('button');button.dataset.add=type;button.textContent=label;$('connectEquipment').before(button);}
 
@@ -76,7 +85,7 @@ function readParams() {
 }
 function writeParams(params={}){const values={...defaultParams,...params};for(const key of inputKeys)$(key).value=values[key];$('useA').checked=Boolean(values.useA);$('useB').checked=Boolean(values.useB);}
 function updateProjectStatus(){projectStatus.textContent=`현재 프로젝트 · ${layout.id==='empty-layout'?'없음':layout.name}`;}
-function setProjectEmpty(value){document.body.classList.toggle('project-empty',value);emptyProjectState.hidden=!value;$('layoutName').textContent=value?'파일을 열어주세요':layout.name;updateProjectStatus();}
+function setProjectEmpty(value){document.body.classList.toggle('project-empty',value);emptyProjectState.hidden=!value;$('layoutName').textContent=value?'파일을 열어주세요':layout.name;updateProjectStatus();syncWorkspaceNavigation();}
 function renderWorkspaceNavigator(){
   const panel=$('workspaceNavigator');if(!panel)return;
   const items=layout.equipment.filter(item=>!item.asrsStation&&item.reviewStatus!=='rejected');
@@ -146,7 +155,7 @@ function renderLineThroughput(kpis){const rows=kpis.lineThroughput||[];lineUphPa
 function renderRackMonitor(){
   const warehouses=Object.values(engine.state?.warehouses||{}).filter(warehouse=>warehouse.equipmentId);
   if(!warehouses.length&&engine.state?.asrs?.equipmentId)warehouses.push(engine.state.asrs);
-  rackMonitor.hidden=!warehouses.length;if(!warehouses.length)return;
+  rackMonitor.hidden=!warehouses.length;syncWorkspaceNavigation();if(!warehouses.length)return;
   const signature=warehouses.map(warehouse=>warehouse.equipmentId).join('|');
   if(rackMonitor.dataset.warehouses!==signature){
     rackMonitor.replaceChildren();rackMonitor.dataset.warehouses=signature;

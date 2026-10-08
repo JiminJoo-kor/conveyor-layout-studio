@@ -17,6 +17,11 @@ export function equipmentInspectorSummary(item,layout,motor='해당 없음',cycl
  return{typeLabel:equipmentLabels[item?.type]||String(item?.type||'EQUIPMENT').replaceAll('_',' ').toUpperCase(),metrics:[{label:'Motor',value:motor},{label:'Cycle',value:`${Number(cycle).toFixed(2)}s`},{label:'현재 물류',value:'-',dynamic:'cargo'}]};
 }
 
+export function equipmentDriveRows(item,layout){
+ if(item?.type!=='conveyor')return[];
+ return planConveyorDriveSections(item,layout?.cargoSpec).map(section=>({name:section.name,lengthM:section.lengthM,payloadKg:section.payloadKg,motorPowerKw:section.motorPowerKw,status:section.status}));
+}
+
 export function equipmentFlowSummary(layout,item,state={}){
  const edges=layout?.cadSchematic?.edges||[],equipment=new Map((layout?.equipment||[]).map(entry=>[entry.id,entry])),name=id=>equipment.get(id)?.name||id;
  const upstream=[...new Set(edges.filter(edge=>edge.to===item?.id).map(edge=>name(edge.from)))],downstream=[...new Set(edges.filter(edge=>edge.from===item?.id).map(edge=>name(edge.to)))];
@@ -45,15 +50,16 @@ export function arrangeEquipmentInspector(root,items,layout,state={}){
   const card=root.querySelector(`[data-parameter-card="${escapeSelector(item.id)}"]`);if(!card)continue;
   const auto=card.querySelector('.auto-engineering-panel'),compatibility=compareEngineeringDuration(item,layout),motor=auto?.querySelector('.engineering-kpis div:first-child b')?.textContent||'해당 없음',cycle=compatibility.engineeringSeconds??compatibility.legacySeconds??0,summary=equipmentInspectorSummary(item,layout,motor,cycle),status={compatible:'● 정상 · 계산 일치',approved:'● 승인 motion 적용',review:'● 검토 필요 · 기존 SIM',unsupported:'● 운동 계산 제외'}[compatibility.status]||'● 설정 준비',core=document.createElement('section');
   core.className=`equipment-core-summary ${compatibility.status}`;core.dataset.inspectorSection='summary';core.innerHTML=`<header class="equipment-summary-title"><div><small>${summary.typeLabel}</small><strong>${item.name}</strong><span>${status}</span></div><b class="equipment-runtime-status" data-flow-status>-</b></header><section class="equipment-summary-kpis">${summary.metrics.map(metric=>`<div><small>${metric.label}</small><b${metric.dynamic==='cargo'?' data-flow-cargo':''}>${metric.value}</b></div>`).join('')}</section><section class="equipment-flow-summary" data-equipment-flow-summary><div><small>상류</small><b data-flow-upstream>-</b></div><div><small>하류</small><b data-flow-downstream>-</b></div><div class="flow-block-reason"><small>막힘 원인</small><b data-flow-block-reason>-</b></div></section>`;
-  const basic=section('① 기본 설정 · INPUT','basic',true),logistics=section('② 물류 / 기구 조건','logistics',true),motion=section('③ MOTION','motion'),engineering=section('④ AUTO ENGINEERING','auto-engineering'),flow=section('⑤ Flow / Connection','flow-connection'),detail=document.createElement('details');detail.className='engineering-detail';detail.dataset.inspectorSection='engineering-detail';detail.innerHTML='<summary>⑥ Engineering Detail</summary>';
+  const basic=section('① 기본 설정 · INPUT','basic',true),logistics=section('② 물류 / 기구 조건','logistics',true),driveRows=equipmentDriveRows(item,layout),drive=driveRows.length?section('③ SECTION / DRIVE','section-drive',true):null,motion=section(`${drive?'④':'③'} MOTION`,'motion'),engineering=section(`${drive?'⑤':'④'} AUTO ENGINEERING`,'auto-engineering'),flow=section(`${drive?'⑥':'⑤'} Flow / Connection`,'flow-connection'),detail=document.createElement('details');detail.className='engineering-detail';detail.dataset.inspectorSection='engineering-detail';detail.innerHTML=`<summary>${drive?'⑦':'⑥'} Engineering Detail</summary>`;
+  if(drive){const wrap=document.createElement('div');wrap.className='table-wrap inspector-drive-table';wrap.innerHTML=`<table><thead><tr><th>구간</th><th>길이</th><th>만재</th><th>Motor</th><th>상태</th></tr></thead><tbody>${driveRows.map(row=>`<tr><td>${row.name}</td><td>${row.lengthM.toFixed(2)}m</td><td>${row.payloadKg.toFixed(0)}kg</td><td>${row.motorPowerKw==null?'-':row.motorPowerKw+'kW'}</td><td>${row.status}</td></tr>`).join('')}</tbody></table>`;drive.append(wrap);}
   for(const input of card.querySelectorAll('[data-equipment-id][data-parameter][data-parameter-kind="INPUT"]')){const label=input.closest('label'),key=input.dataset.parameter;if(!label)continue;if(basicKeys.has(key))basic.append(label);else if(logisticsKeys.has(key))logistics.append(label);}
   const directLabels=[...card.children].filter(node=>node.tagName==='LABEL'&&!node.querySelector('[data-parameter-kind]:not([data-parameter-kind="INPUT"])'));for(const label of directLabels){const key=label.querySelector('[data-parameter]')?.dataset.parameter;(logisticsKeys.has(key)?logistics:basic).append(label);}
   const groups=[...card.querySelectorAll(':scope > .parameter-option-group, :scope > .fork-flow-selector, :scope > .diverter-controls')];for(const group of groups){const text=group.textContent;if(text.includes('구동 속도 프로파일'))motion.append(group);else if(/인계|연결|분배|배출|디버터|스테이션|Interface|Connection/.test(text))flow.append(group);else logistics.append(group);}
   if(auto)engineering.append(auto);
-  const assigned=new Set([card.querySelector(':scope > summary'),core,basic,logistics,motion,engineering,flow]);for(const child of [...card.children])if(!assigned.has(child)&&child.tagName!=='SUMMARY')detail.append(child);
+  const assigned=new Set([card.querySelector(':scope > summary'),core,basic,logistics,drive,motion,engineering,flow]);for(const child of [...card.children])if(!assigned.has(child)&&child.tagName!=='SUMMARY')detail.append(child);
   fillEmpty(basic);fillEmpty(logistics);fillEmpty(motion,'이 설비는 별도 motion 입력이 없습니다.');fillEmpty(engineering,'계산 가능한 구동축이 없습니다.');fillEmpty(flow,'추가 Flow / Connection 설정이 없습니다.');
-  for(const node of [basic,logistics,motion,engineering,flow])updateCount(node);
-  const layoutGrid=document.createElement('div');layoutGrid.className='equipment-parameter-layout';layoutGrid.append(core,basic,logistics,motion,engineering,flow,detail);card.append(layoutGrid);
+  for(const node of [basic,logistics,drive,motion,engineering,flow].filter(Boolean))updateCount(node);
+  const layoutGrid=document.createElement('div');layoutGrid.className='equipment-parameter-layout';layoutGrid.append(core,basic,logistics,...(drive?[drive]:[]),motion,engineering,flow,detail);card.append(layoutGrid);
  }
  updateEquipmentInspectorRuntime(root,items,layout,state);
 }

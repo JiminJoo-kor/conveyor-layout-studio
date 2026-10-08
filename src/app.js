@@ -32,6 +32,7 @@ import { workspaceActionGroups, workspaceActionStatus } from './workspace-action
 import { equipmentPaletteGroups } from './equipment-palette.js';
 import { simulationRunState } from './run-state.js';
 import { captureMeasuredRun, compareMeasuredRuns } from './engineering-run-comparison.js';
+import { normalizeRailTab, railWarningRows } from './rail-navigation.js';
 
 const $ = id => document.getElementById(id);
 const emptyLayout={schemaVersion:defaultLayout.schemaVersion,id:'empty-layout',name:'파일을 열어주세요',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},canvas:{width:1200,height:650,grid:20},equipment:[],connections:[],displayMode:'cad',cadViewMode:'schematic',cadSchematic:{lanes:[],inboundBranches:[],edges:[]}};
@@ -63,6 +64,12 @@ $('equipmentSearch').addEventListener('input',filterEquipmentCards);$('revealEqu
 cargoConditionCard.addEventListener('change',event=>{const input=event.target.closest('[data-cargo-parameter]');if(!input)return;layout.cargoSpec??={length:1200,width:800,weight:100,unit:'mm'};const key=input.dataset.cargoParameter;layout.cargoSpec[key]=key==='weight'?Math.max(.01,Number(input.value)||.01):Math.max(1,Math.round(Number(input.value)||1));layout.cargoSpec.unit='mm';input.value=layout.cargoSpec[key];resetEngine();renderCadEquipmentParameters(selectedEquipment?.id);});
 const layoutActions=document.querySelector('.layout-actions');
 const shortcutHelp=document.createElement('details');shortcutHelp.className='shortcut-help';shortcutHelp.innerHTML='<summary>단축키 안내</summary><p><kbd>Delete</kbd> 선택 설비 / 연결선 삭제 (실행 중 제외)<br><kbd>Space</kbd> 시작 · 일시정지 · 재개<br><kbd>F</kbd> 전체 화면 맞춤<br><kbd>G</kbd> 선택 설비 위치 보기<br><kbd>E</kbd> 편집 모드 전환<br><kbd>Esc</kbd> 연결·배치 취소 / 선택 해제</p><small>입력칸·버튼 조작 중에는 단축키가 작동하지 않습니다. 삭제는 기존 삭제 버튼과 동일하게 연결선을 정리합니다.</small>';layoutActions.closest('.section-head').after(shortcutHelp);
+let activeRailTab='equipment';
+function applyRailTab(tab){activeRailTab=normalizeRailTab(tab);for(const button of document.querySelectorAll('[data-rail-tab]')){const active=button.dataset.railTab===activeRailTab;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));}for(const panel of document.querySelectorAll('[data-rail-panel]'))panel.hidden=panel.dataset.railPanel!==activeRailTab;}
+document.querySelector('.rail-tabs').addEventListener('click',event=>{const button=event.target.closest('[data-rail-tab]');if(button)applyRailTab(button.dataset.railTab);});
+const railEquipmentGroups=$('railEquipmentGroups');railEquipmentGroups.replaceChildren(...equipmentPaletteGroups.map(group=>{const button=document.createElement('button');button.type='button';button.dataset.railEquipmentGroup=group.id;button.innerHTML=`<span>${group.title}</span><b>${group.types.length}</b>`;button.addEventListener('click',()=>{$('openEditorTools').click();const target=[...document.querySelectorAll('.equipment-palette-group')].find(details=>details.querySelector('summary')?.textContent.includes(group.title));if(target){target.open=true;target.scrollIntoView({block:'nearest'});}});return button;}));
+function renderRailWarnings(validation=layout.displayMode==='cad'?validateFlowGraph(layout):{errors:[],warnings:[]}){const rows=railWarningRows(validation,engine.state?.events||[]),host=$('railWarningList');host.replaceChildren();if(!rows.length){const empty=document.createElement('p');empty.textContent='현재 경고가 없습니다.';host.append(empty);return;}for(const row of rows){const item=document.createElement('button');item.type='button';item.dataset.warningLevel=row.level;item.textContent=row.detail;item.addEventListener('click',()=>openKpiAnalysis(row.level==='runtime'?'events':'changes'));host.append(item);}}
+applyRailTab(activeRailTab);
 document.addEventListener('keydown',event=>{
   const input=event.target;
   if(event.key==='Enter'&&!event.isComposing&&input instanceof HTMLInputElement&&['number','text'].includes(input.type)&&input.closest('.equipment-parameter-card, .parameter-option-group')){
@@ -177,16 +184,16 @@ function renderEngineeringMotionAudit(){
  host.querySelector('.motion-audit')?.remove();host.querySelector('h3')?.after(panel);
 }
 function updateDashboard({rack=true}={}) {
-  const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
+  const k=engine.getKpis();
   $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
   $('throughputState').textContent=productionKpiState(k,engine.state.t);
-  const supporting=kpiSupportingText(k);$('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%';$('cycleState').textContent=supporting.cycle;$('wip').textContent=k.wip;$('wipState').textContent=supporting.wip;$('bottleneckState').textContent=supporting.bottleneck;
-  $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
+  const supporting=kpiSupportingText(k);$('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%';$('cycleState').textContent=supporting.cycle;$('wip').textContent=k.wip;$('wipState').textContent=supporting.wip;
   const graph=layout.displayMode==='cad'?validateFlowGraph(layout):{valid:true,errors:[],warnings:[]},runtimeWarnings=(engine.state?.events||[]).filter(event=>['cargo-overload','simulation-stall-detected'].includes(event.type)),warningCount=graph.errors.length+graph.warnings.length+runtimeWarnings.length,utilization=k.mode==='cad'?Number(k.utilization?.asrs)||0:Math.max(0,...Object.values(k.utilization||{}).map(Number));
   $('forecast12h').textContent=`${Math.floor((Number(k.throughput)||0)*12).toLocaleString()} EA`;$('forecastState').textContent=engine.state.t>0?'현재 실측 UPH × 12시간':'시뮬레이션 후 계산';
   $('equipmentUtilization').textContent=(utilization*100).toFixed(1)+'%';$('utilizationState').textContent=k.mode==='cad'?'AS/RS 실측 가동률':'주요 설비 최고 가동률';
   $('warningCount').textContent=warningCount+'건';$('warningState').textContent=warningCount?(graph.errors[0]||graph.warnings[0]||'운전 경고 발생'):'현재 경고 없음';
   $('layoutValidationState').textContent=graph.valid?'완료':'확인 필요';$('layoutValidationState').classList.toggle('warn',!graph.valid);$('layoutValidationDetail').textContent=graph.valid?(graph.warnings.length?`주의 ${graph.warnings.length}건`:'연결 구조 정상'):`오류 ${graph.errors.length}건`;
+  renderRailWarnings(graph);
   $('moved').textContent=k.movedItems; $('completed').textContent=k.completedBoxes==null?historyCount(engine.state,'completedProducts'):`${historyCount(engine.state,'completedProducts')}묶음 / ${k.completedBoxes}박스`;
   $('completed').title=historyNotice(engine.state);
   updateFlowLegend();

@@ -17,6 +17,6 @@ export function arrangeEquipmentInspector(root,items,layout){
   if(auto)engineering.append(auto);
   const assigned=new Set([card.querySelector(':scope > summary'),core,basic,logistics,motion,engineering,flow]);for(const child of [...card.children])if(!assigned.has(child)&&child.tagName!=='SUMMARY')detail.append(child);
   fillEmpty(basic);fillEmpty(logistics);fillEmpty(motion,'이 설비는 별도 motion 입력이 없습니다.');fillEmpty(engineering,'계산 가능한 구동축이 없습니다.');fillEmpty(flow,'추가 Flow / Connection 설정이 없습니다.');
-  card.append(core,basic,logistics,motion,engineering,flow,detail);
+  const layoutGrid=document.createElement('div');layoutGrid.className='equipment-parameter-layout';layoutGrid.append(core,basic,logistics,motion,engineering,flow,detail);card.append(layoutGrid);
  }
 }

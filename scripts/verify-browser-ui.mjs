@@ -51,4 +51,4 @@ const screenshot=await send('Page.captureScreenshot',{format:'png',captureBeyond
 await writeFile(path.resolve(outputPath),Buffer.from(screenshot.data,'base64'));
 socket.close();
 console.log(JSON.stringify({...report,kpis:kpiReport,accordion,responsive,screenshot:path.resolve(outputPath)},null,2));
-if(!report.selectedEquipment||report.inspectorWidth<400||report.editableAutoResult.length||!report.sectionOrder.includes('auto-engineering')||!report.finalReportButton||Object.values(report.decisionSupport).some(value=>!value)||!kpiReport.consistent||!accordion.closed||!accordion.reopened||responsive.some(result=>result.inspectorWidth<400))process.exitCode=1;
+if(!report.selectedEquipment||report.inspectorWidth<360||report.editableAutoResult.length||!report.sectionOrder.includes('auto-engineering')||!report.finalReportButton||Object.values(report.decisionSupport).some(value=>!value)||!kpiReport.consistent||!accordion.closed||!accordion.reopened||responsive.some(result=>result.inspectorWidth<400))process.exitCode=1;

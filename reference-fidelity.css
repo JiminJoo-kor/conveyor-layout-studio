@@ -24,4 +24,27 @@
   .dock-head nav button{font-size:10px}
   .reference-analysis header{font-size:11px}
   .bottleneck-bars p,.recent-events li{font-size:9px}
+  .rail-equipment-groups button{min-height:37px;gap:10px;padding:4px 7px}
+  .rail-equipment-icon{flex-basis:31px;width:31px;height:28px;color:#9fd0e4;filter:drop-shadow(0 0 2px rgba(53,193,235,.22))}
+  .rail-equipment-groups button:hover .rail-equipment-icon{color:#19d3fb}
+  .workspace-navigator{display:block;padding-left:0}
+  .project-tree-root,.project-tree-node>button{display:grid;grid-template-columns:12px 27px minmax(0,1fr);align-items:center;gap:5px;width:100%;min-height:32px;padding:3px 5px;border:0;background:transparent;text-align:left}
+  .project-tree-root{border-bottom:1px solid #153d53;color:#d9eff8}
+  .project-tree-root>strong{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tree-toggle{color:#8db3c4;font-size:10px;text-align:center}
+  .project-tree-icon{width:25px;height:25px;color:#9ac5d8}
+  .tree-label{display:grid;min-width:0}
+  .tree-label strong{overflow:hidden;color:#d4eaf4;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+  .tree-label small{overflow:hidden;color:#63889b;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+  .project-tree-node>button.selected{border-left:2px solid #04d4fa;background:linear-gradient(90deg,#073f59,#072132);color:#e8fbff}
+  .project-tree-node>button.selected .project-tree-icon{color:#19d7fc}
+  .project-tree-children{display:grid;gap:1px;padding-top:3px}
+  .project-tree-branch{position:relative;margin-left:23px;padding-left:19px}
+  .project-tree-branch:before{content:'';position:absolute;left:5px;top:0;bottom:16px;border-left:1px solid #315b70}
+  .project-tree-child{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:5px;min-height:29px}
+  .project-tree-child:before{content:'';position:absolute;left:-14px;top:14px;width:13px;border-top:1px solid #315b70}
+  .project-tree-child-icon{width:21px;height:21px;color:#8db8ca}
+  .project-tree-child>span{display:grid;min-width:0}
+  .project-tree-child strong{overflow:hidden;color:#c7e0eb;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+  .project-tree-child small{color:#688c9d;font-size:7px}
 }

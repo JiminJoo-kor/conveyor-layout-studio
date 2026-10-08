@@ -182,6 +182,11 @@ function updateDashboard({rack=true}={}) {
   $('throughputState').textContent=productionKpiState(k,engine.state.t);
   const supporting=kpiSupportingText(k);$('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%';$('cycleState').textContent=supporting.cycle;$('wip').textContent=k.wip;$('wipState').textContent=supporting.wip;$('bottleneckState').textContent=supporting.bottleneck;
   $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
+  const graph=layout.displayMode==='cad'?validateFlowGraph(layout):{valid:true,errors:[],warnings:[]},runtimeWarnings=(engine.state?.events||[]).filter(event=>['cargo-overload','simulation-stall-detected'].includes(event.type)),warningCount=graph.errors.length+graph.warnings.length+runtimeWarnings.length,utilization=k.mode==='cad'?Number(k.utilization?.asrs)||0:Math.max(0,...Object.values(k.utilization||{}).map(Number));
+  $('forecast12h').textContent=`${Math.floor((Number(k.throughput)||0)*12).toLocaleString()} EA`;$('forecastState').textContent=engine.state.t>0?'현재 실측 UPH × 12시간':'시뮬레이션 후 계산';
+  $('equipmentUtilization').textContent=(utilization*100).toFixed(1)+'%';$('utilizationState').textContent=k.mode==='cad'?'AS/RS 실측 가동률':'주요 설비 최고 가동률';
+  $('warningCount').textContent=warningCount+'건';$('warningState').textContent=warningCount?(graph.errors[0]||graph.warnings[0]||'운전 경고 발생'):'현재 경고 없음';
+  $('layoutValidationState').textContent=graph.valid?'완료':'확인 필요';$('layoutValidationState').classList.toggle('warn',!graph.valid);$('layoutValidationDetail').textContent=graph.valid?(graph.warnings.length?`주의 ${graph.warnings.length}건`:'연결 구조 정상'):`오류 ${graph.errors.length}건`;
   $('moved').textContent=k.movedItems; $('completed').textContent=k.completedBoxes==null?historyCount(engine.state,'completedProducts'):`${historyCount(engine.state,'completedProducts')}묶음 / ${k.completedBoxes}박스`;
   $('completed').title=historyNotice(engine.state);
   updateFlowLegend();

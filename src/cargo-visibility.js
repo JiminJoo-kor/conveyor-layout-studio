@@ -15,6 +15,19 @@ export function cargoMarkers(records=[],view={zoom:1,x:0,y:0},ratio=1){
   }
   return [...groups.values()];
 }
+
+export function equipmentMarkers(records=[],view={zoom:1,x:0,y:0},ratio=1){
+  const groups=[],priority={ready:0,active:1,waiting:2,blocked:3,fault:4};
+  for(const record of records){
+    if(!record.selected&&record.status==='ready')continue;
+    if(!record.selected&&view.zoom>=.72)continue;
+    const x=(record.x*view.zoom+view.x)*ratio,y=(record.y*view.zoom+view.y)*ratio;
+    const nearby=groups.find(group=>Math.hypot(group.x-x,group.y-y)<28);
+    if(nearby){nearby.ids.push(record.id);nearby.selected||=record.selected;if((priority[record.status]||0)>(priority[nearby.status]||0))Object.assign(nearby,{status:record.status,color:record.color,label:record.label});}
+    else groups.push({x,y,status:record.status,color:record.color,label:record.label,selected:Boolean(record.selected),ids:[record.id]});
+  }
+  return groups;
+}
 export function detailCamera(center,size,width,height,multiplier=1){
   const zoom=Math.min(100000,Math.max(.1,48/Math.max(.00001,Math.min(size.w,size.h))))*multiplier;
   return {zoom,x:width/2-center.x*zoom,y:height/2-center.y*zoom};

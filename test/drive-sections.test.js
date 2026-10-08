@@ -1,11 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {conveyorSectionCapacity,conveyorSectionIndex,planConveyorDriveSections} from '../src/drive-sections.js';
+import {conveyorSectionCapacity,conveyorSectionIndex,designConveyorDriveSystem,planConveyorDriveSections} from '../src/drive-sections.js';
 import {conveyorDriveSectionVisuals} from '../src/renderer.js';
 
 test('long conveyor is balanced into manufacturable sections with one drive each',()=>{
  const conveyor={id:'cv-01',type:'conveyor',parameters:{length:23,speed:.5,safetyGap:.2,autoMotionTuning:1}},sections=planConveyorDriveSections(conveyor,{length:1000,width:800,weight:100,unit:'mm'},{maxSectionLengthM:6});
  assert.equal(sections.length,4);assert.ok(sections.every(section=>section.lengthM<=6));assert.equal(sections.reduce((sum,section)=>sum+section.lengthM,0),23);assert.deepEqual(sections.map(section=>section.name),['S01','S02','S03','S04']);assert.ok(sections.every(section=>section.motorPowerKw>0));
+ assert.ok(sections.every(section=>section.gearboxId&&section.status==='verified'&&section.driveVerification.verified&&section.mechanicalCheck.verified));
+});
+
+test('mechanical traction limit adds drive sections and records cause action impact',()=>{
+ const conveyor={id:'cv-auto',type:'conveyor',parameters:{length:10,speed:.5,safetyGap:0,autoMotionTuning:1}},design=designConveyorDriveSystem(conveyor,{length:1000,weight:120,unit:'mm'},{maxSectionLengthM:10,mechanical:{tractionRatedForceN:1000}});
+ assert.equal(design.status,'verified');assert.ok(design.finalSectionCount>design.initialSectionCount);assert.ok(design.logs.some(log=>log.cause&&log.action&&log.impact));assert.ok(design.sections.every(section=>section.mechanicalCheck.verified));
+});
+
+test('single cargo overload is reported for mechanical upgrade instead of endless splitting',()=>{
+ const conveyor={id:'cv-heavy',type:'conveyor',parameters:{length:5,speed:.5,autoMotionTuning:1}},design=designConveyorDriveSystem(conveyor,{length:1000,weight:1000,unit:'mm'},{mechanical:{rollerRatedLoadKg:20,framePointLoadKg:500}});
+ assert.equal(design.status,'review');assert.equal(design.iterations,1);assert.ok(design.logs.some(log=>log.action.includes('기계 사양 상향')));assert.ok(design.sections.some(section=>section.mechanicalCheck.unsplittable));
 });
 
 test('section cargo count uses cargo pitch and full-load weight for motor sizing',()=>{

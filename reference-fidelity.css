@@ -3,15 +3,33 @@
   .stage{display:contents}
   .kpis{grid-area:kpis;height:69px}
   .canvas-card{grid-area:canvas;height:auto;min-height:0}
+  .canvas-card{overflow:hidden}
+  .live-view-layout{min-height:0;overflow:hidden;flex:1}
+  .canvas-scroll{height:100%;min-height:0!important}
   .studio-nav{grid-area:nav}
   .controls{grid-area:inspector}
   .operations{grid-area:dock;height:auto}
+  .studio-nav [data-rail-panel=equipment]{flex:0 0 420px}
   .top-run-controls label{min-width:76px;font-size:8px}
   .top-run-controls [data-top-time-label]{min-width:91px}
   #simTime{display:block;padding:0;border:0;color:#dff7ff;font-size:16px;line-height:17px}
   .layout-meta{min-width:245px}
   .layout-meta strong{font-size:12px}
   .project-status{font-size:8px}
+  .topbar{justify-content:flex-start;gap:12px}
+  .brand-block{flex:0 0 276px;min-width:276px}
+  .topbar h1:after{content:'⌄  v2.4.1';font-size:9px}
+  .layout-meta{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:20px 16px;align-content:center;column-gap:8px;flex:0 0 245px;min-width:245px;padding-left:14px}
+  .layout-meta:before{grid-column:1;grid-row:1;font-size:11px}
+  .layout-meta strong{grid-column:2;grid-row:1;max-width:175px}
+  .layout-meta .project-status{grid-column:1/3;grid-row:2;color:#7da6b9}
+  .layout-meta .project-status::first-letter{color:#00e89e}
+  .studio-modes{display:grid;grid-template-columns:repeat(3,1fr);flex:0 0 290px}
+  .studio-modes button{min-width:0}
+  .top-view-switch{display:grid;grid-template-columns:repeat(3,1fr);flex:0 0 250px;margin-left:20px}
+  .top-view-switch button{min-width:0}
+  .top-run-controls{margin-left:20px}
+  .top-run-controls [data-top-run]{width:77px}.top-run-controls [data-top-pause]{width:88px}.top-run-controls [data-top-reset]{width:73px}.top-run-controls label{width:86px}.top-run-controls [data-top-time-label]{width:103px}
   .canvas-overlay-toolbar{display:none}
   .rail-equipment-groups button{font-size:11px}
   .studio-nav section h2{font-size:14px}
@@ -32,6 +50,7 @@
   .reference-analysis header{font-size:11px}
   .bottleneck-bars p,.recent-events li{font-size:9px}
   .rail-equipment-groups button{min-height:37px;gap:10px;padding:4px 7px}
+  .rail-equipment-groups button[hidden]{display:none!important}
   .rail-equipment-icon{flex-basis:31px;width:31px;height:28px;color:#9fd0e4;filter:drop-shadow(0 0 2px rgba(53,193,235,.22))}
   .rail-equipment-groups button:hover .rail-equipment-icon{color:#19d3fb}
   .workspace-navigator{display:block;padding-left:0}
@@ -55,4 +74,44 @@
   .project-tree-child>span{display:grid;min-width:0}
   .project-tree-child strong{overflow:hidden;color:#c7e0eb;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
   .project-tree-child small{color:#688c9d;font-size:7px}
+  .studio-nav #openEditorTools{display:none}
+  .rail-equipment-groups button{min-height:33px}
+  .rail-equipment-icon{flex-basis:28px;width:28px;height:25px}
+  .section-head h2:after{display:none}
+  .section-head{position:relative}
+  .section-head>div:first-child{display:flex!important;align-items:center;gap:12px;min-width:285px}
+  .section-head h2{margin:0}
+  .layout-breadcrumb{min-width:190px;color:#9ab8c7;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .concept-toolbar{position:absolute;left:295px;top:3px;margin:0}
+  .concept-toolbar button{min-width:78px}.concept-toolbar button:last-child{min-width:98px}
+  .inspector-head{display:flex;align-items:center;min-height:48px;padding:9px 10px}
+  .inspector-head h2{margin:0}
+  .inspector-head small{display:none}
+  .inspector-head:after{content:'● 정상';margin-left:auto;padding:5px 8px;border:1px solid #00db98;border-radius:4px;color:#00e6a0;font-size:9px;font-weight:700}
+  .equipment-summary-title{display:none}
+  .equipment-core-summary{display:block!important;min-height:108px;padding:0 8px 8px!important}
+  .equipment-core-summary:before{content:'요약 정보';display:block;margin:0 -8px 8px;padding:8px;border-bottom:1px solid #23526a;color:#cce8f4;font-size:11px;font-weight:700}
+  .equipment-summary-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .equipment-summary-kpis>div:last-child{grid-column:auto!important}
+  .equipment-summary-kpis>div{min-height:66px}
+  .equipment-parameter-card,.equipment-parameter-layout,.equipment-core-summary,.equipment-summary-kpis{min-width:0;max-width:100%;overflow-x:hidden}
+  .inspector-drive-table{max-width:100%;overflow-x:hidden}
+  .inspector-drive-table table{min-width:0!important;width:100%;table-layout:fixed}
+  .inspector-drive-table th,.inspector-drive-table td{padding:6px 3px!important;overflow:hidden;text-overflow:ellipsis}
+  .inspector-section>summary small,.engineering-detail>summary small{display:none}
+  .inspector-section>summary::after{content:'⌄';font-size:12px}
+  .inspector-section:not([open])>summary::after{content:'›'}
+  .engineering-detail>summary{position:relative;list-style:none}
+  .engineering-detail>summary::-webkit-details-marker{display:none}
+  .engineering-detail>summary:after{content:'›';position:absolute;right:8px;color:#8eb8ca;font-size:12px}
+  .engineering-detail[open]>summary:after{content:'⌄'}
+  .dock-head{justify-content:flex-start}
+  .dock-head{display:flex!important;height:38px!important;align-items:center}
+  .dock-head h2{color:#d8f3ff!important}
+  .dock-head h2:before{content:'▥';margin-right:8px;color:#12d5fa;font-size:14px}
+  .dock-head nav{margin-left:20px;margin-right:auto}
+  .analysis-tab-more{display:contents!important}
+  .analysis-tab-more>summary{display:none}
+  .analysis-tab-more-buttons{display:flex!important;align-items:center;gap:5px}
+  #exportFinalReport{display:none}
 }

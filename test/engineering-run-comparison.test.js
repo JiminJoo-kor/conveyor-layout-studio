@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {captureMeasuredRun,compareMeasuredRuns,measuredRunReadiness,recommendedMeasurementWindow} from '../src/engineering-run-comparison.js';
+import {captureMeasuredInterval,captureMeasuredRun,captureMeasurementSnapshot,compareMeasuredRuns,measuredRunReadiness,recommendedMeasurementWindow} from '../src/engineering-run-comparison.js';
 
 test('measured comparison uses engine KPIs without estimating UPH from nominal CT',()=>{
  const baseline=captureMeasuredRun({throughput:192,cycleTime:561.4075,wip:91,completedCount:48,movedItems:2208,utilization:{asrs:.59162}},900,'baseline');
@@ -23,7 +23,16 @@ test('elapsed time without completed cargo is not accepted as a measured baselin
  assert.equal(readiness.ready,false);assert.ok(readiness.reasons.includes('완료 물류 필요'));assert.equal(run.measured,false);
 });
 
+test('measured interval excludes warm-up counts and uses only interval utilization',()=>{
+ const state={t:900,cadTokens:Array(10),movedItems:100,completedProducts:[{cycleTime:120},{cycleTime:140}],warehouses:{rack:{busyTime:300,stackerCount:2}}},engine={state},start=captureMeasurementSnapshot(engine);
+ state.t=1500;state.cadTokens=Array(14);state.movedItems=160;state.completedProducts.push({cycleTime:160},{cycleTime:180},{cycleTime:200});state.warehouses.rack.busyTime=660;
+ const run=captureMeasuredInterval(engine,start,'engineering');
+ assert.deepEqual({elapsed:run.elapsedSeconds,warmup:run.warmupSeconds,total:run.totalElapsedSeconds,completed:run.completedCount,throughput:run.throughput,cycleTime:run.cycleTime,wip:run.wip,moved:run.movedItems,utilization:run.asrsUtilization},{elapsed:600,warmup:900,total:1500,completed:3,throughput:18,cycleTime:180,wip:14,moved:60,utilization:.3});
+ assert.equal(run.measured,true);
+});
+
 test('ASRS projects recommend a 900 second measured comparison window',()=>{
  const storage=recommendedMeasurementWindow({equipment:[{type:'asrs'}]},300),ordinary=recommendedMeasurementWindow({equipment:[{type:'conveyor'}]},300),longConfigured=recommendedMeasurementWindow({equipment:[{type:'asrs'}]},1200);
  assert.deepEqual([storage.seconds,storage.needsExtension],[900,true]);assert.deepEqual([ordinary.seconds,ordinary.minimumSeconds],[600,600]);assert.deepEqual([longConfigured.seconds,longConfigured.needsExtension],[1200,false]);
+ assert.deepEqual([storage.warmupSeconds,storage.measurementSeconds,storage.totalSeconds],[900,900,1800]);assert.deepEqual([ordinary.warmupSeconds,ordinary.measurementSeconds,ordinary.totalSeconds],[300,600,900]);
 });

@@ -312,7 +312,7 @@ prepareToken(token){let edge=token.edge??null,readyAt=token.readyAt??0,nodeId=to
       }else if(current?.type==='sink'||current?.type==='dock'&&current.parameters?.dockRole==='outbound'){
         const truck=s.outboundTrucks?.[token.nodeId];
         if(truck){truck.loaded++;if(truck.loaded>=truck.capacity){truck.departures++;truck.loaded=0;truck.lastDeparture=s.t;this.emit('truck-departed',{equipmentId:token.nodeId,departures:truck.departures});}}
-        appendHistory(s,'completedProducts',{id:token.id,cycleTime:s.t-token.createdAt,flowKey:token.flowKey,cargoType:token.cargoType,...(token.stackLayers?{stackLayers:structuredClone(token.stackLayers),boxCount:token.stackLayers.length}:{})});
+        appendHistory(s,'completedProducts',{id:token.id,completedAt:s.t,cycleTime:s.t-token.createdAt,flowKey:token.flowKey,cargoType:token.cargoType,...(token.stackLayers?{stackLayers:structuredClone(token.stackLayers),boxCount:token.stackLayers.length}:{})});
         s.cadTokens.splice(s.cadTokens.indexOf(token),1);this.emit('equipment-complete',{equipmentId:token.nodeId,productId:token.id});
       }else {token.blockedBy='unconnected-outfeed';token.transferState='WaitingAtOutfeed';}
     }return s;

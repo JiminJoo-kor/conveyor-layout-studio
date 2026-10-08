@@ -43,6 +43,7 @@ for(const width of [1280,900]){
 }
 await send('Emulation.clearDeviceMetricsOverride');
 await wait(200);
+await evaluate(`scrollTo(0,0)`);
 if(viewMode==='3d'){await evaluate(`document.querySelector('#rackMonitor')?.scrollIntoView({block:'start'})`);await wait(300);}
 if(viewMode==='split'){await evaluate(`document.querySelector('.live-view-layout')?.scrollIntoView({block:'start'})`);await wait(300);}
 if(viewMode==='analysis'){await evaluate(`document.querySelector('#simulationReport')?.scrollIntoView({block:'start'})`);await wait(300);}

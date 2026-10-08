@@ -1,0 +1,27 @@
+@media(min-width:1401px){
+  .top-run-controls label{min-width:76px;font-size:8px}
+  .top-run-controls [data-top-time-label]{min-width:91px}
+  #simTime{display:block;padding:0;border:0;color:#dff7ff;font-size:16px;line-height:17px}
+  .layout-meta{min-width:245px}
+  .layout-meta strong{font-size:12px}
+  .project-status{font-size:8px}
+  .canvas-overlay-toolbar{display:none}
+  .rail-equipment-groups button{font-size:11px}
+  .studio-nav section h2{font-size:14px}
+  .workspace-navigator,.workspace-navigator button{font-size:10px}
+  .kpis article>span{font-size:10px}
+  .kpis article>.kpi-state{font-size:8px}
+  .section-head h2{font-size:16px}
+  .concept-toolbar button{font-size:10px}
+  .inspector-head h2{font-size:16px}
+  .inspector-head small{font-size:9px}
+  .equipment-summary-title small{font-size:8px}
+  .equipment-summary-title strong{font-size:15px}
+  .equipment-summary-kpis small{font-size:8px}
+  .inspector-section>summary{font-size:11px}
+  .inspector-drive-table table{font-size:10px}
+  .dock-head h2{font-size:13px}
+  .dock-head nav button{font-size:10px}
+  .reference-analysis header{font-size:11px}
+  .bottleneck-bars p,.recent-events li{font-size:9px}
+}

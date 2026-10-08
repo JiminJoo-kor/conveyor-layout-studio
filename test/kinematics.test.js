@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration, motionConfigFor, motionProfileProgressAtTime, motionProfileSummary, profiledProgress, recommendedMotionDynamics } from '../src/kinematics.js';
 import { handoverProgress, handoverScale, handoverVisualSegments, intervalsOverlap, itemVisualLength, OccupancyManager, rigidHandoverVisualState, smoothedVelocityProgress } from '../src/occupancy.js';
-import { cargoLengthAlongAxis, cargoVisualExtentAlongAxis, conveyorCargoVisualPose, conveyorFlowSign, conveyorFrameGeometry, conveyorVisualPositionMap, equipmentCargoVisualPose, equipmentClipBounds, equipmentOperationProgress, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileCargoHandoverPose, mobileEquipmentRoute, mobileHandoverNode, mobileTravelStatus, normalizeCanvasOverlayMode, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
+import { canvasDisplayDensity, cargoLengthAlongAxis, cargoVisualExtentAlongAxis, conveyorCargoVisualPose, conveyorFlowSign, conveyorFrameGeometry, conveyorVisualPositionMap, equipmentCargoVisualPose, equipmentClipBounds, equipmentOperationProgress, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileCargoHandoverPose, mobileEquipmentRoute, mobileHandoverNode, mobileTravelStatus, normalizeCanvasOverlayMode, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
 import { cadDuration, equipmentSequenceSnapshot } from '../src/engine.js';
 
 test('S-Curve는 jerk로 가속도 변화량을 제한하고 정지까지 FSM을 추적한다',()=>{const motion=new KinematicMotion({targetSpeed:2,acceleration:1,deceleration:1,jerk:2});motion.step(.1,{distance:5});assert.ok(Math.abs(motion.acceleration-.2)<1e-9);assert.equal(motion.state,MotionState.ACCELERATING);for(let i=0;i<1000&&motion.position<5;i++)motion.step(.01,{distance:5});assert.equal(motion.position,5);assert.equal(motion.velocity,0);assert.equal(motion.state,MotionState.STOPPED);});
@@ -11,6 +11,14 @@ test('캔버스 정보 단계는 간단 운전 Engineering 세 모드만 사용�
  assert.equal(normalizeCanvasOverlayMode('minimal'),'minimal');
  assert.equal(normalizeCanvasOverlayMode('engineering'),'engineering');
  assert.equal(normalizeCanvasOverlayMode('unknown'),'operations');
+});
+
+test('확대 수준에 따라 설비명·상태·물류 ID를 단계적으로 표시한다',()=>{
+ const overview=canvasDisplayDensity(.4,'operations'),standard=canvasDisplayDensity(.8,'operations'),detail=canvasDisplayDensity(1.4,'engineering'),selected=canvasDisplayDensity(.4,'minimal',true);
+ assert.equal(overview.level,'overview');assert.equal(overview.showEquipmentName,false);assert.equal(overview.showStatus,false);
+ assert.equal(standard.showEquipmentName,true);assert.equal(standard.showStatus,true);assert.equal(standard.showCargoId,false);
+ assert.equal(detail.showPhysicalSummary,true);assert.equal(detail.showCargoId,true);
+ assert.equal(selected.showEquipmentName,true);assert.equal(selected.showStatus,true);
 });
 
 test('컨베이어 프레임은 롤러와 현장 지지대를 화면 기하로 분리한다',()=>{

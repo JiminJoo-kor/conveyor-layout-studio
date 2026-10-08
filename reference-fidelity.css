@@ -38,6 +38,7 @@
   .tree-label small{overflow:hidden;color:#63889b;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
   .project-tree-node>button.selected{border-left:2px solid #04d4fa;background:linear-gradient(90deg,#073f59,#072132);color:#e8fbff}
   .project-tree-node>button.selected .project-tree-icon{color:#19d7fc}
+  .project-tree-node>button:before{display:none!important;content:none!important}
   .project-tree-children{display:grid;gap:1px;padding-top:3px}
   .project-tree-branch{position:relative;margin-left:23px;padding-left:19px}
   .project-tree-branch:before{content:'';position:absolute;left:5px;top:0;bottom:16px;border-left:1px solid #315b70}

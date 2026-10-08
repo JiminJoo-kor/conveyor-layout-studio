@@ -31,6 +31,12 @@ export function equipmentFlowConnections(layout,item){
  return{upstream,downstream,interfaces,connectedInterfaces:interfaces.filter(entry=>entry.connected).length,totalInterfaces:interfaces.length};
 }
 
+export function engineeringDetailCategory(node){
+ if(node?.classList?.contains('apply-common-all')||node?.classList?.contains('apply-common-one'))return'common';
+ const kind=node?.querySelector?.('[data-parameter-kind]')?.dataset?.parameterKind;
+ return{INPUT:'input',AUTO:'auto',RESULT:'result',STATUS:'status'}[kind]||'diagnostic';
+}
+
 export function equipmentFlowSummary(layout,item,state={}){
  const connections=equipmentFlowConnections(layout,item),owned=new Set([item?.id,...connections.interfaces.map(entry=>entry.id)]);
  const cargo=(state?.cadTokens||[]).filter(token=>owned.has(token.nodeId)||owned.has(token.edge?.to)&&token.asrsInfeedAcceptedAt!=null),waits=cargo.map(token=>token.diverterWaitReason||token.waitDiagnostic?.reason).filter(Boolean),status=equipmentOperatingStatus(item,state);
@@ -62,10 +68,14 @@ export function arrangeEquipmentInspector(root,items,layout,state={}){
   const connections=equipmentFlowConnections(layout,item),flowOverview=document.createElement('section');flowOverview.className='flow-connection-overview';flowOverview.innerHTML=`<div><small>UPSTREAM</small><b>${connections.upstream.join(', ')||'연결 없음'}</b></div><i>→</i><div><small>CURRENT</small><b>${item.name}</b></div><i>→</i><div><small>DOWNSTREAM</small><b>${connections.downstream.join(', ')||'연결 없음'}</b></div>${connections.totalInterfaces?`<p><span>INTERFACE</span><b>${connections.connectedInterfaces} / ${connections.totalInterfaces} 연결</b><small>Station Conveyor는 부모 AS/RS 설정에서 자동 생성</small></p>`:''}`;flow.append(flowOverview);
   if(drive){const wrap=document.createElement('div');wrap.className='table-wrap inspector-drive-table';wrap.innerHTML=`<table><thead><tr><th>구간</th><th>길이</th><th>만재</th><th>Motor</th><th>상태</th></tr></thead><tbody>${driveRows.map(row=>`<tr><td>${row.name}</td><td>${row.lengthM.toFixed(2)}m</td><td>${row.payloadKg.toFixed(0)}kg</td><td>${row.motorPowerKw==null?'-':row.motorPowerKw+'kW'}</td><td>${row.status}</td></tr>`).join('')}</tbody></table>`;drive.append(wrap);}
   for(const input of card.querySelectorAll('[data-equipment-id][data-parameter][data-parameter-kind="INPUT"]')){const label=input.closest('label'),key=input.dataset.parameter;if(!label)continue;if(basicKeys.has(key))basic.append(label);else if(logisticsKeys.has(key))logistics.append(label);}
-  const directLabels=[...card.children].filter(node=>node.tagName==='LABEL'&&!node.querySelector('[data-parameter-kind]:not([data-parameter-kind="INPUT"])'));for(const label of directLabels){const key=label.querySelector('[data-parameter]')?.dataset.parameter;(logisticsKeys.has(key)?logistics:basic).append(label);}
+  const directLabels=[...card.children].filter(node=>node.tagName==='LABEL'&&!node.querySelector('[data-parameter-kind]'));for(const label of directLabels){const key=label.querySelector('[data-parameter]')?.dataset.parameter;(logisticsKeys.has(key)?logistics:basic).append(label);}
   const groups=[...card.querySelectorAll(':scope > .parameter-option-group, :scope > .fork-flow-selector, :scope > .diverter-controls')];for(const group of groups){const text=group.textContent;if(text.includes('구동 속도 프로파일'))motion.append(group);else if(/인계|연결|분배|배출|디버터|스테이션|Interface|Connection/.test(text))flow.append(group);else logistics.append(group);}
   if(auto)engineering.append(auto);
-  const assigned=new Set([card.querySelector(':scope > summary'),core,basic,logistics,drive,motion,engineering,flow]);for(const child of [...card.children])if(!assigned.has(child)&&child.tagName!=='SUMMARY')detail.append(child);
+  const assigned=new Set([card.querySelector(':scope > summary'),core,basic,logistics,drive,motion,engineering,flow]),detailGroups=new Map(),detailLabels={input:'고급 INPUT',auto:'AUTO 설정값',result:'계산 RESULT',status:'운전 STATUS',common:'공통 적용',diagnostic:'진단 / 기타'};
+  const detailGroup=key=>{if(detailGroups.has(key))return detailGroups.get(key);const group=document.createElement('section');group.className=`engineering-detail-group ${key}`;group.dataset.detailGroup=key;group.innerHTML=`<header><strong>${detailLabels[key]}</strong><small>0개</small></header>`;detailGroups.set(key,group);return group;};
+  for(const child of [...card.children])if(!assigned.has(child)&&child.tagName!=='SUMMARY'){const key=engineeringDetailCategory(child);detailGroup(key).append(child);}
+  for(const key of ['input','auto','result','status','common','diagnostic']){const group=detailGroups.get(key);if(!group)continue;group.querySelector('header small').textContent=`${group.children.length-1}개`;detail.append(group);}
+  const detailCount=[...detailGroups.values()].reduce((sum,group)=>sum+group.children.length-1,0),detailSummary=detail.querySelector(':scope > summary');if(detailSummary)detailSummary.innerHTML=`${drive?'⑦':'⑥'} Engineering Detail <small>${detailCount}개 · 기본 접힘</small>`;
   fillEmpty(basic);fillEmpty(logistics);fillEmpty(motion,'이 설비는 별도 motion 입력이 없습니다.');fillEmpty(engineering,'계산 가능한 구동축이 없습니다.');fillEmpty(flow,'추가 Flow / Connection 설정이 없습니다.');
   for(const node of [basic,logistics,drive,motion,engineering,flow].filter(Boolean))updateCount(node);
   const layoutGrid=document.createElement('div');layoutGrid.className='equipment-parameter-layout';layoutGrid.append(core,basic,logistics,...(drive?[drive]:[]),motion,engineering,flow,detail);card.append(layoutGrid);

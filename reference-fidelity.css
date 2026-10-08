@@ -1,4 +1,11 @@
 @media(min-width:1401px){
+  .workspace{height:calc(100vh - 61px);grid-template-columns:248px minmax(720px,1fr) 382px;grid-template-rows:69px minmax(0,1fr) 210px;grid-template-areas:'kpis kpis kpis' 'nav canvas inspector' 'nav dock dock';gap:8px;padding:8px}
+  .stage{display:contents}
+  .kpis{grid-area:kpis;height:69px}
+  .canvas-card{grid-area:canvas;height:auto;min-height:0}
+  .studio-nav{grid-area:nav}
+  .controls{grid-area:inspector}
+  .operations{grid-area:dock;height:auto}
   .top-run-controls label{min-width:76px;font-size:8px}
   .top-run-controls [data-top-time-label]{min-width:91px}
   #simTime{display:block;padding:0;border:0;color:#dff7ff;font-size:16px;line-height:17px}

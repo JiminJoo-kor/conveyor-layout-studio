@@ -21,6 +21,8 @@ const evaluate=async expression=>{
 };
 const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 
+const targetWidth=1672,targetHeight=941;
+await send('Emulation.setDeviceMetricsOverride',{width:targetWidth,height:targetHeight,deviceScaleFactor:1,mobile:false});
 await send('Page.reload',{ignoreCache:true});
 await wait(1000);
 const layoutText=await readFile(path.resolve(layoutPath),'utf8');
@@ -41,7 +43,7 @@ for(const width of [1280,900]){
  await wait(200);
  responsive.push(await evaluate(`(()=>{const workspace=getComputedStyle(document.querySelector('.workspace')),controls=document.querySelector('.controls');return{width:innerWidth,gridAreas:workspace.gridTemplateAreas,inspectorWidth:Math.round(controls.getBoundingClientRect().width),inspectorTop:Math.round(controls.getBoundingClientRect().top)};})()`));
 }
-await send('Emulation.clearDeviceMetricsOverride');
+await send('Emulation.setDeviceMetricsOverride',{width:targetWidth,height:targetHeight,deviceScaleFactor:1,mobile:false});
 await wait(200);
 await evaluate(`scrollTo(0,0)`);
 if(viewMode==='3d'){await evaluate(`document.querySelector('#rackMonitor')?.scrollIntoView({block:'start'})`);await wait(300);}

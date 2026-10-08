@@ -4,12 +4,12 @@ import {captureMeasuredRun,compareMeasuredRuns,recommendedMeasurementWindow} fro
 import {CadFlowEngine} from './engine.js';
 import {cloneLayout,removeUnreferencedLegacyDemoEquipment,validateLayout} from './layout.js';
 
-export function buildEngineeringComparisonLayouts(sourceLayout){
+export function buildEngineeringComparisonLayouts(sourceLayout,types){
  const baselineLayout=cloneLayout(sourceLayout),engineeringLayout=cloneLayout(sourceLayout);
  removeUnreferencedLegacyDemoEquipment(baselineLayout);removeUnreferencedLegacyDemoEquipment(engineeringLayout);
  syncAsrsStations(baselineLayout);syncAsrsStations(engineeringLayout);
- const approvedEquipment=approveEngineeringMotionByType(engineeringLayout);
- return{baselineLayout,engineeringLayout,approvedEquipment};
+ const approvedEquipment=approveEngineeringMotionByType(engineeringLayout,types);
+ return{baselineLayout,engineeringLayout,approvedEquipment,approvedTypes:types?[...types]:null};
 }
 
 function simulate(layout,seconds,kind){
@@ -20,7 +20,7 @@ function simulate(layout,seconds,kind){
  return{run,details:{putaways:engine.state.asrs.putaways,retrievals:engine.state.asrs.retrievals,inventory:engine.state.asrs.inventory,outboundTrucks:engine.state.outboundTrucks,stall:engine.state.stall}};
 }
 
-export function runEngineeringComparison(sourceLayout,configuredSeconds=0){
- const window=recommendedMeasurementWindow(sourceLayout,configuredSeconds),{baselineLayout,engineeringLayout,approvedEquipment}=buildEngineeringComparisonLayouts(sourceLayout),baseline=simulate(baselineLayout,window.seconds,'baseline'),engineering=simulate(engineeringLayout,window.seconds,'engineering');
- return{measurementWindow:window,approvedEquipment,baseline,engineering,comparison:compareMeasuredRuns(baseline.run,engineering.run)};
+export function runEngineeringComparison(sourceLayout,configuredSeconds=0,types){
+ const window=recommendedMeasurementWindow(sourceLayout,configuredSeconds),{baselineLayout,engineeringLayout,approvedEquipment,approvedTypes}=buildEngineeringComparisonLayouts(sourceLayout,types),baseline=simulate(baselineLayout,window.seconds,'baseline'),engineering=simulate(engineeringLayout,window.seconds,'engineering');
+ return{measurementWindow:window,approvedTypes,approvedEquipment,baseline,engineering,comparison:compareMeasuredRuns(baseline.run,engineering.run)};
 }

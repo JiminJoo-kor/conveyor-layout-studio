@@ -25,7 +25,7 @@ await send('Page.reload',{ignoreCache:true});
 await wait(1000);
 const layoutText=await readFile(path.resolve(layoutPath),'utf8');
 await evaluate(`(async()=>{const input=document.querySelector('#layoutFile'),transfer=new DataTransfer(),file=new File([${JSON.stringify(layoutText)}],'browser-verification.json',{type:'application/json'});transfer.items.add(file);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;})()`);
-await wait(1500);
+for(let attempt=0;attempt<30;attempt++){if(await evaluate(`!document.body.classList.contains('project-empty')&&document.querySelectorAll('[data-parameter-card]').length>0`))break;await wait(500);}
 await evaluate(`(()=>{const requested=${JSON.stringify(targetType.toUpperCase())},card=[...document.querySelectorAll('[data-parameter-card]')].find(node=>node.closest('.equipment-type-group')?.querySelector('h3')?.textContent.toUpperCase().includes(requested))||document.querySelector('[data-parameter-card]');card?.querySelector(':scope > summary')?.click();document.querySelector('#revealEquipment')?.click();return card?.dataset.parameterCard||null;})()`);
 await wait(500);
 if(Number(runMilliseconds)>0){await evaluate(`document.querySelector('#runBtn')?.click()`);await wait(Number(runMilliseconds));await evaluate(`document.querySelector('#runBtn')?.click()`);await wait(250);}

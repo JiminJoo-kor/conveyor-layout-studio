@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { asrsDepthPresentation, asrsLiveDisplayPolicy, asrsSceneModel, isoPoint } from '../src/asrs-monitor.js';
+import { asrsDepthPresentation, asrsLiveDisplayPolicy, asrsLiveVisualState, asrsSceneModel, isoPoint } from '../src/asrs-monitor.js';
 import { asrsRackCells } from '../src/renderer.js';
 
 test('3D LIVE 표시 단계는 2D와 같은 간단·운전·Engineering 규칙을 사용한다',()=>{
@@ -9,6 +9,14 @@ test('3D LIVE 표시 단계는 2D와 같은 간단·운전·Engineering 규칙�
   assert.equal(operations.showOperation,true);assert.equal(operations.showTiming,false);
   assert.equal(engineering.showTarget,true);assert.equal(engineering.showTiming,true);
   assert.equal(selected.selected,true);assert.equal(selected.showTarget,true);
+});
+
+test('3D LIVE 설비 외곽은 2D와 같은 상태 색을 사용하고 선택 표시를 분리한다',()=>{
+  const equipment={id:'rack',type:'stackerCrane'};
+  assert.deepEqual(asrsLiveVisualState(equipment,{cadTokens:[]},[{status:'waiting'}]),{key:'ready',label:'정상',color:'#00d4ff',borderColor:'#00d4ff',selected:false,active:false,badge:'정상'});
+  assert.equal(asrsLiveVisualState(equipment,{cadTokens:[{nodeId:'rack'}]},[{status:'inbound'}]).key,'active');
+  assert.equal(asrsLiveVisualState(equipment,{locks:{rack:true}},[{status:'waiting'}]).key,'blocked');
+  const selected=asrsLiveVisualState(equipment,{equipmentReliability:{rack:{available:false}}},[{status:'waiting'}],true);assert.equal(selected.key,'fault');assert.equal(selected.borderColor,'#ffd13f');assert.equal(selected.badge,'선택 · 고장');
 });
 
 test('교차 라인 출고 중에도 2D와 LIVE의 랙 순서·수량·점유 셀이 일치한다',()=>{

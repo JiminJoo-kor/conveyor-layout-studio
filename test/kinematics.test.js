@@ -2,10 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DeterministicReliability, KinematicMotion, MotionState, kinematicTravelDuration, motionConfigFor, motionProfileProgressAtTime, motionProfileSummary, profiledProgress, recommendedMotionDynamics } from '../src/kinematics.js';
 import { handoverProgress, handoverScale, handoverVisualSegments, intervalsOverlap, itemVisualLength, OccupancyManager, rigidHandoverVisualState, smoothedVelocityProgress } from '../src/occupancy.js';
-import { cargoLengthAlongAxis, cargoVisualExtentAlongAxis, conveyorCargoVisualPose, conveyorFlowSign, conveyorVisualPositionMap, equipmentCargoVisualPose, equipmentClipBounds, equipmentOperationProgress, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileCargoHandoverPose, mobileEquipmentRoute, mobileHandoverNode, mobileTravelStatus, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
+import { cargoLengthAlongAxis, cargoVisualExtentAlongAxis, conveyorCargoVisualPose, conveyorFlowSign, conveyorVisualPositionMap, equipmentCargoVisualPose, equipmentClipBounds, equipmentOperationProgress, equipmentVisualPosition, handoverEndpointPose, LayoutRenderer, mobileCargoHandoverPose, mobileEquipmentRoute, mobileHandoverNode, mobileTravelStatus, normalizeCanvasOverlayMode, pendingTransferPose, scaleRatioItemVisualSize, stableCargoVisualMetrics } from '../src/renderer.js';
 import { cadDuration, equipmentSequenceSnapshot } from '../src/engine.js';
 
 test('S-Curve는 jerk로 가속도 변화량을 제한하고 정지까지 FSM을 추적한다',()=>{const motion=new KinematicMotion({targetSpeed:2,acceleration:1,deceleration:1,jerk:2});motion.step(.1,{distance:5});assert.ok(Math.abs(motion.acceleration-.2)<1e-9);assert.equal(motion.state,MotionState.ACCELERATING);for(let i=0;i<1000&&motion.position<5;i++)motion.step(.01,{distance:5});assert.equal(motion.position,5);assert.equal(motion.velocity,0);assert.equal(motion.state,MotionState.STOPPED);});
+
+test('캔버스 정보 단계는 간단 운전 Engineering 세 모드만 사용한다',()=>{
+ assert.equal(normalizeCanvasOverlayMode('minimal'),'minimal');
+ assert.equal(normalizeCanvasOverlayMode('engineering'),'engineering');
+ assert.equal(normalizeCanvasOverlayMode('unknown'),'operations');
+});
 
 test('설비 속도 그래프는 거리와 속도에 따라 가속·정속·감속 구간을 계산한다',()=>{const long=motionProfileSummary(10,{targetSpeed:2,acceleration:1,deceleration:1,motionProfile:'trapezoidal'}),short=motionProfileSummary(1,{targetSpeed:2,acceleration:1,deceleration:1});assert.ok(long.t1>0&&long.t2>0&&long.t3>0);assert.equal(long.s1+long.s2+long.s3,10);assert.equal(short.t2,0);assert.ok(short.peakSpeed<2);assert.ok(profiledProgress(.25)<.25&&profiledProgress(.75)>.75);});
 

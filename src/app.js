@@ -29,11 +29,13 @@ import { selectWorkspaceButton, workspaceNavigationState } from './workspace-nav
 import { analysisTabGroups, analysisTabMeta, analysisTabTitles, analysisTabVisibility, normalizeAnalysisTab } from './analysis-tabs.js';
 import { workspaceActionGroups, workspaceActionStatus } from './workspace-actions.js';
 import { equipmentPaletteGroups } from './equipment-palette.js';
+import { simulationRunState } from './run-state.js';
 
 const $ = id => document.getElementById(id);
 const emptyLayout={schemaVersion:defaultLayout.schemaVersion,id:'empty-layout',name:'파일을 열어주세요',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},canvas:{width:1200,height:650,grid:20},equipment:[],connections:[],displayMode:'cad',cadViewMode:'schematic',cadSchematic:{lanes:[],inboundBranches:[],edges:[]}};
 let layout = cloneLayout(emptyLayout), engine = new SimulationEngine(cloneLayout(defaultLayout), defaultParams);
 let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, frame = null, last = 0;
+function setRunState(value,detail=''){const state=simulationRunState(value,detail),panel=document.querySelector('.operations .actions');panel.dataset.runState=state.state;$('runStateLabel').textContent=state.label;$('runStateDetail').textContent=state.detail;$('runBtn').textContent=state.button;}
 installCargoDetail(renderer);
 let selectedEquipment = null;
 let selectedConnectionIndex = null;
@@ -113,9 +115,9 @@ function syncFlowView(){const select=$('flowView'),current=select.value||'all',n
 function resetEngine() {
   const params=readParams(), check=validateParams(params);
   $('validation').textContent=check.errors.join(' ');$('validationSummary').textContent=check.valid?'검증 완료':`${check.errors.length}건 확인 필요`;
-  if(!check.valid){running=false;cancelAnimationFrame(frame);engine=new CadFlowEngine(cloneLayout(emptyLayout),defaultParams);$('runBtn').textContent='시뮬레이션 시작';renderer.draw(engine.state);renderEvents();return false;}
-  if(layout.displayMode==='cad'){syncAsrsStations(layout);const graph=validateFlowGraph(layout);if(!graph.valid){running=false;cancelAnimationFrame(frame);engine=new CadFlowEngine(cloneLayout(emptyLayout),params);$('runBtn').textContent='시뮬레이션 시작';$('validation').textContent=graph.errors.join(' · ');renderer.draw(engine.state);renderEvents();return false;}for(const item of layout.equipment){ensureDynamicParameters(item);}}
-  engine=layout.displayMode==='cad'?new CadFlowEngine(layout,params):new SimulationEngine(layout,params);syncFlowView();renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
+  if(!check.valid){running=false;cancelAnimationFrame(frame);engine=new CadFlowEngine(cloneLayout(emptyLayout),defaultParams);setRunState('error',check.errors.join(' '));renderer.draw(engine.state);renderEvents();return false;}
+  if(layout.displayMode==='cad'){syncAsrsStations(layout);const graph=validateFlowGraph(layout);if(!graph.valid){running=false;cancelAnimationFrame(frame);engine=new CadFlowEngine(cloneLayout(emptyLayout),params);$('validation').textContent=graph.errors.join(' · ');setRunState('error',graph.errors[0]);renderer.draw(engine.state);renderEvents();return false;}for(const item of layout.equipment){ensureDynamicParameters(item);}}
+  engine=layout.displayMode==='cad'?new CadFlowEngine(layout,params):new SimulationEngine(layout,params);setRunState('idle');syncFlowView();renderer.draw(engine.state); updateDashboard(); renderEvents(); return true;
 }
 function editorChanged(rebuild) {
   positionAsrsStations(layout);
@@ -147,7 +149,7 @@ function showStationAssignment(station){
  const fill=()=>{line.replaceChildren();const p=layout.equipment.find(n=>n.id===warehouse.value),zones=Object.keys(engine.state.warehouses?.[p.id]?.zones||{}),patterns=detectedCargoPatterns();for(let i=0;i<(Number(p.parameters.productTypes)||3);i++)add(line,String(i),stationLineLabel(layout,p,i,zones[i],patterns));};fill();line.value=String(station.asrsStation.index);warehouse.onchange=fill;add(kind,'in','입고부');add(kind,'out','출고부');kind.value=station.asrsStation.kind;
  const hint=document.createElement('small');hint.textContent='선택한 스테이션의 위치와 외부 연결을 유지하고 라인 소속을 변경합니다. 대상 스테이션과 소속을 교환하며 시뮬레이션은 초기화됩니다.';panel.append(hint);
  const apply=document.createElement('button');apply.textContent='연결 재지정 적용';panel.append(apply);
- apply.onclick=()=>{const target=layout.equipment.find(n=>n.asrsStation?.parentId===warehouse.value&&n.asrsStation.index===Number(line.value)&&n.asrsStation.kind===kind.value),previous=layout.cadSchematic,previousEquipment=layout.equipment;try{reassignStationOwnership(layout,station.id,target?.id);const check=validateFlowGraph(layout);if(!check.valid)throw Error(check.errors.join(' · '));running=false;cancelAnimationFrame(frame);$('runBtn').textContent='시뮬레이션 시작';renderer.setLayout(layout);if(!resetEngine())throw Error($('validation').textContent||'시뮬레이션 초기화 실패');selectEquipment(layout.equipment.find(n=>n.id===station.id));renderer.setSelected(station.id);renderer.draw(engine.state);const message=document.querySelector('#stationAssignmentPanel small');if(message)message.textContent='적용 완료: 선택한 스테이션의 라인 소속을 변경했습니다. 시뮬레이션은 초기화되었습니다.';}catch(error){layout.cadSchematic=previous;layout.equipment=previousEquipment;renderer.setLayout(layout);resetEngine();hint.textContent=error.message;}};
+ apply.onclick=()=>{const target=layout.equipment.find(n=>n.asrsStation?.parentId===warehouse.value&&n.asrsStation.index===Number(line.value)&&n.asrsStation.kind===kind.value),previous=layout.cadSchematic,previousEquipment=layout.equipment;try{reassignStationOwnership(layout,station.id,target?.id);const check=validateFlowGraph(layout);if(!check.valid)throw Error(check.errors.join(' · '));running=false;cancelAnimationFrame(frame);renderer.setLayout(layout);if(!resetEngine())throw Error($('validation').textContent||'시뮬레이션 초기화 실패');selectEquipment(layout.equipment.find(n=>n.id===station.id));renderer.setSelected(station.id);renderer.draw(engine.state);const message=document.querySelector('#stationAssignmentPanel small');if(message)message.textContent='적용 완료: 선택한 스테이션의 라인 소속을 변경했습니다. 시뮬레이션은 초기화되었습니다.';}catch(error){layout.cadSchematic=previous;layout.equipment=previousEquipment;renderer.setLayout(layout);resetEngine();hint.textContent=error.message;}};
  cadParameterSection.prepend(panel);panel.scrollIntoView({block:'nearest'});
 }
 function selectConnection(edge,index,context){selectedConnectionIndex=edge&&Number.isInteger(index)?index:null;$('deleteConnection').disabled=selectedConnectionIndex===null;const menu=$('edgeContextMenu');if(context&&edge){menu.hidden=false;menu.style.left=`${Math.min(context.x,window.innerWidth-130)}px`;menu.style.top=`${Math.min(context.y,window.innerHeight-50)}px`;}else menu.hidden=true;if(edge){const from=layout.equipment.find(item=>item.id===edge.from),to=layout.equipment.find(item=>item.id===edge.to);$('connectionHint').hidden=false;$('connectionHint').textContent=`연결선 선택: ${from?.name||edge.from} → ${to?.name||edge.to}`;}}
@@ -217,14 +219,15 @@ function loop(now) {
   renderer.draw(engine.state);
   if(now-lastRackAt>=100){renderRackMonitor();lastRackAt=now;}
   if(now-lastDashboardAt>=500){updateDashboard({rack:false});lastDashboardAt=now;playbackStatus.textContent=status.limited?'부하 보호 중 · 요청 '+speed+'배 / 실제 약 '+status.actualSpeed.toFixed(1)+'배':'부하 보호 · 고정 계산 정밀도 유지';}
-  if(engine.state.t>=engine.params.simDuration){running=false;$('runBtn').textContent='완료';updateDashboard();return;}
+  if(engine.state.t>=engine.params.simDuration){running=false;setRunState('complete');updateDashboard();return;}
   nextWorkAt=performance.now()+33;
   frame=requestAnimationFrame(loop);
 }
 function toggleRun() {
   if(!running&&layout.displayMode==='cad'&&!validateFlowGraph(layout).valid){resetEngine();return;}
+  if(!running&&engine.state.t>=engine.params.simDuration&&!resetEngine())return;
   if(engine.state.t===0&&!resetEngine()) return;
-  running=!running; $('runBtn').textContent=running?'일시정지':'재개'; last=0;
+  running=!running;setRunState(running?'running':'paused');last=0;
   if(running){engine.state.simulationStarted=true;renderer.draw(engine.state);frame=requestAnimationFrame(loop);} else {cancelAnimationFrame(frame);renderEvents();}
 }
 function renderEvents() {
@@ -238,7 +241,7 @@ function download(name,text,type='application/json'){const a=document.createElem
 
 $('runBtn').addEventListener('click',toggleRun);
 $('flowView').addEventListener('change',()=>{renderer.setFlowFilter($('flowView').value);renderer.draw(engine.state);});
-$('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(frame);resetEngine();$('runBtn').textContent='시뮬레이션 시작';});
+$('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(frame);resetEngine();});
 $('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify({...compactAsrsStations(layout),simulationParams:readParams()},null,2)));
 $('exportEvents').addEventListener('click',()=>{const safeName=(layout.name||'simulation').replace(/[\\/:*?"<>|]+/g,'_');download(`${safeName}-events.txt`,simulationEventText(engine.state,layout),'text/plain;charset=utf-8');});
 $('exportDiagnostics').addEventListener('click',()=>{const safeName=(layout.name||'simulation').replace(/[\\/:*?"<>|]+/g,'_'),text=engine instanceof CadFlowEngine?engine.flowDiagnosticText():'CAD 시뮬레이션에서 사용할 수 있습니다.';download(`${safeName}-stall-diagnostic.txt`,text,'text/plain;charset=utf-8');});
@@ -362,7 +365,7 @@ function rotateSelected(delta){if(!selectedEquipment)return;selectedEquipment.ro
 $('rotateLeft').addEventListener('click',()=>rotateSelected(-90));$('rotateRight').addEventListener('click',()=>rotateSelected(90));
 $('layoutFile').addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;
-  try {const candidate=JSON.parse((await file.text()).replace(/^\uFEFF/,'')), check=validateLayout(candidate,{forExecution:false});if(!check.valid)throw new Error(check.errors.join(' '));const removedDemo=removeUnreferencedLegacyDemoEquipment(candidate);running=false;cancelAnimationFrame(frame);last=0;$('runBtn').textContent='시뮬레이션 시작';layout=candidate;ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);const ready=resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();layoutImportStatus.hidden=false;layoutImportStatus.textContent=ready?`${file.name} 불러오기 완료${removedDemo.length?` · 이전 데모 설비 ${removedDemo.length}대 정리`:''}`:`${file.name} 불러오기 완료 · 실행 전 수정 필요: ${$('validation').textContent}`;}
-  catch(error){layoutImportStatus.hidden=false;layoutImportStatus.textContent='레이아웃 불러오기 실패: '+error.message;$('validation').textContent=layoutImportStatus.textContent;} finally{event.target.value='';}
+  try {const candidate=JSON.parse((await file.text()).replace(/^\uFEFF/,'')), check=validateLayout(candidate,{forExecution:false});if(!check.valid)throw new Error(check.errors.join(' '));const removedDemo=removeUnreferencedLegacyDemoEquipment(candidate);running=false;cancelAnimationFrame(frame);last=0;layout=candidate;ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);const ready=resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();layoutImportStatus.hidden=false;layoutImportStatus.textContent=ready?`${file.name} 불러오기 완료${removedDemo.length?` · 이전 데모 설비 ${removedDemo.length}대 정리`:''}`:`${file.name} 불러오기 완료 · 실행 전 수정 필요: ${$('validation').textContent}`;}
+  catch(error){layoutImportStatus.hidden=false;layoutImportStatus.textContent='레이아웃 불러오기 실패: '+error.message;$('validation').textContent=layoutImportStatus.textContent;setRunState('error',error.message);} finally{event.target.value='';}
 });
 writeParams(defaultParams);setProjectEmpty(true);syncFlowView();renderer.draw({t:0,cadTokens:[],source:[],product:[],locks:{},robot:{phase:'idle'}});renderEvents();

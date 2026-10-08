@@ -24,7 +24,8 @@ const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 const targetWidth=1672,targetHeight=941;
 await send('Emulation.setDeviceMetricsOverride',{width:targetWidth,height:targetHeight,deviceScaleFactor:1,mobile:false});
 await send('Page.reload',{ignoreCache:true});
-await wait(1000);
+for(let attempt=0;attempt<40;attempt++){if(await evaluate(`Boolean(document.querySelector('#newLayoutProject')&&document.querySelector('#layoutFile'))`))break;await wait(250);}
+await wait(1500);
 const layoutText=await readFile(path.resolve(layoutPath),'utf8');
 await evaluate(`(async()=>{const input=document.querySelector('#layoutFile'),transfer=new DataTransfer(),file=new File([${JSON.stringify(layoutText)}],'browser-verification.json',{type:'application/json'});transfer.items.add(file);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;})()`);
 for(let attempt=0;attempt<30;attempt++){if(await evaluate(`!document.body.classList.contains('project-empty')&&document.querySelectorAll('[data-parameter-card]').length>0`))break;await wait(500);}

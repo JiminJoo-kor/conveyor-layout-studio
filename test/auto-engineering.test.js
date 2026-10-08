@@ -5,6 +5,7 @@ import {driveRequirements,engineeringPreview,loadedPayloadFor,maximumDrivePayloa
 test('actual distance decides triangular versus trapezoidal profile',()=>{
  const short=solveMotionRequest({distance:.2,targetSpeed:2,automatic:false,acceleration:1,deceleration:1});
  const long=solveMotionRequest({distance:10,targetSpeed:2,automatic:false,acceleration:1,deceleration:1});
+ assert.equal(short.requestedSpeed,2);assert.equal(short.appliedSpeed,2);
  assert.equal(short.profileType,'triangular');assert.ok(short.peakSpeed<2);assert.equal(short.cruiseDistance,0);
  assert.equal(long.profileType,'trapezoidal');assert.equal(long.peakSpeed,2);assert.ok(long.cruiseDistance>0);
 });

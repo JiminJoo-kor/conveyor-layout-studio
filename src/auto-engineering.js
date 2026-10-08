@@ -29,7 +29,7 @@ export function solveMotionRequest(request){
  const distance=Math.max(0,Number(request.distance)||0),targetSpeed=positive(request.targetSpeed,.5),automatic=request.automatic!==false;
  const dynamics=automatic?recommendedMotionDynamics(distance,targetSpeed,request.rampShare):{acceleration:positive(request.acceleration,.8),deceleration:positive(request.deceleration,1)};
  const profile=motionProfileSummary(distance,{targetSpeed,...dynamics,motionProfile:'trapezoidal'});
- return{...request,distance,targetSpeed,...dynamics,profileType:profile.t2>1e-9?'trapezoidal':'triangular',peakSpeed:rounded(profile.peakSpeed),accelerationDistance:rounded(profile.s1),cruiseDistance:rounded(profile.s2),decelerationDistance:rounded(profile.s3),accelerationTime:rounded(profile.t1),cruiseTime:rounded(profile.t2),decelerationTime:rounded(profile.t3),totalTime:rounded(profile.total)};
+ return{...request,distance,targetSpeed,requestedSpeed:targetSpeed,appliedSpeed:targetSpeed,...dynamics,profileType:profile.t2>1e-9?'trapezoidal':'triangular',peakSpeed:rounded(profile.peakSpeed),accelerationDistance:rounded(profile.s1),cruiseDistance:rounded(profile.s2),decelerationDistance:rounded(profile.s3),accelerationTime:rounded(profile.t1),cruiseTime:rounded(profile.t2),decelerationTime:rounded(profile.t3),totalTime:rounded(profile.total)};
 }
 
 const maximumLinearSpeedForRpm=({maxRpm,wheelRadiusM,gearRatio})=>positive(maxRpm,1500)/positive(gearRatio,12)*2*Math.PI*positive(wheelRadiusM,.08)/60;

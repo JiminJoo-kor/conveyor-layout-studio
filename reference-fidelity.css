@@ -115,3 +115,10 @@
   .analysis-tab-more-buttons{display:flex!important;align-items:center;gap:5px}
   #exportFinalReport{display:none}
 }
+
+/* The first-run hub intentionally replaces the editing grid until a project exists. */
+body.project-empty .workspace{display:block;max-width:none;min-height:calc(100vh - 62px);padding:0}
+body.project-empty .stage{width:100%;max-width:none;margin:0}
+body.project-empty .canvas-card{border:0;background:transparent;box-shadow:none}
+body.project-empty .empty-project-state{display:block;min-height:calc(100vh - 62px);padding:30px 5vw 22px;border:0;border-radius:0;text-align:left}
+body.project-empty .empty-project-state[hidden]{display:none}

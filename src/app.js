@@ -24,7 +24,7 @@ import { engineeringPreview, loadedPayloadFor } from './auto-engineering.js';
 import { compareEngineeringDuration } from './engineering-compatibility.js';
 import { arrangeEquipmentInspector } from './inspector-layout.js';
 import { planConveyorDriveSections } from './drive-sections.js';
-import { productionKpiState } from './kpi-state.js';
+import { kpiSupportingText, productionKpiState } from './kpi-state.js';
 import { selectWorkspaceButton, workspaceNavigationState } from './workspace-navigation.js';
 import { analysisTabGroups, analysisTabMeta, analysisTabTitles, analysisTabVisibility, normalizeAnalysisTab } from './analysis-tabs.js';
 import { workspaceActionGroups, workspaceActionStatus } from './workspace-actions.js';
@@ -93,6 +93,9 @@ const analysisNav=document.querySelector('.dock-head nav'),analysisCore=document
 function applyAnalysisTab(tab=activeAnalysisTab){activeAnalysisTab=normalizeAnalysisTab(tab);const visibility=analysisTabVisibility(activeAnalysisTab),meta=analysisTabMeta(activeAnalysisTab);analysisMore.open=meta.group==='detail';analysisContext.textContent=meta.description;for(const button of document.querySelectorAll('[data-analysis-tab]'))button.classList.toggle('active',button.dataset.analysisTab===activeAnalysisTab);document.querySelector('.summary').hidden=!visibility.summary;document.querySelector('.events').hidden=!visibility.events;$('rackMonitorSlot').hidden=!visibility.rack;const report=$('simulationReport');report.hidden=!visibility.report||layout.displayMode!=='cad'||!layout.equipment.length;$('reportTitle').textContent=analysisTabTitles[activeAnalysisTab];for(const panel of document.querySelectorAll('[data-analysis-panel]'))panel.hidden=panel.dataset.analysisPanel!==activeAnalysisTab;}
 analysisNav.addEventListener('click',event=>{const button=event.target.closest('[data-analysis-tab]');if(button)applyAnalysisTab(button.dataset.analysisTab);});
 applyAnalysisTab();
+function openKpiAnalysis(tab){applyAnalysisTab(tab);$('operationsPanel').scrollIntoView({behavior:'smooth',block:'start'});}
+document.querySelector('.kpis').addEventListener('click',event=>{const card=event.target.closest('[data-kpi-tab]');if(card)openKpiAnalysis(card.dataset.kpiTab);});
+document.querySelector('.kpis').addEventListener('keydown',event=>{const card=event.target.closest('[data-kpi-tab]');if(card&&['Enter',' '].includes(event.key)){event.preventDefault();openKpiAnalysis(card.dataset.kpiTab);}});
 for(const [type,label] of [['sequenceRack','서열렉'],['boxStacker','출고용 적재기'],['boxDestacker','입고용 분배기'],['inboundDock','입고 시작'],['dock','트럭/도크'],['handoffPoint','H/P'],['sorter','소터'],['lift','리프트'],['asrs','AS/RS'],['sink','출고 완료']]){if(document.querySelector(`[data-add="${type}"]`))continue;const button=document.createElement('button');button.dataset.add=type;button.textContent=label;$('connectEquipment').before(button);}
 const equipmentPalette=document.querySelector('.palette'),paletteGroups=document.createElement('div'),paletteCommands=document.createElement('div');paletteGroups.className='equipment-palette-groups';paletteCommands.className='palette-commands';for(const spec of equipmentPaletteGroups){const details=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');details.className='equipment-palette-group';details.open=spec.open;summary.innerHTML=`${spec.title}<small>${spec.types.length}</small>`;body.className='equipment-palette-buttons';for(const type of spec.types){const button=equipmentPalette.querySelector(`[data-add="${type}"]`);if(button)body.append(button);}details.append(summary,body);paletteGroups.append(details);}paletteCommands.append(Object.assign(document.createElement('span'),{textContent:'편집 명령'}),$('connectEquipment'),$('resetView'));equipmentPalette.append(paletteGroups,paletteCommands);
 
@@ -158,7 +161,7 @@ function updateDashboard({rack=true}={}) {
   const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
   $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
   $('throughputState').textContent=productionKpiState(k,engine.state.t);
-  $('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
+  const supporting=kpiSupportingText(k);$('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%';$('cycleState').textContent=supporting.cycle;$('wip').textContent=k.wip;$('wipState').textContent=supporting.wip;$('bottleneckState').textContent=supporting.bottleneck;
   $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
   $('moved').textContent=k.movedItems; $('completed').textContent=k.completedBoxes==null?historyCount(engine.state,'completedProducts'):`${historyCount(engine.state,'completedProducts')}묶음 / ${k.completedBoxes}박스`;
   $('completed').title=historyNotice(engine.state);

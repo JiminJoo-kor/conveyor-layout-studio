@@ -206,6 +206,8 @@ function renderSimulationReport(){const panel=$('simulationReport');if(layout.di
 const playbackBudget=new PlaybackBudget();
 let nextWorkAt=0,lastDashboardAt=-Infinity,lastRackAt=-Infinity;
 const playbackStatus=document.createElement('small');playbackStatus.setAttribute('role','status');$('playback').after(playbackStatus);
+function updatePlaybackValue(){const value=`${$('playback').value}×`;$('playbackValue').value=value;$('playbackValue').textContent=value;}
+$('playback').addEventListener('input',updatePlaybackValue);updatePlaybackValue();
 function loop(now) {
   if(!running)return;
   if(!last){playbackBudget.reset(now);nextWorkAt=0;lastDashboardAt=-Infinity;lastRackAt=-Infinity;}

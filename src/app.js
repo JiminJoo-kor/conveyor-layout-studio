@@ -17,6 +17,7 @@ import { cargoColor, flowColor, LayoutRenderer } from './renderer.js';
 import { LayoutEditor, refreshEquipmentConnections } from './editor.js';
 import { analyzeCadFile, ensureDynamicParameters, parameterFieldsFor } from './cad.js';
 import { buildSimulationReport } from './report.js';
+import { buildFinalEngineeringReport } from './final-report.js';
 import { closestPortPair, connectionKind, equipmentFlowPorts } from './route.js';
 import { drawAsrsScene } from './asrs-monitor.js';
 import { motionConfigFor, motionProfileSummary, recommendedMotionDynamics } from './kinematics.js';
@@ -38,6 +39,7 @@ import { engineeringPanelMarkup, engineeringPresentation } from './engineering-p
 import { speedUnitReview } from './speed-unit-review.js';
 
 const $ = id => document.getElementById(id);
+const reportButton=document.createElement('button');reportButton.id='exportFinalReport';reportButton.type='button';reportButton.textContent='최종 보고서';document.querySelector('.dock-head nav')?.before(reportButton);
 const emptyLayout={schemaVersion:defaultLayout.schemaVersion,id:'empty-layout',name:'파일을 열어주세요',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},canvas:{width:1200,height:650,grid:20},equipment:[],connections:[],displayMode:'cad',cadViewMode:'schematic',cadSchematic:{lanes:[],inboundBranches:[],edges:[]}};
 let layout = cloneLayout(emptyLayout), engine = new SimulationEngine(cloneLayout(defaultLayout), defaultParams);
 let renderer = new LayoutRenderer($('layoutCanvas'), layout), running = false, frame = null, last = 0;
@@ -296,6 +298,7 @@ $('resetBtn').addEventListener('click',()=>{running=false;cancelAnimationFrame(f
 $('exportLayout').addEventListener('click',()=>download('conveyor-layout.json',JSON.stringify({...compactAsrsStations(layout),simulationParams:readParams()},null,2)));
 $('exportEvents').addEventListener('click',()=>{const safeName=(layout.name||'simulation').replace(/[\\/:*?"<>|]+/g,'_');download(`${safeName}-events.txt`,simulationEventText(engine.state,layout),'text/plain;charset=utf-8');});
 $('exportDiagnostics').addEventListener('click',()=>{const safeName=(layout.name||'simulation').replace(/[\\/:*?"<>|]+/g,'_'),text=engine instanceof CadFlowEngine?engine.flowDiagnosticText():'CAD 시뮬레이션에서 사용할 수 있습니다.';download(`${safeName}-stall-diagnostic.txt`,text,'text/plain;charset=utf-8');});
+$('exportFinalReport').addEventListener('click',()=>{const safeName=(layout.name||'engineering-report').replace(/[\\/:*?"<>|]+/g,'_'),report=buildSimulationReport(layout,engine);download(`${safeName}-engineering-report.html`,buildFinalEngineeringReport(layout,report),'text/html;charset=utf-8');});
 $('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hidden;$('editorTools').hidden=!active;editor.setEnabled(active);$('editorToggle').textContent=active?'편집 종료':'편집 모드';$('workspaceActionState').textContent=workspaceActionStatus({editing:active,projectEmpty:document.body.classList.contains('project-empty')});});
 $('viewFit').addEventListener('click',()=>editor.fitView());
 $('cadViewToggle').addEventListener('click',()=>{if(layout.displayMode!=='cad')return;const order=['hybrid','schematic','raw'],labels={hybrid:'보기: 혼합',schematic:'보기: 약식',raw:'보기: CAD'},next=order[(order.indexOf(layout.cadViewMode)+1)%order.length];layout.cadViewMode=next;for(const item of layout.equipment.filter(entry=>entry.source?.origin==='dxf')){const position=next==='schematic'?item.normalizedPosition:item.originalPosition;if(position){item.x=position.x;item.y=position.y;}}$('cadViewToggle').textContent=labels[next];positionAsrsStations(layout);renderer.setLayout(layout);editor.resetView();renderer.draw(engine.state);});

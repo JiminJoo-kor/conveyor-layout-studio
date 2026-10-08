@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {captureMeasuredRun,compareMeasuredRuns,measuredRunReadiness} from '../src/engineering-run-comparison.js';
+import {captureMeasuredRun,compareMeasuredRuns,measuredRunReadiness,recommendedMeasurementWindow} from '../src/engineering-run-comparison.js';
 
 test('measured comparison uses engine KPIs without estimating UPH from nominal CT',()=>{
  const baseline=captureMeasuredRun({throughput:192,cycleTime:561.4075,wip:91,completedCount:48,movedItems:2208,utilization:{asrs:.59162}},900,'baseline');
@@ -21,4 +21,9 @@ test('comparison stays pending until both measured runs exist',()=>{
 test('elapsed time without completed cargo is not accepted as a measured baseline',()=>{
  const readiness=measuredRunReadiness({throughput:0,cycleTime:0,completedCount:0,wip:81},300),run=captureMeasuredRun({throughput:0,cycleTime:0,completedCount:0,wip:81},300);
  assert.equal(readiness.ready,false);assert.ok(readiness.reasons.includes('완료 물류 필요'));assert.equal(run.measured,false);
+});
+
+test('ASRS projects recommend a 900 second measured comparison window',()=>{
+ const storage=recommendedMeasurementWindow({equipment:[{type:'asrs'}]},300),ordinary=recommendedMeasurementWindow({equipment:[{type:'conveyor'}]},300),longConfigured=recommendedMeasurementWindow({equipment:[{type:'asrs'}]},1200);
+ assert.deepEqual([storage.seconds,storage.needsExtension],[900,true]);assert.deepEqual([ordinary.seconds,ordinary.minimumSeconds],[600,600]);assert.deepEqual([longConfigured.seconds,longConfigured.needsExtension],[1200,false]);
 });

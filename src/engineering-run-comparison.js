@@ -9,6 +9,11 @@ export function measuredRunReadiness(kpis,elapsedSeconds){
  return{ready:reasons.length===0,reasons,elapsedSeconds:rounded(elapsed),completedCount,throughput:rounded(throughput),cycleTime:rounded(cycleTime)};
 }
 
+export function recommendedMeasurementWindow(layout,configuredSeconds=0){
+ const hasStorage=(layout?.equipment||[]).some(item=>!item.asrsStation&&['asrs','stackerCrane'].includes(item.type)),minimumSeconds=hasStorage?900:600,configured=Math.max(0,Number(configuredSeconds)||0);
+ return{seconds:Math.max(minimumSeconds,configured),minimumSeconds,configuredSeconds:configured,needsExtension:configured<minimumSeconds,reason:hasStorage?'AS/RS 입고·반출·최종 출고의 워밍업 포함':'초기 WIP 워밍업과 완료 물류 측정 포함'};
+}
+
 export function captureMeasuredRun(kpis,elapsedSeconds,kind='baseline'){
  const elapsed=Math.max(0,Number(elapsedSeconds)||0),asrsUtilization=Number(kpis?.utilization?.asrs)||0,readiness=measuredRunReadiness(kpis,elapsed);
  return{kind,elapsedSeconds:rounded(elapsed),throughput:rounded(kpis?.throughput),cycleTime:rounded(kpis?.cycleTime),wip:Math.max(0,Number(kpis?.wip)||0),completedCount:Math.max(0,Number(kpis?.completedCount)||0),movedItems:Math.max(0,Number(kpis?.movedItems)||0),asrsUtilization:rounded(asrsUtilization,5),measured:readiness.ready,measurementReasons:readiness.reasons};

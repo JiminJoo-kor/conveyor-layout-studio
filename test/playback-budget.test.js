@@ -4,10 +4,11 @@ import {readFileSync} from 'node:fs';
 import {PlaybackBudget} from '../src/playback-budget.js';
 import {CadFlowEngine} from '../src/engine.js';
 test('large playback requests yield within the work budget without increasing physical time steps',()=>{
- let clock=0;const calls=[],engine={state:{t:0},params:{simDuration:100},step(dt){calls.push(dt);this.state.t+=dt;clock+=2;}};
+ let clock=0;const calls=[],boundaries=[],engine={state:{t:0},params:{simDuration:100},step(dt){calls.push(dt);this.state.t+=dt;clock+=2;}};
  const budget=new PlaybackBudget({clock:()=>clock,budgetMs:4});budget.reset(0);const result=budget.advance(engine,1000,100);
  assert.equal(result.steps,2);assert.equal(result.advanced,.04);assert.equal(result.limited,true);assert.ok(budget.pending<=2);assert.ok(calls.every(dt=>dt===.02));
  budget.reset(5000);assert.equal(budget.pending,0);assert.equal(budget.advance(engine,5000,100).steps,0);
+ budget.reset(6000);budget.advance(engine,7000,1,current=>boundaries.push(current.state.t));assert.deepEqual(boundaries,[.06,.08]);
 });
 test('normal and high requested playback produce identical stack line results at equal simulation time',()=>{
  const layout=JSON.parse(readFileSync(new URL('../examples/empty-box-stack-line.json',import.meta.url),'utf8'));

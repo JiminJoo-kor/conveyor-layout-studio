@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compareEngineeringDuration,compareLayoutEngineering,engineScopedMotionRequest,engineScopedMotionRequests} from '../src/engineering-compatibility.js';
+import {buildEngineeringMotionAudit,compareEngineeringDuration,compareLayoutEngineering,engineScopedMotionRequest,engineScopedMotionRequests,engineeringAuditContexts} from '../src/engineering-compatibility.js';
 import {cadDuration,engineeringRuntimeDecision,legacyCadDuration,runtimeMotionConfig} from '../src/engine.js';
 
 const layout=item=>({cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[item]});
@@ -98,4 +98,15 @@ test('ASRS composes target-cell X Z and fork axes with simultaneous travel and r
 test('ASRS sequential setting sums X and Z instead of taking the slower axis',()=>{
  const rack={id:'rack-sequential',type:'stackerCrane',parameters:{rows:1,columns:4,levels:3,columnPitch:1.5,levelHeight:1.5,infeedColumn:1,infeedLevel:1,travelSpeed:2,liftSpeed:1,travelAcceleration:.5,travelDeceleration:.5,liftAcceleration:.5,liftDeceleration:.5,forkStroke:.8,forkSpeed:.4,forkAcceleration:1,forkDeceleration:1,putawayTime:.5,simultaneousMotion:0,autoMotionTuning:0}},result=compareEngineeringDuration(rack,layout(rack),{slotIndex:7,operation:'putaway'});
  assert.match(result.scope,/순차 이동/);assert.equal(result.status,'compatible');
+});
+
+test('project motion audit covers each equipment and both farthest ASRS directions',()=>{
+ const conveyor={id:'cv',name:'CV',type:'conveyor',parameters:{length:5,speed:1,acceleration:.8,deceleration:1,motionProfile:1,autoMotionTuning:0}},rack={id:'rack',name:'ASRS',type:'asrs',parameters:{rows:2,columns:4,levels:3,columnPitch:1.5,levelHeight:1.5,infeedColumn:1,infeedLevel:1,outfeedColumn:4,outfeedLevel:1,infeedTime:1,outfeedTime:1,travelSpeed:2,liftSpeed:1,downSpeed:1.2,travelAcceleration:.5,travelDeceleration:.5,liftAcceleration:.5,liftDeceleration:.5,forkStroke:.8,forkSpeed:.4,forkAcceleration:1,forkDeceleration:1,putawayTime:.5,retrievalTime:.75,simultaneousMotion:1,autoMotionTuning:0}},itemLayout={cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[conveyor,rack]},audit=buildEngineeringMotionAudit(itemLayout);
+ assert.equal(audit.equipmentCount,2);assert.equal(audit.contextCount,3);assert.deepEqual(audit.rows.map(row=>row.contextKey),['cycle','putaway','retrieval']);assert.ok(audit.rows.every(row=>Number.isFinite(row.legacySeconds)&&Number.isFinite(row.engineeringSeconds)));assert.ok(audit.rows.every(row=>row.runtimeApplied===row.applyEligible));
+ const contexts=engineeringAuditContexts(rack);assert.equal(contexts[0].context.slotIndex,23);assert.equal(contexts[1].context.operation,'retrieval');
+});
+
+test('project motion audit keeps review and unsupported equipment explicit',()=>{
+ const review={id:'cv-review',type:'conveyor',parameters:{length:2,speed:1.5,acceleration:.2,deceleration:.2,motionProfile:1,autoMotionTuning:1}},unsupported={id:'robot',type:'robot',parameters:{pickTime:2,placeTime:2}},derived={id:'station',type:'conveyor',asrsStation:{parentId:'rack'},parameters:{length:1,speed:.5}},audit=buildEngineeringMotionAudit({cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[review,unsupported,derived]});
+ assert.equal(audit.equipmentCount,2);assert.equal(audit.counts.review,1);assert.equal(audit.counts.unsupported,1);assert.equal(audit.ready,false);assert.equal(audit.rows.find(row=>row.equipmentId==='cv-review').runtimeApplied,false);
 });

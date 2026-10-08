@@ -26,3 +26,16 @@ export function compareEngineeringDuration(item,layout,context={},tolerance=engi
 export function compareLayoutEngineering(layout,contextByEquipment={}){
  return(layout?.equipment||[]).map(item=>compareEngineeringDuration(item,layout,contextByEquipment[item.id]||{}));
 }
+
+export function engineeringAuditContexts(item){
+ if(!['asrs','stackerCrane'].includes(item?.type))return[{key:'cycle',label:'운전 사이클',context:{}}];
+ const p=item.parameters||{},lastSlot=Math.max(0,Math.max(1,Number(p.rows)||1)*Math.max(1,Number(p.columns)||1)*Math.max(1,Number(p.levels)||1)-1);
+ return[{key:'putaway',label:'최장거리 입고',context:{slotIndex:lastSlot,operation:'putaway'}},{key:'retrieval',label:'최장거리 출고',context:{slotIndex:lastSlot,operation:'retrieval'}}];
+}
+
+export function buildEngineeringMotionAudit(layout){
+ const equipment=(layout?.equipment||[]).filter(item=>!item.asrsStation&&item.reviewStatus!=='rejected'),rows=[];
+ for(const item of equipment)for(const audit of engineeringAuditContexts(item)){const result=compareEngineeringDuration(item,layout,audit.context),runtime=engineeringRuntimeDecision(item,layout,audit.context);rows.push({...result,contextKey:audit.key,contextLabel:audit.label,equipmentName:item.name||item.id,runtimeApplied:runtime.apply});}
+ const counts={compatible:0,approved:0,review:0,unsupported:0};for(const row of rows)counts[row.status]=(counts[row.status]||0)+1;
+ return{equipmentCount:equipment.length,contextCount:rows.length,counts,ready:counts.review===0&&counts.unsupported===0,rows};
+}

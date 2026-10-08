@@ -1,7 +1,7 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
-const [, , layoutPath, outputPath='docs/ui-progress/actual-loaded-project.png', port='9223']=process.argv;
+const [, , layoutPath, outputPath='docs/ui-progress/actual-loaded-project.png', port='9223', targetType='conveyor']=process.argv;
 if(!layoutPath)throw new Error('Usage: node scripts/verify-browser-ui.mjs <layout.json> [screenshot.png] [debug-port]');
 
 const pages=await fetch(`http://127.0.0.1:${port}/json`).then(response=>response.json());
@@ -26,7 +26,7 @@ await wait(1000);
 const layoutText=await readFile(path.resolve(layoutPath),'utf8');
 await evaluate(`(async()=>{const input=document.querySelector('#layoutFile'),transfer=new DataTransfer(),file=new File([${JSON.stringify(layoutText)}],'browser-verification.json',{type:'application/json'});transfer.items.add(file);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;})()`);
 await wait(1500);
-await evaluate(`(()=>{const card=[...document.querySelectorAll('[data-parameter-card]')].find(node=>node.closest('.equipment-type-group')?.querySelector('h3')?.textContent.includes('CONVEYOR'))||document.querySelector('[data-parameter-card]');card?.querySelector(':scope > summary')?.click();return card?.dataset.parameterCard||null;})()`);
+await evaluate(`(()=>{const requested=${JSON.stringify(targetType.toUpperCase())},card=[...document.querySelectorAll('[data-parameter-card]')].find(node=>node.closest('.equipment-type-group')?.querySelector('h3')?.textContent.toUpperCase().includes(requested))||document.querySelector('[data-parameter-card]');card?.querySelector(':scope > summary')?.click();document.querySelector('#revealEquipment')?.click();return card?.dataset.parameterCard||null;})()`);
 await wait(500);
 
 const report=await evaluate(`(()=>{const controls=document.querySelector('.controls'),card=document.querySelector('.equipment-parameter-card.selected')||document.querySelector('[data-parameter-card]'),sections=[...card?.querySelectorAll('[data-inspector-section]')||[]],fields=[...card?.querySelectorAll('[data-parameter-kind]')||[]];return{viewport:{width:innerWidth,height:innerHeight},inspectorWidth:controls?Math.round(controls.getBoundingClientRect().width):0,selectedEquipment:card?.dataset.parameterCard||null,sectionOrder:sections.map(node=>node.dataset.inspectorSection),sectionState:Object.fromEntries(sections.filter(node=>node.tagName==='DETAILS').map(node=>[node.dataset.inspectorSection,node.open])),fieldKinds:Object.fromEntries(['INPUT','AUTO','RESULT','STATUS'].map(kind=>[kind,fields.filter(field=>field.dataset.parameterKind===kind).length])),editableAutoResult:fields.filter(field=>['AUTO','RESULT'].includes(field.dataset.parameterKind)&&!field.readOnly).map(field=>field.dataset.parameter),readonlyInput:fields.filter(field=>field.dataset.parameterKind==='INPUT'&&field.readOnly).map(field=>field.dataset.parameter),canvasVisible:Boolean(document.querySelector('#layoutCanvas')?.getBoundingClientRect().width),errors:document.querySelector('#validation')?.textContent?.trim()||''};})()`);

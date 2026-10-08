@@ -22,6 +22,7 @@ import { drawAsrsScene } from './asrs-monitor.js';
 import { motionConfigFor, motionProfileSummary, recommendedMotionDynamics } from './kinematics.js';
 import { engineeringPreview, loadedPayloadFor } from './auto-engineering.js';
 import { buildEngineeringMotionAudit, compareEngineeringDuration } from './engineering-compatibility.js';
+import { approveEngineeringMotionByType, productionMotionTypes } from './engineering-approval.js';
 import { arrangeEquipmentInspector, updateEquipmentInspectorRuntime } from './inspector-layout.js';
 import { planConveyorDriveSections } from './drive-sections.js';
 import { kpiSupportingText, productionKpiState } from './kpi-state.js';
@@ -41,6 +42,7 @@ let selectedEquipment = null;
 let selectedConnectionIndex = null;
 let pendingCadCandidates = [];
 let flowLegendSignature='';
+let motionApprovalStatus='';
 const editor = new LayoutEditor($('layoutCanvas'), renderer, () => layout, editorChanged, selectEquipment, connectEquipment, editorModeChanged, selectConnection);
 const cadParameterSection=document.createElement('section');cadParameterSection.id='cadEquipmentParameters';cadParameterSection.className='cad-parameter-section';cadParameterSection.hidden=true;
 $('dynamicEquipmentControls').append(cadParameterSection);
@@ -166,8 +168,10 @@ function deleteSelectedConnection(){if(selectedConnectionIndex===null)return;if(
 function renderEngineeringMotionAudit(){
  const host=$('reportContent')?.querySelector('[data-analysis-panel="changes"]');if(!host)return;
  const audit=buildEngineeringMotionAudit(layout),panel=document.createElement('section');
+ const approvalTypes=new Set(productionMotionTypes),reviewEquipment=new Set(audit.rows.filter(row=>row.status==='review'&&approvalTypes.has(row.type)).map(row=>row.equipmentId));
  panel.className=`motion-audit ${audit.ready?'ready':'review'}`;
- panel.innerHTML=`<header><div><small>MOTION RUNTIME AUDIT</small><h4>계산 Motion ↔ 실제 SIM 적용</h4></div><b>${audit.ready?'검증 완료':'확인 필요'}</b></header><div class="motion-audit-counts"><span>설비 <b>${audit.equipmentCount}</b></span><span>검사조건 <b>${audit.contextCount}</b></span><span>일치 <b>${audit.counts.compatible}</b></span><span>승인 <b>${audit.counts.approved}</b></span><span>검토 <b>${audit.counts.review}</b></span><span>미지원 <b>${audit.counts.unsupported}</b></span></div><div class="table-wrap"><table><thead><tr><th>설비</th><th>조건</th><th>현재 CT</th><th>계산 CT</th><th>차이</th><th>SIM</th><th>실행 검증</th><th>판정</th></tr></thead><tbody>${audit.rows.map(row=>`<tr data-motion-audit-status="${row.status}" data-execution-match="${row.executionMatched}"><td>${row.equipmentName}</td><td>${row.contextLabel}</td><td>${row.legacySeconds.toFixed(2)}s</td><td>${row.engineeringSeconds==null?'-':row.engineeringSeconds.toFixed(2)+'s'}</td><td>${row.deltaSeconds==null?'-':`${row.deltaSeconds>=0?'+':''}${row.deltaSeconds.toFixed(2)}s`}</td><td>${row.runtimeApplied?'적용':'기존 유지'}</td><td>${row.executionMatched==null?'-':row.executionMatched?'일치':'불일치'}</td><td>${row.status.toUpperCase()}</td></tr>`).join('')}</tbody></table></div></section>`;
+ panel.innerHTML=`<header><div><small>MOTION RUNTIME AUDIT</small><h4>계산 Motion ↔ 실제 SIM 적용</h4></div><b>${audit.ready?'검증 완료':'확인 필요'}</b></header><div class="motion-audit-counts"><span>설비 <b>${audit.equipmentCount}</b></span><span>검사조건 <b>${audit.contextCount}</b></span><span>일치 <b>${audit.counts.compatible}</b></span><span>승인 <b>${audit.counts.approved}</b></span><span>검토 <b>${audit.counts.review}</b></span><span>미지원 <b>${audit.counts.unsupported}</b></span></div><div class="motion-audit-actions"><button type="button" data-approve-engineering-motion ${reviewEquipment.size?'':'disabled'}>실행 검증 후 적용 · ${reviewEquipment.size}대</button><small>${motionApprovalStatus||'컨트롤러 실행시간 검증을 통과한 REVIEW 설비만 적용합니다.'}</small></div><div class="table-wrap"><table><thead><tr><th>설비</th><th>조건</th><th>현재 CT</th><th>계산 CT</th><th>차이</th><th>SIM</th><th>실행 검증</th><th>판정</th></tr></thead><tbody>${audit.rows.map(row=>`<tr data-motion-audit-status="${row.status}" data-execution-match="${row.executionMatched}"><td>${row.equipmentName}</td><td>${row.contextLabel}</td><td>${row.legacySeconds.toFixed(2)}s</td><td>${row.engineeringSeconds==null?'-':row.engineeringSeconds.toFixed(2)+'s'}</td><td>${row.deltaSeconds==null?'-':`${row.deltaSeconds>=0?'+':''}${row.deltaSeconds.toFixed(2)}s`}</td><td>${row.runtimeApplied?'적용':'기존 유지'}</td><td>${row.executionMatched==null?'-':row.executionMatched?'일치':'불일치'}</td><td>${row.status.toUpperCase()}</td></tr>`).join('')}</tbody></table></div></section>`;
+ panel.querySelector('[data-approve-engineering-motion]')?.addEventListener('click',()=>{const requested=reviewEquipment.size,approved=approveEngineeringMotionByType(layout),newlyApproved=approved.filter(id=>reviewEquipment.has(id));motionApprovalStatus=`검증 통과 ${newlyApproved.length}대 적용 · 제외 ${Math.max(0,requested-newlyApproved.length)}대`;resetEngine();renderCadEquipmentParameters(selectedEquipment?.id);renderSimulationReport();renderEngineeringMotionAudit();});
  host.querySelector('.motion-audit')?.remove();host.querySelector('h3')?.after(panel);
 }
 function updateDashboard({rack=true}={}) {

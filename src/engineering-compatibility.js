@@ -49,3 +49,9 @@ export function buildEngineeringMotionAudit(layout){
  const counts={compatible:0,approved:0,review:0,unsupported:0};for(const row of rows)counts[row.status]=(counts[row.status]||0)+1;
  return{equipmentCount:equipment.length,contextCount:rows.length,counts,ready:counts.review===0&&counts.unsupported===0,rows};
 }
+
+export function summarizeEngineeringImpact(audit,types=[]){
+ const allowed=new Set(types),rows=(audit?.rows||[]).filter(row=>row.status==='review'&&(!allowed.size||allowed.has(row.type))&&Number.isFinite(row.legacySeconds)&&Number.isFinite(row.engineeringSeconds));
+ const legacySeconds=rows.reduce((sum,row)=>sum+row.legacySeconds,0),engineeringSeconds=rows.reduce((sum,row)=>sum+row.engineeringSeconds,0),deltaSeconds=engineeringSeconds-legacySeconds,deltaPercent=legacySeconds?deltaSeconds/legacySeconds*100:0;
+ return{equipmentCount:new Set(rows.map(row=>row.equipmentId)).size,contextCount:rows.length,legacySeconds:rounded(legacySeconds),engineeringSeconds:rounded(engineeringSeconds),deltaSeconds:rounded(deltaSeconds),deltaPercent:rounded(deltaPercent),uphRequiresSimulation:rows.length>0};
+}

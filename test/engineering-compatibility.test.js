@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildEngineeringMotionAudit,compareEngineeringDuration,compareLayoutEngineering,engineScopedMotionRequest,engineScopedMotionRequests,engineeringAuditContexts,verifyEngineeringRuntimeMotion} from '../src/engineering-compatibility.js';
+import {buildEngineeringMotionAudit,compareEngineeringDuration,compareLayoutEngineering,engineScopedMotionRequest,engineScopedMotionRequests,engineeringAuditContexts,summarizeEngineeringImpact,verifyEngineeringRuntimeMotion} from '../src/engineering-compatibility.js';
 import {cadDuration,engineeringRuntimeDecision,legacyCadDuration,runtimeMotionConfig} from '../src/engine.js';
 
 const layout=item=>({cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},equipment:[item]});
@@ -121,4 +121,9 @@ test('approved engineering axes finish in the runtime controller within toleranc
 test('review motion is not reported as runtime verified before approval',()=>{
  const item={id:'review-runtime',type:'conveyor',parameters:{length:2,speed:1.5,acceleration:.2,deceleration:.2,motionProfile:1,autoMotionTuning:1}},check=verifyEngineeringRuntimeMotion(item,layout(item));
  assert.equal(check.applied,false);assert.equal(check.matched,false);assert.deepEqual(check.axes,[]);
+});
+
+test('approval impact reports nominal CT change without inventing an UPH value',()=>{
+ const audit={rows:[{equipmentId:'a',type:'conveyor',status:'review',legacySeconds:5,engineeringSeconds:8},{equipmentId:'b',type:'dock',status:'unsupported',legacySeconds:4,engineeringSeconds:null},{equipmentId:'c',type:'amr',status:'review',legacySeconds:10,engineeringSeconds:9}]},impact=summarizeEngineeringImpact(audit,['conveyor','amr']);
+ assert.deepEqual(impact,{equipmentCount:2,contextCount:2,legacySeconds:15,engineeringSeconds:17,deltaSeconds:2,deltaPercent:13.333,uphRequiresSimulation:true});
 });

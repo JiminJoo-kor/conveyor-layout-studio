@@ -24,6 +24,7 @@ import { engineeringPreview, loadedPayloadFor } from './auto-engineering.js';
 import { compareEngineeringDuration } from './engineering-compatibility.js';
 import { arrangeEquipmentInspector } from './inspector-layout.js';
 import { planConveyorDriveSections } from './drive-sections.js';
+import { productionKpiState } from './kpi-state.js';
 
 const $ = id => document.getElementById(id);
 const emptyLayout={schemaVersion:defaultLayout.schemaVersion,id:'empty-layout',name:'파일을 열어주세요',cargoSpec:{length:1200,width:800,weight:100,unit:'mm'},canvas:{width:1200,height:650,grid:20},equipment:[],connections:[],displayMode:'cad',cadViewMode:'schematic',cadSchematic:{lanes:[],inboundBranches:[],edges:[]}};
@@ -130,6 +131,7 @@ function deleteSelectedConnection(){if(selectedConnectionIndex===null)return;if(
 function updateDashboard({rack=true}={}) {
   const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
   $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
+  $('throughputState').textContent=productionKpiState(k,engine.state.t);
   $('throughputLabel').textContent=k.mode==='cad'?'UPH':'1-7 처리량';$('secondaryKpiLabel').textContent=k.mode==='cad'?'평균 CT':'로봇 가동률';$('robotUtil').textContent=k.mode==='cad'?k.cycleTime.toFixed(1)+'초':(k.utilization.robot*100).toFixed(1)+'%'; $('wip').textContent=k.wip;
   $('bottleneck').textContent=k.bottleneck?`${names[k.bottleneck[0]]} ${(k.bottleneck[1]*100).toFixed(0)}%`:'-';
   $('moved').textContent=k.movedItems; $('completed').textContent=k.completedBoxes==null?historyCount(engine.state,'completedProducts'):`${historyCount(engine.state,'completedProducts')}묶음 / ${k.completedBoxes}박스`;

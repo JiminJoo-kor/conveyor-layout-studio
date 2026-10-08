@@ -1,11 +1,11 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
-const [, , layoutPath, outputPath='docs/ui-progress/actual-loaded-project.png', port='9223', targetType='conveyor', runMilliseconds='0', viewMode='2d']=process.argv;
+const [, , layoutPath, outputPath='docs/ui-progress/actual-loaded-project.png', port='9223', targetType='conveyor', runMilliseconds='0', viewMode='2d', appUrl='http://127.0.0.1:4173/']=process.argv;
 if(!layoutPath)throw new Error('Usage: node scripts/verify-browser-ui.mjs <layout.json> [screenshot.png] [debug-port]');
 
 const pages=await fetch(`http://127.0.0.1:${port}/json`).then(response=>response.json());
-const page=pages.find(entry=>entry.type==='page'&&entry.url.startsWith('http://127.0.0.1:4173/'));
+const page=pages.find(entry=>entry.type==='page'&&entry.url.startsWith(appUrl));
 if(!page)throw new Error('Conveyor Layout Studio browser page was not found.');
 
 const socket=new WebSocket(page.webSocketDebuggerUrl);

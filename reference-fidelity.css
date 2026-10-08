@@ -128,7 +128,11 @@ body.project-empty .empty-project-state[hidden]{display:none}
 .line-throughput-bars>header{display:flex;align-items:center;justify-content:space-between;height:20px;color:#d8f3ff;font-size:10px}.line-throughput-bars>header small{color:#6f95aa;font:7px monospace}.line-throughput-bars>[data-ref-bars]{display:grid;gap:3px;margin-top:5px}.line-throughput-bars>[data-ref-bars]>p{margin:0;color:#7898ad;font-size:8px}.line-throughput-bars button{display:grid;grid-template-columns:66px minmax(55px,1fr) 74px;align-items:center;gap:5px;width:100%;height:27px;padding:3px 5px;border:1px solid transparent;border-radius:2px;background:#061b28;color:#b9d8e8;text-align:left}.line-throughput-bars button:hover,.line-throughput-bars button.active{border-color:#167694;background:#08283a}.line-throughput-bars button.warning{border-left-color:#f7b83b}.line-throughput-bars button>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}.line-throughput-bars button>i{display:grid;gap:2px}.line-throughput-bars button em{display:block;width:var(--value);height:5px;min-width:3px;font-style:normal}.line-throughput-bars button em.inbound{background:#17d2f5}.line-throughput-bars button em.outbound{background:#f7b83b}.line-throughput-bars button>b{color:#d8f3ff;font:7px monospace;text-align:right;white-space:nowrap}.line-throughput-bars button>b small{color:#6f95aa;font-size:6px}.line-throughput-bars button.warning>b{color:#ffd463}
 
 @media(min-width:1401px){
-  body[data-analysis-tab="ct"] .workspace,body[data-analysis-tab="wip"] .workspace,body[data-analysis-tab="events"] .workspace{grid-template-rows:69px minmax(0,1fr) 300px}
-  body[data-analysis-tab="bottleneck"] .workspace,body[data-analysis-tab="drive"] .workspace,body[data-analysis-tab="changes"] .workspace{grid-template-rows:69px minmax(0,1fr) 350px}
-  body:not([data-analysis-tab="production"]) .operations{height:100%}
+  body[data-analysis-tab] .workspace{grid-template-rows:69px minmax(0,1fr) 210px}
+  body[data-analysis-tab] .operations{height:100%}
+  .canvas-card,.live-view-layout,.canvas-scroll,.split-live-panel{min-width:0;max-width:100%;min-height:0;max-height:100%;overflow:hidden;contain:layout paint}
+  .live-view-layout[data-view-mode="2d"],.live-view-layout[data-view-mode="3d"],.live-view-layout[data-view-mode="split"]{width:100%;height:100%}
+  .live-view-layout[data-view-mode="split"]{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}
+  .split-live-panel,.split-rack-monitor{min-width:0;max-width:100%;overflow:auto}
+  .simulation-report{max-width:100%;overflow:auto}
 }

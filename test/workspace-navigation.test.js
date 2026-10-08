@@ -11,7 +11,7 @@ test('일반 설비 프로젝트는 시뮬레이션과 분석만 활성화한다
 });
 
 test('AS/RS가 있으면 3D LIVE 탐색을 활성화한다',()=>{
- assert.deepEqual(workspaceNavigationState({equipment:[{type:'stackerCrane'}]}),{ready:true,has3d:true,splitReady:false});
+ assert.deepEqual(workspaceNavigationState({equipment:[{type:'stackerCrane'}]}),{ready:true,has3d:true,splitReady:true});
 });
 
 test('제외된 AS/RS 후보는 3D LIVE 대상으로 세지 않는다',()=>{

@@ -9,6 +9,7 @@
     "check": "node scripts/check-syntax.mjs",
     "verify": "npm test && npm run check",
     "audit-layout": "node scripts/audit-layout.mjs",
+    "compare-engineering-runs": "node scripts/compare-engineering-runs.mjs",
     "approve-engineering-motion": "node scripts/approve-engineering-motion.mjs"
   }
 }

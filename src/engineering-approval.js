@@ -1,4 +1,5 @@
 import {engineeringRuntimeDecision} from './engine.js';
+import {verifyEngineeringRuntimeMotion} from './engineering-compatibility.js';
 
 export const productionMotionTypes=Object.freeze(['conveyor','processLine','forkingDevice','turntable','amr','agv']);
 
@@ -9,6 +10,7 @@ export function approveEngineeringMotionByType(layout,types=productionMotionType
   const decision=engineeringRuntimeDecision(item,layout);
   if(decision.status==='unsupported')continue;
   item.engineering={...(item.engineering||{}),motionRuntime:'approved'};
+  const verification=verifyEngineeringRuntimeMotion(item,layout);if(!verification.matched){delete item.engineering.motionRuntime;if(!Object.keys(item.engineering).length)delete item.engineering;continue;}
   approved.push(item.id);
  }
  return approved;

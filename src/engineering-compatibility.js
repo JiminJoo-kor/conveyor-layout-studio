@@ -1,4 +1,5 @@
 import {engineeringRuntimeDecision,engineeringRuntimePlan} from './engine.js';
+import {kinematicTravelDuration} from './kinematics.js';
 
 // The current runtime advances motion in 10 ms steps; stopping-point integration
 // can differ slightly from the analytical profile even with identical inputs.
@@ -27,6 +28,15 @@ export function compareLayoutEngineering(layout,contextByEquipment={}){
  return(layout?.equipment||[]).map(item=>compareEngineeringDuration(item,layout,contextByEquipment[item.id]||{}));
 }
 
+export function verifyEngineeringRuntimeMotion(item,layout,context={},dt=.01){
+ const decision=engineeringRuntimeDecision(item,layout,context),requests=engineScopedMotionRequests(item,layout,context);
+ if(!decision.apply||!requests.length)return{equipmentId:item?.id,applied:false,matched:false,axes:[],reason:decision.status==='unsupported'?'운동 모델 미지원':'Engineering motion 미승인'};
+ // The engineering solver currently produces a trapezoidal profile. Approval
+ // means the runtime executes that profile instead of its default S-curve.
+ const axes=decision.motions.map((motion,index)=>{const request=requests[index],calculatedSeconds=Number(motion.totalTime)||0,simulatedSeconds=kinematicTravelDuration(request.distance,{targetSpeed:motion.appliedSpeed??motion.targetSpeed,acceleration:motion.acceleration,deceleration:motion.deceleration,jerk:motion.jerk,motionProfile:'trapezoidal'},dt),toleranceSeconds=Math.max(.15,dt*15,calculatedSeconds*.06),deltaSeconds=simulatedSeconds-calculatedSeconds;return{model:request.model,calculatedSeconds:rounded(calculatedSeconds),simulatedSeconds:rounded(simulatedSeconds),deltaSeconds:rounded(deltaSeconds),toleranceSeconds:rounded(toleranceSeconds),matched:Math.abs(deltaSeconds)<=toleranceSeconds};});
+ return{equipmentId:item.id,applied:true,matched:axes.every(axis=>axis.matched),axes,reason:axes.every(axis=>axis.matched)?'계산 시간과 컨트롤러 실행 시간이 일치합니다.':'축 실행 시간이 허용오차를 초과했습니다.'};
+}
+
 export function engineeringAuditContexts(item){
  if(!['asrs','stackerCrane'].includes(item?.type))return[{key:'cycle',label:'운전 사이클',context:{}}];
  const p=item.parameters||{},lastSlot=Math.max(0,Math.max(1,Number(p.rows)||1)*Math.max(1,Number(p.columns)||1)*Math.max(1,Number(p.levels)||1)-1);
@@ -35,7 +45,7 @@ export function engineeringAuditContexts(item){
 
 export function buildEngineeringMotionAudit(layout){
  const equipment=(layout?.equipment||[]).filter(item=>!item.asrsStation&&item.reviewStatus!=='rejected'),rows=[];
- for(const item of equipment)for(const audit of engineeringAuditContexts(item)){const result=compareEngineeringDuration(item,layout,audit.context),runtime=engineeringRuntimeDecision(item,layout,audit.context);rows.push({...result,contextKey:audit.key,contextLabel:audit.label,equipmentName:item.name||item.id,runtimeApplied:runtime.apply});}
+ for(const item of equipment)for(const audit of engineeringAuditContexts(item)){const result=compareEngineeringDuration(item,layout,audit.context),runtime=engineeringRuntimeDecision(item,layout,audit.context),execution=verifyEngineeringRuntimeMotion(item,layout,audit.context);rows.push({...result,contextKey:audit.key,contextLabel:audit.label,equipmentName:item.name||item.id,runtimeApplied:runtime.apply,executionMatched:execution.applied?execution.matched:null,executionAxes:execution.axes});}
  const counts={compatible:0,approved:0,review:0,unsupported:0};for(const row of rows)counts[row.status]=(counts[row.status]||0)+1;
  return{equipmentCount:equipment.length,contextCount:rows.length,counts,ready:counts.review===0&&counts.unsupported===0,rows};
 }

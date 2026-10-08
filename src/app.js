@@ -21,7 +21,7 @@ import { closestPortPair, connectionKind, equipmentFlowPorts } from './route.js'
 import { drawAsrsScene } from './asrs-monitor.js';
 import { motionConfigFor, motionProfileSummary, recommendedMotionDynamics } from './kinematics.js';
 import { engineeringPreview, loadedPayloadFor } from './auto-engineering.js';
-import { compareEngineeringDuration } from './engineering-compatibility.js';
+import { buildEngineeringMotionAudit, compareEngineeringDuration } from './engineering-compatibility.js';
 import { arrangeEquipmentInspector, updateEquipmentInspectorRuntime } from './inspector-layout.js';
 import { planConveyorDriveSections } from './drive-sections.js';
 import { kpiSupportingText, productionKpiState } from './kpi-state.js';
@@ -163,6 +163,9 @@ function showStationAssignment(station){
 }
 function selectConnection(edge,index,context){selectedConnectionIndex=edge&&Number.isInteger(index)?index:null;$('deleteConnection').disabled=selectedConnectionIndex===null;const menu=$('edgeContextMenu');if(context&&edge){menu.hidden=false;menu.style.left=`${Math.min(context.x,window.innerWidth-130)}px`;menu.style.top=`${Math.min(context.y,window.innerHeight-50)}px`;}else menu.hidden=true;if(edge){const from=layout.equipment.find(item=>item.id===edge.from),to=layout.equipment.find(item=>item.id===edge.to);$('connectionHint').hidden=false;$('connectionHint').textContent=`연결선 선택: ${from?.name||edge.from} → ${to?.name||edge.to}`;}}
 function deleteSelectedConnection(){if(selectedConnectionIndex===null)return;if(editor.removeEdge(selectedConnectionIndex)){selectedConnectionIndex=null;$('deleteConnection').disabled=true;$('edgeContextMenu').hidden=true;$('connectionHint').hidden=false;$('connectionHint').textContent='연결선을 삭제했습니다.';resetEngine();}}
+function renderEngineeringMotionAudit(){
+ const host=$('reportContent')?.querySelector('[data-analysis-panel="changes"]');if(!host)return;const audit=buildEngineeringMotionAudit(layout),panel=document.createElement('section');panel.className=`motion-audit ${audit.ready?'ready':'review'}`;panel.innerHTML=`<header><div><small>MOTION RUNTIME AUDIT</small><h4>계산 Motion ↔ 실제 SIM 적용</h4></div><b>${audit.ready?'검증 완료':'확인 필요'}</b></header><div class="motion-audit-counts"><span>설비 <b>${audit.equipmentCount}</b></span><span>검사조건 <b>${audit.contextCount}</b></span><span>일치 <b>${audit.counts.compatible}</b></span><span>승인 <b>${audit.counts.approved}</b></span><span>검토 <b>${audit.counts.review}</b></span><span>미지원 <b>${audit.counts.unsupported}</b></span></div><div class="table-wrap"><table><thead><tr><th>설비</th><th>조건</th><th>현재 CT</th><th>계산 CT</th><th>차이</th><th>SIM</th><th>판정</th></tr></thead><tbody>${audit.rows.map(row=>`<tr data-motion-audit-status="${row.status}"><td>${row.equipmentName}</td><td>${row.contextLabel}</td><td>${row.legacySeconds.toFixed(2)}s</td><td>${row.engineeringSeconds==null?'-':row.engineeringSeconds.toFixed(2)+'s'}</td><td>${row.deltaSeconds==null?'-':`${row.deltaSeconds>=0?'+':''}${row.deltaSeconds.toFixed(2)}s`}</td><td>${row.runtimeApplied?'적용':'기존 유지'}</td><td>${row.status.toUpperCase()}</td></tr>`).join('')}</tbody></table></div></section>`;host.querySelector('.motion-audit')?.remove();host.querySelector('h3')?.after(panel);
+}
 function updateDashboard({rack=true}={}) {
   const k=engine.getKpis(), names={robot:'로봇',station15:'1-5',station16:'1-6',forklift17:'1-7 지게차',forklift211:'2-11 지게차'};
   $('simTime').textContent=format(engine.state.t); $('throughput').textContent=k.throughput.toFixed(1)+'/h';
@@ -174,6 +177,7 @@ function updateDashboard({rack=true}={}) {
   updateFlowLegend();
   renderEvents();
   renderSimulationReport();
+  renderEngineeringMotionAudit();
   renderLineThroughput(k);
   if(rack)renderRackMonitor();
 }

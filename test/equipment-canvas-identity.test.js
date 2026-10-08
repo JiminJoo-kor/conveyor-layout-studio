@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {equipmentCanvasIdentity,equipmentStatusDecoration} from '../src/renderer.js';
+import {cargoSelectionVisual,equipmentCanvasIdentity,equipmentStatusDecoration} from '../src/renderer.js';
 
 test('레이아웃 설비 식별표는 종류 이름 흐름 방향과 운전 상태를 함께 제공한다',()=>{
   const item={id:'cv-1',type:'conveyor',name:'TRIM IN CV01',parameters:{flowDirection:'left'}};
@@ -23,4 +23,14 @@ test('운전 상태 장식은 정상 선택 테두리와 분리된 일관된 시
   assert.deepEqual(equipmentStatusDecoration(item,{cadTokens:[{nodeId:'cv-1',transferState:'WaitingAtOutfeed'}]}),{status:'waiting',label:'대기',color:'#ffd166',dash:[5,3],width:2,alpha:.9});
   assert.deepEqual(equipmentStatusDecoration(item,{locks:{'cv-1':true}}),{status:'blocked',label:'막힘',color:'#ff7139',dash:[8,3,2,3],width:2.6,alpha:.96});
   assert.deepEqual(equipmentStatusDecoration(item,{equipmentReliability:{'cv-1':{available:false}}}),{status:'fault',label:'고장',color:'#ff4d9d',dash:[3,3],width:3,alpha:1});
+});
+
+test('선택 설비의 물류는 이동과 대기 상태를 연결 물류와 구분한다',()=>{
+  const context={equipmentIds:new Set(['selected','upstream','downstream'])};
+  assert.equal(cargoSelectionVisual({nodeId:'selected'},'selected',context).role,'selected');
+  assert.equal(cargoSelectionVisual({nodeId:'upstream',predictiveRouteEdge:{from:'upstream',to:'selected'}},'selected',context).role,'moving');
+  assert.equal(cargoSelectionVisual({nodeId:'selected',beltInterlocked:true},'selected',context).role,'waiting');
+  assert.equal(cargoSelectionVisual({nodeId:'downstream'},'selected',context).role,'connected');
+  assert.equal(cargoSelectionVisual({nodeId:'unrelated'},'selected',context).related,false);
+  assert.equal(cargoSelectionVisual({nodeId:'selected'},null,context).related,false);
 });

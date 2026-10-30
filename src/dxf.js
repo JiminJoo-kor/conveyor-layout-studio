@@ -2,7 +2,7 @@ const number = value => Number.parseFloat(value) || 0;
 const pointFrom = data => ({ x:number(data[10]), y:number(data[20]), z:number(data[30]) });
 
 function pairs(text) {
-  const lines=text.replace(/\r/g,'').split('\n'),result=[];
+  const lines=text.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').split('\n'),result=[];
   for(let i=0;i+1<lines.length;i+=2)result.push({code:Number(lines[i].trim()),value:lines[i+1].trim()});
   return result;
 }

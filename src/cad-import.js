@@ -1,3 +1,4 @@
+import {emptyDrawingError} from './cad-diagnostics.js';
 import {parseDxf,createCanvasTransform,transformDxfGeometry} from './dxf.js';
 import {classifyCadEntity,logisticsEquipmentCatalog} from './cad.js';
 import {equipmentFlowPorts} from './route.js';
@@ -90,7 +91,7 @@ export function confirmCadConnection(items,edge){
 
 export function analyzeCadText(text,{unitOverride,patterns=[],onProgress=()=>{}}={}){
   onProgress({stage:'CAD 구조·블록 전개',done:null});
-  const document=parseDxf(text);if(!document.entities.length)throw Error('분석할 ASCII DXF 도형이 없습니다.');
+  const document=parseDxf(text);if(!document.entities.length)throw emptyDrawingError(text);
   const units=unitOverride||document.units,parts=new Map();for(const e of document.expandedEntities){if(!parts.has(e.rootIndex))parts.set(e.rootIndex,[]);parts.get(e.rootIndex).push(e);}
   const patternMap=new Map(patterns.map(p=>[p.key,p])),candidates=[],importId=`dxf-${Date.now()}`;
   for(let index=0;index<document.entities.length;index++){

@@ -15,7 +15,7 @@ export async function runCadImport(file,{signal,onProgress=()=>{},workerFactory=
     const cancel=()=>finish(reject,new DOMException('분석 취소','AbortError'));
     const timer=setTimeout(()=>finish(reject,Error('도면 처리 제한시간(120초)을 초과했습니다. 도면을 분할해 주세요.')),timeoutMs);
     signal?.addEventListener('abort',cancel,{once:true});
-    worker.onmessage=({data})=>{if(data.progress)onProgress(data.progress);else if(data.error)finish(reject,Error(data.error));else finish(resolve,data.result);};
+    worker.onmessage=({data})=>{if(data.progress)onProgress(data.progress);else if(data.error)finish(reject,Object.assign(Error(data.error),{diagnostic:data.diagnostic}));else finish(resolve,data.result);};
     worker.onerror=event=>finish(reject,Error(event.message||'CAD 분석 작업을 시작하지 못했습니다.'));
     try{worker.postMessage({file,options});}catch(error){finish(reject,error);}
   });

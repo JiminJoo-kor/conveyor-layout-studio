@@ -396,7 +396,7 @@ async function importCadFile(file,{fromStart=false}={}){
     $('cadStatusText').textContent='설비 후보 '+result.candidates.length+'개 · '+result.review.warnings.join(' ')+' 단위를 변경한 경우 같은 파일을 다시 불러오세요.';
     renderCadCandidates();renderCadEquipmentParameters();
     openCadQuestions(layout.cadQuestions,layout.dxfGeometry,{onApply:s=>{const count=applyQuestionCorrections(s,pendingCadCandidates);renderCadCandidates();return count;}});
-  }catch(error){if(controller===cadImportAbort){$('cadStatusTitle').textContent=error.name==='AbortError'?'CAD 분석 취소':'CAD 분석 실패';$('cadStatusText').textContent=error.message;if(error.name!=='AbortError'){layout.cadQuestions=buildCadQuestions({candidates:[],document:{},review:{warnings:['변환·분석 실패: '+error.message]}},file.name);layout.cadQuestions.noGeometry=true;layout.cadQuestions.questions[0].prompt='이 파일이 어떤 도면인지, CAD 버전·외부 참조 여부와 분석하려는 설비 구간을 설명하고 원본 캡처를 첨부해 주세요.';openCadQuestions(layout.cadQuestions,[]);}}}
+  }catch(error){if(controller===cadImportAbort){$('cadStatusTitle').textContent=error.name==='AbortError'?'CAD 분석 취소':'CAD 분석 실패';$('cadStatusText').textContent=error.message;if(error.name!=='AbortError'){layout.cadQuestions=buildCadQuestions({candidates:[],document:{},review:{warnings:['변환·분석 실패: '+error.message]}},file.name);layout.cadQuestions.noGeometry=true;layout.cadQuestions.diagnostic=error.diagnostic;layout.cadQuestions.questions[0].prompt='이 파일이 어떤 도면인지, CAD 버전·외부 참조 여부와 분석하려는 설비 구간을 설명하고 원본 캡처를 첨부해 주세요.';openCadQuestions(layout.cadQuestions,[]);}}}
   finally{if(controller===cadImportAbort){cadCancel.disabled=true;cadUnit.disabled=false;cadProgress.hidden=true;}}
 }
 $('cadFile').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';void importCadFile(file);});

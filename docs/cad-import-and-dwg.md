@@ -8,26 +8,34 @@ DXF는 브라우저에서 로컬 분석합니다. 치수 문자가 없어도 단
 
 ## DWG 자동 변환
 
-AutoCAD와 유효한 라이선스가 있는 Windows PC에서 저장소 폴더를 열고:
+기본 변환기는 무료 LibreDWG입니다. AutoCAD를 자동 실행하거나 유료 변환 서비스로 전송하지 않습니다. Windows 64비트에서는 `scripts/install-libredwg.ps1`로 공식 0.14 배포본을 설치합니다. 고정 SHA-256을 확인하며 원본 라이선스 파일도 보존합니다. GPLv3+ 조건이 적용되므로 재배포할 때 바이너리뿐 아니라 대응 소스 제공 등 조건도 준수해야 합니다. 저장소에는 바이너리를 포함하지 않습니다.
+
+설치 후 `Start-Free-CAD.cmd`를 실행하거나 저장소 폴더에서:
 
 ```powershell
 npm run dev:dwg
 ```
 
-`http://127.0.0.1:4173/`에서 `CAD 불러오기`로 DWG를 선택합니다. 설치 경로가 다르면 실행 전에 `$env:ACCORE_CONSOLE='C:/.../accoreconsole.exe'`를 지정합니다. 기본 탐색 대상은 AutoCAD 2025 및 AutoCAD LT 2025입니다.
+`http://127.0.0.1:4173/`에서 `CAD 불러오기`로 DWG를 선택합니다. 변환기 준비 상태를 먼저 확인하므로 미설치 상태에서는 도면을 업로드하지 않습니다. 설치 경로가 다르면 `$env:LIBREDWG_CONVERTER='C:/.../dwg2dxf.exe'`를 지정합니다. 표준 설치 폴더와 PATH도 탐색합니다.
 
-DWG → 해당 PC의 AutoCAD Core Console → ASCII DXF → 분석 Worker → 후보 검수 순서로 진행합니다. DWG 원본 바이트의 임시 복사본만 열며 `/readonly`와 `/isolate`를 사용합니다. 파일명은 CAD 명령에 삽입하지 않습니다. 변환 종료 후 임시 작업 폴더를 정리합니다. Windows가 파일을 잠근 경우 서버 콘솔에 정리 보류 경로를 남깁니다.
+DWG → 해당 PC의 LibreDWG → ASCII DXF → 분석 Worker → 후보 검수 순서로 진행합니다. DWG 원본 바이트의 임시 복사본만 사용합니다. 고정된 파일 경로를 인수로 전달하고 셸 명령에 업로드 이름을 삽입하지 않습니다. 변환 종료 후 임시 작업 폴더를 정리합니다. Windows가 파일을 잠근 경우 서버 콘솔에 정리 보류 경로를 남깁니다. 기존 AutoCAD 어댑터는 명시적인 개발 옵션으로만 남으며 무료 변환 실패 시 자동 대체하지 않습니다.
 
 - DWG 입력 최대 32MB, DXF 변환 출력 최대 64MB, 변환 제한시간 120초, 동시 변환 1개.
 - 취소 또는 연결 종료 시 실행한 변환 프로세스를 중지합니다.
 - 로컬 동일 출처 요청만 받으며 CORS를 열지 않습니다. 외부 변환 서비스로 전송하지 않습니다.
 - 외부 참조 도면·프록시 객체·특수 3D 객체는 완전한 변환/분석을 보장하지 않습니다. 단일 DWG 업로드에 포함되지 않은 외부 파일은 가져오지 않습니다.
-- 일반 `npm run dev`와 Vercel 배포에서는 네이티브 변환기가 없으므로 DWG 선택 시 설정 안내를 표시합니다. Vercel 배포만으로 사용자 PC의 AutoCAD가 실행되지는 않습니다.
+- 일반 `npm run dev`와 연결되지 않은 웹 배포에서는 DWG 선택 시 설정 안내를 표시합니다.
+
+## 공개 사이트와 PC 연결
+
+사이트의 `PC DWG 연결`에서 도우미 ZIP을 내려받고 압축 해제합니다. Node.js와 무료 LibreDWG를 준비한 뒤 `Start-CAD-Bridge.cmd`를 실행합니다. 표시된 코드를 사이트에 입력해 연결 확인 후 CAD 불러오기를 사용합니다. 브라우저가 로컬 네트워크 권한을 요청하면 허용해야 합니다. 회사 정책으로 차단된 경우 DXF 또는 로컬 시뮬레이터를 사용합니다.
+
+도우미는 127.0.0.1:4179에만 바인딩합니다. 정확한 운영 사이트 Origin·Host를 확인하고 실행마다 생성되는 192비트 코드가 있어야 상태 조회·변환을 수행합니다. 코드는 브라우저 메모리에만 보관합니다. 임의 경로나 명령 실행은 지원하지 않습니다. 공개 서버로 도면을 보내지 않으며 브라우저에서 직접 이 PC로 전달합니다. 창을 닫으면 종료되고 자동 시작 서비스를 설치하지 않습니다.
 
 ## 검증
 
 `node --test test/cad-import.test.js test/dwg-converter.test.js`
 
-실제 AutoCAD 2025 예제 `Mechanical - Text and Tables.dwg`를 읽기 전용 복사본으로 변환해 ASCII DXF 생성과 원본 SHA-256 불변을 확인했습니다. 이는 모든 사용자 도면 및 브라우저 UI에 대한 검증을 의미하지 않습니다.
+LibreDWG 0.14로 실제 예제 `Mechanical - Text and Tables.dwg`의 복사본을 변환해 399,538바이트 ASCII DXF 생성, CAD 분석 및 원본 SHA-256 불변을 확인했습니다. 이는 모든 사용자 도면 및 브라우저 UI에 대한 검증을 의미하지 않습니다. 미지원 객체가 존재할 수 있으므로 변환 완료가 원본의 완전한 재현을 뜻하지 않습니다.
 
-기술 참고: [Autodesk Core Console](https://blog.autodesk.io/getting-started-with-accoreconsole/), [Autodesk DXF 내보내기](https://help.autodesk.com/cloudhelp/2023/ENU/AutoCAD-LT/files/GUID-11AEFE3C-D05A-45C3-8604-7B6A594440F3.htm).
+기술 참고: [GNU LibreDWG](https://www.gnu.org/software/libredwg/), [공식 배포본과 대응 소스](https://github.com/LibreDWG/libredwg/releases/tag/0.14).

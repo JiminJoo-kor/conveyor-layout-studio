@@ -1,3 +1,3 @@
 export default function handler(request,response){
-  response.status(503).json({message:'이 웹 배포에는 DWG 변환기가 연결되지 않았습니다. AutoCAD가 설치된 PC에서 npm run dev:dwg로 로컬 실행하거나 DXF로 저장해 불러오세요. 도면은 외부 변환 서비스로 전달하지 않았습니다.'});
+  response.status(503).json({available:false,message:'PC DWG 연결 버튼에서 무료 변환 도우미를 연결한 뒤 DWG를 선택하세요. 또는 DXF를 불러오세요. 도면은 외부 변환 서비스로 전달하지 않았습니다.'});
 }

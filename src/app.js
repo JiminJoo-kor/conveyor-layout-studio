@@ -33,6 +33,7 @@ import { planConveyorDriveSections } from './drive-sections.js';
 import { dashboardKpiView, kpiSupportingText, productionKpiState } from './kpi-state.js';
 import { selectWorkspaceButton, workspaceNavigationState } from './workspace-navigation.js';
 import { analysisTabGroups, analysisTabMeta, analysisTabTitles, analysisTabVisibility, normalizeAnalysisTab } from './analysis-tabs.js';
+import {mountAnalysisView} from './analysis-view.js';
 import { workspaceActionGroups, workspaceActionStatus } from './workspace-actions.js';
 import { equipmentPaletteGroups } from './equipment-palette.js';
 import { simulationRunState } from './run-state.js';
@@ -95,6 +96,7 @@ const layoutImportStatus=document.createElement('p');layoutImportStatus.id='layo
 import {mountCadBridgeControl} from './cad-bridge-client.js';
 const newLayoutButton=document.createElement('button');newLayoutButton.id='newLayoutProject';newLayoutButton.textContent='새 레이아웃 구성';$('cadFile').closest('.layout-actions').prepend(newLayoutButton);
 const cadBridgeControl=mountCadBridgeControl($('cadFile').closest('.layout-actions'));
+mountAnalysisView($('operationsPanel'));
 const projectStatus=document.createElement('small');projectStatus.id='projectStatus';projectStatus.className='project-status';$('layoutName').after(projectStatus);
 const cargoConditionCard=document.createElement('section');cargoConditionCard.id='projectCargoConditions';cargoConditionCard.className='project-cargo-conditions';cargoConditionCard.hidden=true;
 const equipmentNavigation=document.createElement('div');equipmentNavigation.className='equipment-navigation';equipmentNavigation.innerHTML='<header><div><small>EQUIPMENT FINDER</small><h2>설비 찾기</h2></div><span data-equipment-search-result>0대</span></header><div class="equipment-search-row"><label class="visually-hidden" for="equipmentSearch">설비 이름 또는 종류 검색</label><input id="equipmentSearch" type="search" placeholder="설비명 · 종류 검색"><button id="revealEquipment" type="button" title="선택 설비를 레이아웃 중앙에 표시">선택 위치</button></div><p>목록과 2D·3D 선택이 함께 동기화됩니다.</p>';cadParameterSection.before(equipmentNavigation);

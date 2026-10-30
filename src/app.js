@@ -83,18 +83,18 @@ const emptyProjectState=document.createElement('div');emptyProjectState.id='empt
       </article>
       <article class="start-card start-card-open">
         <div class="start-illustration start-folder-illustration" aria-hidden="true"><svg viewBox="0 0 260 210" fill="none"><path d="M42 71h59l16 17h101v86H42z"/><path d="M42 71V49h64l17 20h65v19"/><path d="M130 151V98m0 0-23 24m23-24 23 24"/><path d="M101 174h58"/></svg><small>.JSON<br>.LAYOUT<br>.CLS</small></div>
-        <div class="start-card-copy"><span>OPEN PROJECT</span><h3>프로젝트 불러오기</h3><p>저장된 레이아웃과 설정을 그대로 복원합니다.</p><button id="startOpenProject" class="start-secondary" type="button">▱ 파일 선택</button><div id="startDropzone" class="start-dropzone" tabindex="0" role="button"><b>JSON 파일을 여기에 놓으세요</b><small>또는 위의 파일 선택 버튼을 사용하세요.</small></div></div>
+        <div class="start-card-copy"><span>OPEN PROJECT / CAD</span><h3>프로젝트 · CAD 불러오기</h3><p>JSON 프로젝트를 복원하거나 DWG·DXF 도면을 분석합니다.</p><button id="startOpenProject" class="start-secondary" type="button">▱ 파일 선택</button><div id="startDropzone" class="start-dropzone" tabindex="0" role="button"><b>JSON · DWG · DXF 파일을 여기에 놓으세요</b><small>DWG는 무료 PC 변환기 연결 후 분석합니다.</small></div><p id="startImportStatus" role="status"></p></div>
       </article>
     </div>
     <section class="start-recents" aria-labelledby="recentProjectsTitle"><header><h3 id="recentProjectsTitle">최근 프로젝트</h3><span>이 브라우저에서 최근 불러온 파일</span></header><div id="recentProjectList" class="recent-project-list"></div></section>
-    <footer class="start-footer"><ol><li><b>1</b><span><strong>프로젝트 선택</strong><small>새로 만들거나 불러오기</small></span></li><li><b>2</b><span><strong>설비 배치·연결</strong><small>라인과 물류 흐름 구성</small></span></li><li><b>3</b><span><strong>시뮬레이션·분석</strong><small>동작 검증과 성능 분석</small></span></li></ol><div><span>지원 형식&nbsp; .json</span><button id="restoreRecentProject" type="button">↻ 최근 프로젝트 복구</button></div></footer>
+    <footer class="start-footer"><ol><li><b>1</b><span><strong>프로젝트 선택</strong><small>새로 만들거나 불러오기</small></span></li><li><b>2</b><span><strong>설비 배치·연결</strong><small>라인과 물류 흐름 구성</small></span></li><li><b>3</b><span><strong>시뮬레이션·분석</strong><small>동작 검증과 성능 분석</small></span></li></ol><div><span>지원 형식&nbsp; .json · .dwg · .dxf</span><button id="restoreRecentProject" type="button">↻ 최근 프로젝트 복구</button></div></footer>
   </section>`;$('layoutCanvas').closest('.canvas-scroll').before(emptyProjectState);
 const canvasScroll=$('layoutCanvas').closest('.canvas-scroll'),liveViewLayout=document.createElement('div'),splitLivePanel=document.createElement('section'),splitRackMonitor=document.createElement('div');liveViewLayout.className='live-view-layout';liveViewLayout.dataset.viewMode='2d';splitLivePanel.id='splitLivePanel';splitLivePanel.className='split-live-panel';splitLivePanel.hidden=true;splitLivePanel.innerHTML='<header><div><span class="eyebrow">SYNCHRONIZED VIEW</span><h2>3D LIVE</h2></div><small>동일 시뮬레이션 시간</small></header>';splitRackMonitor.className='rack-monitor split-rack-monitor';splitLivePanel.append(splitRackMonitor);canvasScroll.before(liveViewLayout);liveViewLayout.append(canvasScroll,splitLivePanel);
 const canvasOverlay=document.createElement('div');canvasOverlay.className='canvas-overlay-toolbar';canvasOverlay.innerHTML='<span>캔버스 표시</span><button type="button" data-canvas-overlay="minimal">간단</button><button type="button" class="active" data-canvas-overlay="operations">운전 정보</button><button type="button" data-canvas-overlay="engineering">Engineering</button><small>2D·3D 공통 상태·방향 / Engineering 상세</small>';liveViewLayout.prepend(canvasOverlay);canvasOverlay.addEventListener('click',event=>{const button=event.target.closest('[data-canvas-overlay]');if(!button)return;renderer.setOverlayMode(button.dataset.canvasOverlay);for(const target of canvasOverlay.querySelectorAll('[data-canvas-overlay]'))target.classList.toggle('active',target===button);renderer.draw(engine.state);renderRackMonitor();});
 const layoutImportStatus=document.createElement('p');layoutImportStatus.id='layoutImportStatus';layoutImportStatus.className='validation';layoutImportStatus.setAttribute('role','alert');layoutImportStatus.hidden=true;emptyProjectState.before(layoutImportStatus);
 import {mountCadBridgeControl} from './cad-bridge-client.js';
 const newLayoutButton=document.createElement('button');newLayoutButton.id='newLayoutProject';newLayoutButton.textContent='새 레이아웃 구성';$('cadFile').closest('.layout-actions').prepend(newLayoutButton);
-mountCadBridgeControl($('cadFile').closest('.layout-actions'));
+const cadBridgeControl=mountCadBridgeControl($('cadFile').closest('.layout-actions'));
 const projectStatus=document.createElement('small');projectStatus.id='projectStatus';projectStatus.className='project-status';$('layoutName').after(projectStatus);
 const cargoConditionCard=document.createElement('section');cargoConditionCard.id='projectCargoConditions';cargoConditionCard.className='project-cargo-conditions';cargoConditionCard.hidden=true;
 const equipmentNavigation=document.createElement('div');equipmentNavigation.className='equipment-navigation';equipmentNavigation.innerHTML='<header><div><small>EQUIPMENT FINDER</small><h2>설비 찾기</h2></div><span data-equipment-search-result>0대</span></header><div class="equipment-search-row"><label class="visually-hidden" for="equipmentSearch">설비 이름 또는 종류 검색</label><input id="equipmentSearch" type="search" placeholder="설비명 · 종류 검색"><button id="revealEquipment" type="button" title="선택 설비를 레이아웃 중앙에 표시">선택 위치</button></div><p>목록과 2D·3D 선택이 함께 동기화됩니다.</p>';cadParameterSection.before(equipmentNavigation);
@@ -371,12 +371,14 @@ const cadReviewHost=document.createElement('div');$('cadStatus').append(cadRevie
 let cadImportAbort=null,pendingCadReview=null;
 cadCancel.onclick=()=>cadImportAbort?.abort();
 cadPatternClear.onclick=()=>{cadReviewHost.replaceChildren();const patterns=loadCadPatterns();for(const p of patterns){const row=document.createElement('div'),remove=document.createElement('button');row.textContent=p.key+' → '+p.type+' ';remove.textContent='이 패턴 삭제';remove.onclick=()=>{try{saveCadPatterns(loadCadPatterns().filter(x=>x.key!==p.key));row.remove();}catch(error){$('cadStatusText').textContent=error.message;}};row.append(remove);cadReviewHost.append(row);}if(!patterns.length)cadReviewHost.textContent='저장된 패턴이 없습니다.';};
-$('cadFile').addEventListener('change',async event=>{
-  const file=event.target.files[0];if(!file)return;cadImportAbort?.abort();const controller=new AbortController();cadImportAbort=controller;
+async function importCadFile(file){
+  if(!file)return;cadImportAbort?.abort();const controller=new AbortController();cadImportAbort=controller;
+  setProjectEmpty(false);
   const started=performance.now();$('cadStatus').hidden=false;cadProgress.hidden=false;cadProgress.removeAttribute('value');cadCancel.disabled=false;cadUnit.disabled=true;
   $('cadStatusTitle').textContent='CAD 분석 시작';$('cadStatusText').textContent=file.name;
   try{
-    const result=await runCadImport(file,{signal:controller.signal,unitOverride:cadUnit.value||undefined,patterns:loadCadPatterns(),onProgress:p=>{if(controller!==cadImportAbort)return;$('cadStatusTitle').textContent=p.stage;if(p.done==null)cadProgress.removeAttribute('value');else cadProgress.value=p.done/p.total;$('cadStatusText').textContent=file.name+' · '+(p.done==null?'처리 중':p.done.toLocaleString()+' / '+p.total.toLocaleString())+' · 경과 '+((performance.now()-started)/1000).toFixed(1)+'초';}});
+    const analyze=()=>runCadImport(file,{signal:controller.signal,unitOverride:cadUnit.value||undefined,patterns:loadCadPatterns(),onProgress:p=>{if(controller!==cadImportAbort)return;$('cadStatusTitle').textContent=p.stage;if(p.done==null)cadProgress.removeAttribute('value');else cadProgress.value=p.done/p.total;$('cadStatusText').textContent=file.name+' · '+(p.done==null?'처리 중':p.done.toLocaleString()+' / '+p.total.toLocaleString())+' · 경과 '+((performance.now()-started)/1000).toFixed(1)+'초';}});
+    let result;try{result=await analyze();}catch(error){if(error.code!=='CAD_CONNECTION_REQUIRED'||controller.signal.aborted)throw error;$('cadStatusTitle').textContent='DWG 연결 대기';await cadBridgeControl.requestConnection(file.name,controller.signal);result=await analyze();}
     if(controller!==cadImportAbort)return;
     if(running){running=false;cancelAnimationFrame(frame);setRunState('paused');}
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units,importId:result.candidates[0]?.source?.importId};
@@ -386,8 +388,9 @@ $('cadFile').addEventListener('change',async event=>{
     $('cadStatusText').textContent='설비 후보 '+result.candidates.length+'개 · '+result.review.warnings.join(' ')+' 단위를 변경한 경우 같은 파일을 다시 불러오세요.';
     renderCadCandidates();renderCadEquipmentParameters();
   }catch(error){if(controller===cadImportAbort){$('cadStatusTitle').textContent=error.name==='AbortError'?'CAD 분석 취소':'CAD 분석 실패';$('cadStatusText').textContent=error.message;}}
-  finally{if(controller===cadImportAbort){cadCancel.disabled=true;cadUnit.disabled=false;cadProgress.hidden=true;event.target.value='';}}
-});
+  finally{if(controller===cadImportAbort){cadCancel.disabled=true;cadUnit.disabled=false;cadProgress.hidden=true;}}
+}
+$('cadFile').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';void importCadFile(file);});
 function updateCadConnectionReview(){
   renderCadConnectionReview(cadReviewHost,layout,pendingCadReview,edge=>{layout.cadSchematic.edges.push(confirmCadConnection(layout.equipment,edge));resetEngine();updateCadConnectionReview();},id=>selectEquipment(layout.equipment.find(e=>e.id===id)));
 }
@@ -492,12 +495,21 @@ document.querySelectorAll('[data-add]').forEach(button=>button.addEventListener(
 $('newLayoutProject').addEventListener('click',()=>{layout=cloneLayout(emptyLayout);layout.id=`manual-${Date.now()}`;layout.name='새 물류 시뮬레이션';measuredMotionRuns={baseline:null,engineering:null};motionApprovalStatus='';setProjectEmpty(false);renderer.setLayout(layout);$('editorTools').hidden=false;editor.setEnabled(true);$('editorToggle').textContent='편집 종료';$('workspaceActionState').textContent=workspaceActionStatus({editing:true});resetEngine();renderCadEquipmentParameters();editor.fitView();});
 $('startNewProject').addEventListener('click',()=>$('newLayoutProject').click());
 $('startFromTemplate').addEventListener('click',()=>{layout=cloneLayout(defaultLayout);layout.id=`template-${Date.now()}`;layout.name='기본 컨베이어 템플릿';measuredMotionRuns={baseline:null,engineering:null};motionApprovalStatus='';writeParams(layout.simulationParams||defaultParams);renderer.setLayout(layout);setProjectEmpty(false);resetEngine();renderCadEquipmentParameters();selectEquipment(null);editor.fitView();});
-$('startOpenProject').addEventListener('click',()=>$('layoutFile').click());
-$('startDropzone').addEventListener('click',()=>$('layoutFile').click());
-$('startDropzone').addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();$('layoutFile').click();}});
+const startFile=document.createElement('input');startFile.type='file';startFile.accept='.json,.dwg,.dxf';startFile.hidden=true;startFile.id='startProjectFile';document.body.append(startFile);
+function openStartFile(file){
+  if(!file)return;
+  if(!/\.(json|dwg|dxf)$/i.test(file.name)){$('startImportStatus').textContent='JSON, DWG 또는 DXF 파일을 선택하세요.';return;}
+  $('startImportStatus').textContent='';
+  if(/\.(dwg|dxf)$/i.test(file.name)){void importCadFile(file);return;}
+  const transfer=new DataTransfer();transfer.items.add(file);$('layoutFile').files=transfer.files;$('layoutFile').dispatchEvent(new Event('change',{bubbles:true}));
+}
+startFile.addEventListener('change',()=>{const file=startFile.files[0];startFile.value='';openStartFile(file);});
+$('startOpenProject').addEventListener('click',()=>startFile.click());
+$('startDropzone').addEventListener('click',()=>startFile.click());
+$('startDropzone').addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();startFile.click();}});
 for(const type of ['dragenter','dragover'])$('startDropzone').addEventListener(type,event=>{event.preventDefault();event.dataTransfer.dropEffect='copy';$('startDropzone').classList.add('drag-active');});
 for(const type of ['dragleave','drop'])$('startDropzone').addEventListener(type,event=>{$('startDropzone').classList.remove('drag-active');if(type==='drop')event.preventDefault();});
-$('startDropzone').addEventListener('drop',event=>{const file=[...event.dataTransfer.files].find(item=>item.name.toLowerCase().endsWith('.json'));if(!file){layoutImportStatus.hidden=false;layoutImportStatus.textContent='JSON 프로젝트 파일만 불러올 수 있습니다.';return;}const transfer=new DataTransfer();transfer.items.add(file);$('layoutFile').files=transfer.files;$('layoutFile').dispatchEvent(new Event('change',{bubbles:true}));});
+$('startDropzone').addEventListener('drop',event=>{const files=[...event.dataTransfer.files];if(files.length!==1){$('startImportStatus').textContent='한 번에 파일 하나를 선택하세요.';return;}openStartFile(files[0]);});
 $('connectEquipment').addEventListener('click',()=>{const active=!editor.connecting;editor.setConnectionMode(active);$('connectEquipment').classList.toggle('active',active);$('connectionHint').hidden=!active;$('connectionHint').textContent='시작 설비의 연결점을 누른 채 도착 설비 연결점까지 드래그하세요.';});
 $('resetView').addEventListener('click',()=>editor.fitView());
 $('deleteEquipment').addEventListener('click',()=>{if(selectedEquipment&&editor.remove(selectedEquipment.id)){resetEngine();renderCadEquipmentParameters();}});

@@ -34,6 +34,7 @@ import { dashboardKpiView, kpiSupportingText, productionKpiState } from './kpi-s
 import { selectWorkspaceButton, workspaceNavigationState } from './workspace-navigation.js';
 import { analysisTabGroups, analysisTabMeta, analysisTabTitles, analysisTabVisibility, normalizeAnalysisTab } from './analysis-tabs.js';
 import {mountAnalysisView} from './analysis-view.js';
+import {buildCadQuestions,openCadQuestions} from './cad-questions.js';
 import { workspaceActionGroups, workspaceActionStatus } from './workspace-actions.js';
 import { equipmentPaletteGroups } from './equipment-palette.js';
 import { simulationRunState } from './run-state.js';
@@ -368,7 +369,8 @@ const cadUnit=document.createElement('select');cadUnit.setAttribute('aria-label'
 const cadProgress=document.createElement('progress');cadProgress.max=1;cadProgress.hidden=true;
 const cadCancel=document.createElement('button');cadCancel.textContent='분석 취소';cadCancel.disabled=true;
 const cadPatternClear=document.createElement('button');cadPatternClear.textContent='저장 패턴 목록';
-cadTools.append(cadUnit,cadProgress,cadCancel,cadPatternClear);$('cadStatus').prepend(cadTools);
+const cadQuestionButton=document.createElement('button');cadQuestionButton.textContent='도면 질문 · 상세 진단';cadQuestionButton.onclick=()=>{if(layout.cadQuestions)openCadQuestions(layout.cadQuestions,layout.dxfGeometry||[]);else $('cadStatusText').textContent='도면을 먼저 분석해 주세요.';};
+cadTools.append(cadUnit,cadProgress,cadCancel,cadPatternClear,cadQuestionButton);$('cadStatus').prepend(cadTools);
 const cadReviewHost=document.createElement('div');$('cadStatus').append(cadReviewHost);
 let cadImportAbort=null,pendingCadReview=null;
 cadCancel.onclick=()=>cadImportAbort?.abort();
@@ -387,10 +389,12 @@ async function importCadFile(file,{fromStart=false}={}){
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units,importId:result.candidates[0]?.source?.importId};
     setProjectEmpty(false);layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='schematic';layout.canvas.height=650;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: 약식';
     pendingCadCandidates=result.candidates;pendingCadReview=result.review;layout.cadImportReview=result.review;
+    layout.cadQuestions=buildCadQuestions(result,file.name);
     resetEngine();renderer.setLayout(layout);renderer.draw(engine.state);cadProgress.value=1;$('cadStatusTitle').textContent='CAD 분석 완료 · 후보 검수';
     $('cadStatusText').textContent='설비 후보 '+result.candidates.length+'개 · '+result.review.warnings.join(' ')+' 단위를 변경한 경우 같은 파일을 다시 불러오세요.';
     renderCadCandidates();renderCadEquipmentParameters();
-  }catch(error){if(controller===cadImportAbort){$('cadStatusTitle').textContent=error.name==='AbortError'?'CAD 분석 취소':'CAD 분석 실패';$('cadStatusText').textContent=error.message;}}
+    openCadQuestions(layout.cadQuestions,layout.dxfGeometry);
+  }catch(error){if(controller===cadImportAbort){$('cadStatusTitle').textContent=error.name==='AbortError'?'CAD 분석 취소':'CAD 분석 실패';$('cadStatusText').textContent=error.message;if(error.name!=='AbortError'){layout.cadQuestions=buildCadQuestions({candidates:[],document:{},review:{warnings:['변환·분석 실패: '+error.message]}},file.name);layout.cadQuestions.noGeometry=true;layout.cadQuestions.questions[0].prompt='이 파일이 어떤 도면인지, CAD 버전·외부 참조 여부와 분석하려는 설비 구간을 설명하고 원본 캡처를 첨부해 주세요.';openCadQuestions(layout.cadQuestions,[]);}}}
   finally{if(controller===cadImportAbort){cadCancel.disabled=true;cadUnit.disabled=false;cadProgress.hidden=true;}}
 }
 $('cadFile').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';void importCadFile(file);});

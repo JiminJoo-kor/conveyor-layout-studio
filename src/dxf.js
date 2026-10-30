@@ -117,7 +117,7 @@ export function transformDxfGeometry(document,transform,rootIndexes=null,include
   const point=p=>({x:p.x*transform.scale+transform.offsetX,y:-p.y*transform.scale+transform.offsetY});
   const allowed=rootIndexes?new Set(rootIndexes):null;
   return (document.expandedEntities||document.entities||[]).filter(entity=>(isLogisticsDxfEntity(entity)||(includeProcessContext&&!isArchitecturalDxfEntity(entity)))&&(!allowed||allowed.has(entity.rootIndex))).flatMap(entity=>{
-    const common={type:entity.entityType,layer:entity.layer||'0'};
+    const common={type:entity.entityType,layer:entity.layer||'0',rootIndex:entity.rootIndex};
     if(entity.entityType==='LINE')return [{...common,start:point(entity.start),end:point(entity.end)}];
     if(['LWPOLYLINE','POLYLINE'].includes(entity.entityType)&&entity.vertices?.length)return [{...common,vertices:entity.vertices.map(point),closed:entity.closed}];
     if(entity.entityType==='CIRCLE')return [{...common,center:point(entity.center),radius:entity.radius*transform.scale}];

@@ -239,8 +239,9 @@ export class LayoutRenderer {
 
   drawDxfGeometry(){
     const c=this.ctx,geometry=this.layout.dxfGeometry||[];
-    if(this.layout.cadPreviewSvg&&typeof Image!=='undefined'){
-      if(this.previewSource!==this.layout.cadPreviewSvg){this.previewSource=this.layout.cadPreviewSvg;const img=new Image(),url=URL.createObjectURL(new Blob([this.previewSource],{type:'image/svg+xml'}));this.previewImage=img;img.onload=()=>{URL.revokeObjectURL(url);if(this.previewImage===img)this.draw(this.lastDrawState);};img.onerror=()=>{URL.revokeObjectURL(url);if(this.previewImage===img)this.previewImage=null;};img.src=url;}
+    const preview=this.layout.cadPreviewRaster||this.layout.cadPreviewSvg;
+    if(preview&&typeof Image!=='undefined'){
+      if(this.previewSource!==preview){this.previewSource=preview;const img=new Image(),url=this.layout.cadPreviewRaster||URL.createObjectURL(new Blob([this.previewSource],{type:'image/svg+xml'}));this.previewImage=img;img.onload=()=>{URL.revokeObjectURL(url);if(this.previewImage===img)this.draw(this.lastDrawState);};img.onerror=()=>{URL.revokeObjectURL(url);if(this.previewImage===img)this.previewImage=null;};img.src=url;}
       if(this.previewImage?.complete&&this.previewImage.naturalWidth){c.drawImage(this.previewImage,0,0,1200,650);return;}
     }
     if(!geometry.length)return;

@@ -5,7 +5,7 @@ import {spawn} from 'node:child_process';
 
 export const DWG_LIMIT=32*1024*1024;
 export async function findLibreDwg(){
-  const candidates=[process.env.LIBREDWG_CONVERTER,join(homedir(),'Documents','Codex','tools','libredwg-0.14','dwg2dxf.exe'),...(process.env.PATH||'').split(process.platform==='win32'?';':':').filter(Boolean).map(p=>join(p,process.platform==='win32'?'dwg2dxf.exe':'dwg2dxf'))].filter(Boolean);
+  const candidates=[process.env.LIBREDWG_CONVERTER,join(process.env.LOCALAPPDATA||join(homedir(),'AppData','Local'),'ConveyorLayoutStudio','tools','libredwg-0.14','dwg2dxf.exe'),join(homedir(),'Documents','Codex','tools','libredwg-0.14','dwg2dxf.exe'),...(process.env.PATH||'').split(process.platform==='win32'?';':':').filter(Boolean).map(p=>join(p,process.platform==='win32'?'dwg2dxf.exe':'dwg2dxf'))].filter(Boolean);
   for(const file of candidates)try{if((await stat(file)).isFile())return file;}catch{}
   throw Error('무료 LibreDWG 변환기가 설치되지 않았습니다. dwg2dxf를 설치하고 LIBREDWG_CONVERTER 경로를 지정한 뒤 로컬 시뮬레이터를 실행하세요.');
 }

@@ -1,0 +1,7 @@
+# PC-only DWG conversion
+
+DWG selected in the application is sent only to the fixed loopback endpoint http://127.0.0.1:4179/api/cad/convert. No relative/cloud fallback exists in PC mode. Redirects are rejected. The helper binds to 127.0.0.1, checks the exact production Origin and Host, and requires a random in-memory token. Startup auto-pairing is limited to five minutes. Disconnect clears the page token and aborts active import; closing the helper stops the service.
+
+The ZIP launcher downloads missing portable LibreDWG and Node from their official release sites, verifies pinned SHA256 values, then opens the production site. Installation uses LOCALAPPDATA and requires no administrator installation or security-policy changes. Windows/browser execution and local-network permission prompts cannot be automatically bypassed.
+
+Validation: fresh LibreDWG install in an isolated test folder passed its hash check. A real 18.5 MB DWG converted via the loopback HTTP handler (200), produced approximately 112 MB DXF, and preserved the original bytes. The resulting CAD preview was rasterized and visually inspected. Block references are retained for the full supported-vector preview; equipment analysis remains bounded to 100,000 expanded objects and reports the limitation. Unsupported CAD entities, external references and text formatting are not guaranteed to match AutoCAD. No private drawing or derived preview is included in the deployed source or ZIP.

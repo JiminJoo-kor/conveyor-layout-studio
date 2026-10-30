@@ -1,13 +1,20 @@
-export async function prepareCadFile(file,{signal}={}){
+import {cadConversionTarget} from './cad-bridge-client.js';
+export async function prepareCadFile(file,{signal,useLocalBridge=false,fetchImpl=fetch,onProgress=()=>{}}={}){
   if(signal?.aborted)throw new DOMException('분석 취소','AbortError');
   if(/\.dxf$/i.test(file.name))return file;
   if(!/\.dwg$/i.test(file.name))throw Error('DWG 또는 ASCII DXF 파일을 선택하세요.');
   if(file.size>32*1024*1024)throw Error('DWG는 32MB 이하 파일을 사용하세요.');
-  return file;
+  if(!useLocalBridge)return file;
+  const target=cadConversionTarget();if(target.url!=='http://127.0.0.1:4179/api/cad/convert')throw Error('PC 변환기를 먼저 연결하세요.');
+  onProgress({stage:'내 PC에서 DWG 변환 중 · 외부 전송 없음',done:null});
+  const response=await fetchImpl(target.url,{method:'POST',headers:{...target.headers,'content-type':'application/octet-stream'},body:file,signal,redirect:'error'});
+  if(!response.ok){let message='PC 변환에 실패했습니다.';try{message=(await response.json()).message||message;}catch{}throw Error(message);}
+  const blob=await response.blob();if(blob.size>256*1024*1024)throw Error('변환 결과가 256MB를 넘습니다.');
+  return new File([blob],file.name.replace(/\.dwg$/i,'.dxf'),{type:'application/dxf'});
 }
 export async function runCadImport(file,{signal,onProgress=()=>{},workerFactory=()=>new Worker(new URL('./browser-cad-worker.js',import.meta.url),{type:'module'}),timeoutMs=120000,...options}={}){
-  file=await prepareCadFile(file,{signal,onProgress});
-  if(file.size>100*1024*1024)return Promise.reject(Error('100MB를 넘는 도면은 분할해 불러오세요.'));
+  file=await prepareCadFile(file,{signal,onProgress,useLocalBridge:options.useLocalBridge,fetchImpl:options.fetchImpl});
+  if(file.size>256*1024*1024)return Promise.reject(Error('256MB를 넘는 도면은 분할해 불러오세요.'));
   return new Promise((resolve,reject)=>{
     if(signal?.aborted){reject(new DOMException('분석 취소','AbortError'));return;}
     const worker=workerFactory();let settled=false;

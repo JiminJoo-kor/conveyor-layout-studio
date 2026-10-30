@@ -27,5 +27,6 @@ if ($nodeCommand) { $nodePath = $nodeCommand.Source } else {
   }
 }
 Write-Host '[3/3] Free CAD ready. On the website click Auto connect. Keep this window open.'
+Start-Process 'https://conveyor-layout-studio.vercel.app/?cad-helper=1'
 & $nodePath (Join-Path $PSScriptRoot 'cad-bridge.mjs')
 exit $LASTEXITCODE

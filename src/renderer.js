@@ -200,6 +200,7 @@ export class LayoutRenderer {
   isVisible(item) { return this.layout.displayMode!=='cad'||item.source?.origin==='dxf'; }
 
   draw(state) {
+    this.lastDrawState=state;
     this.lastState=state;
     this.cargoPresentations=[];
     this.flowContext=selectedFlowContext(this.layout,this.selectedId,state);
@@ -237,7 +238,12 @@ export class LayoutRenderer {
   drawSelectedEdgeEndpoints(){const edge=this.layout.cadSchematic?.edges?.[this.selectedEdgeIndex];if(!edge)return;const nodes=new Map(this.layout.equipment.map(item=>[item.id,item])),fromNode=nodes.get(edge.from),toNode=nodes.get(edge.to);if(!fromNode||!toNode)return;const inferred=closestPortPair(fromNode,toNode),points=[{...connectionAnchor(fromNode,edge.fromPort||inferred?.fromPort),label:'시작'},{...connectionAnchor(toNode,edge.toPort||inferred?.toPort),label:'종료'}],c=this.ctx;c.save();for(const point of points){c.setLineDash([]);c.fillStyle='#061019';c.strokeStyle=COLORS.yellow;c.lineWidth=2;c.beginPath();c.arc(point.x,point.y,9,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=COLORS.yellow;c.font='bold 7px monospace';c.textAlign='center';c.textBaseline='bottom';c.fillText(point.label,point.x,point.y-11);}c.restore();}
 
   drawDxfGeometry(){
-    const c=this.ctx,geometry=this.layout.dxfGeometry||[];if(!geometry.length)return;
+    const c=this.ctx,geometry=this.layout.dxfGeometry||[];
+    if(this.layout.cadPreviewSvg&&typeof Image!=='undefined'){
+      if(this.previewSource!==this.layout.cadPreviewSvg){this.previewSource=this.layout.cadPreviewSvg;const img=new Image(),url=URL.createObjectURL(new Blob([this.previewSource],{type:'image/svg+xml'}));this.previewImage=img;img.onload=()=>{URL.revokeObjectURL(url);if(this.previewImage===img)this.draw(this.lastDrawState);};img.onerror=()=>{URL.revokeObjectURL(url);if(this.previewImage===img)this.previewImage=null;};img.src=url;}
+      if(this.previewImage?.complete&&this.previewImage.naturalWidth){c.drawImage(this.previewImage,0,0,1200,650);return;}
+    }
+    if(!geometry.length)return;
     c.save();c.strokeStyle='rgba(0,212,255,.62)';c.lineWidth=1.4;c.lineJoin='round';c.lineCap='round';
     for(const shape of geometry){c.beginPath();
       if(shape.type==='LINE'){c.moveTo(shape.start.x,shape.start.y);c.lineTo(shape.end.x,shape.end.y);}

@@ -42,7 +42,7 @@ export async function convertDwg(bytes,{signal,executable,runner=runCoreConsole,
       await writeFile(script,'_.FILEDIA\n0\n_.DXFOUT\noutput.dxf\n16\n_.QUIT\n_Y\n','ascii');
       await runner(core,['/i',input,'/s',script,'/readonly','/isolate','ConveyorDwgImport',join(job,'profile')],{cwd:job,signal});
     }else await runner(core,['-o',output,input],{cwd:job,signal});
-    const info=await stat(output).catch(()=>null);if(!info?.isFile()||info.size>64*1024*1024)throw Error('DXF 생성 실패 또는 64MB 출력 한도 초과');
+    const info=await stat(output).catch(()=>null);if(!info?.isFile()||info.size>256*1024*1024)throw Error('DXF 생성 실패 또는 256MB 출력 한도 초과');
     const dxf=await readFile(output);if(dxf.subarray(0,32).toString().includes('AutoCAD Binary DXF')||!dxf.toString('utf8',0,4096).includes('SECTION'))throw Error('변환 결과가 ASCII DXF가 아닙니다.');
     return dxf;
   }finally{

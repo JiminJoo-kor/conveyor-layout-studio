@@ -1,3 +1,4 @@
+import {mountCadBridgeControl,isCadBridgeConnected,autoConnectCadBridge} from './cad-bridge-client.js';
 import {reuseQuestionMemory,applyQuestionCorrections} from './cad-question-memory.js';
 import {auditLayout,workspaceRoles} from './layout-audit.js';
 import {runCadImport,loadCadPatterns,saveCadPatterns} from './cad-import-client.js';
@@ -86,7 +87,7 @@ const emptyProjectState=document.createElement('div');emptyProjectState.id='empt
       </article>
       <article class="start-card start-card-open">
         <div class="start-illustration start-folder-illustration" aria-hidden="true"><svg viewBox="0 0 260 210" fill="none"><path d="M42 71h59l16 17h101v86H42z"/><path d="M42 71V49h64l17 20h65v19"/><path d="M130 151V98m0 0-23 24m23-24 23 24"/><path d="M101 174h58"/></svg><small>.JSON<br>.LAYOUT<br>.CLS</small></div>
-        <div class="start-card-copy"><span>OPEN PROJECT / CAD</span><h3>프로젝트 · CAD 불러오기</h3><p>JSON 프로젝트를 복원하거나 DWG·DXF 도면을 분석합니다.</p><button id="startOpenProject" class="start-secondary" type="button">▱ 파일 선택</button><div id="startDropzone" class="start-dropzone" tabindex="0" role="button"><b>JSON · DWG · DXF 파일을 여기에 놓으세요</b><small>설치 없이 브라우저에서 자동 분석 · 도면 전송 없음</small></div><p id="startImportStatus" role="status"></p></div>
+        <div class="start-card-copy"><span>OPEN PROJECT / CAD</span><h3>프로젝트 · CAD 불러오기</h3><p>JSON 프로젝트를 복원하거나 DWG·DXF 도면을 분석합니다.</p><button id="startOpenProject" class="start-secondary" type="button">▱ 파일 선택</button><div id="startDropzone" class="start-dropzone" tabindex="0" role="button"><b>JSON · DWG · DXF 파일을 여기에 놓으세요</b><small>DWG: 내 PC 무료 도우미로 변환 · 외부 전송 없음</small></div><p id="startImportStatus" role="status"></p></div>
       </article>
     </div>
     <section class="start-recents" aria-labelledby="recentProjectsTitle"><header><h3 id="recentProjectsTitle">최근 프로젝트</h3><span>이 브라우저에서 최근 불러온 파일</span></header><div id="recentProjectList" class="recent-project-list"></div></section>
@@ -371,6 +372,7 @@ const cadProgress=document.createElement('progress');cadProgress.max=1;cadProgre
 const cadCancel=document.createElement('button');cadCancel.textContent='분석 취소';cadCancel.disabled=true;
 const cadPatternClear=document.createElement('button');cadPatternClear.textContent='저장 패턴 목록';
 const cadQuestionButton=document.createElement('button');cadQuestionButton.textContent='도면 질문 · 상세 진단';cadQuestionButton.onclick=()=>{if(layout.cadQuestions)openCadQuestions(layout.cadQuestions,layout.dxfGeometry||[],{onApply:s=>{const count=applyQuestionCorrections(s,pendingCadCandidates);renderCadCandidates();return count;}});else $('cadStatusText').textContent='도면을 먼저 분석해 주세요.';};
+const cadBridgeControl=mountCadBridgeControl(cadTools,{onDisconnect:()=>cadImportAbort?.abort()});
 cadTools.append(cadUnit,cadProgress,cadCancel,cadPatternClear,cadQuestionButton);$('cadStatus').prepend(cadTools);
 const cadReviewHost=document.createElement('div');$('cadStatus').append(cadReviewHost);
 let cadImportAbort=null,pendingCadReview=null;
@@ -382,13 +384,14 @@ async function importCadFile(file,{fromStart=false}={}){
   const started=performance.now();$('cadStatus').hidden=false;cadProgress.hidden=false;cadProgress.removeAttribute('value');cadCancel.disabled=false;cadUnit.disabled=true;
   $('cadStatusTitle').textContent='CAD 분석 시작';$('cadStatusText').textContent=file.name;
   try{
-    const analyze=()=>runCadImport(file,{signal:controller.signal,unitOverride:cadUnit.value||undefined,patterns:loadCadPatterns(),onProgress:p=>{if(controller!==cadImportAbort)return;$('cadStatusTitle').textContent=p.stage;if(p.done==null)cadProgress.removeAttribute('value');else cadProgress.value=p.done/p.total;$('cadStatusText').textContent=file.name+' · '+(p.done==null?'처리 중':p.done.toLocaleString()+' / '+p.total.toLocaleString())+' · 경과 '+((performance.now()-started)/1000).toFixed(1)+'초';}});
+    if(/\.dwg$/i.test(file.name)&&!isCadBridgeConnected()){try{await autoConnectCadBridge();}catch{await cadBridgeControl.requestConnection(file.name,controller.signal);}}
+    const analyze=()=>runCadImport(file,{useLocalBridge:true,signal:controller.signal,unitOverride:cadUnit.value||undefined,patterns:loadCadPatterns(),onProgress:p=>{if(controller!==cadImportAbort)return;$('cadStatusTitle').textContent=p.stage;if(p.done==null)cadProgress.removeAttribute('value');else cadProgress.value=p.done/p.total;$('cadStatusText').textContent=file.name+' · '+(p.done==null?'처리 중':p.done.toLocaleString()+' / '+p.total.toLocaleString())+' · 경과 '+((performance.now()-started)/1000).toFixed(1)+'초';}});
     const result=await analyze();
     if(controller!==cadImportAbort)return;
     if(running){running=false;cancelAnimationFrame(frame);setRunState('paused');}
     if(fromStart){layout.name=file.name.replace(/\.(dwg|dxf)$/i,'');layout.id=`cad-${Date.now()}`;}
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units,importId:result.candidates[0]?.source?.importId};
-    setProjectEmpty(false);layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='raw';layout.canvas.height=650;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: CAD';
+    setProjectEmpty(false);layout.dxfGeometry=result.document.canvasGeometry;layout.cadPreviewSvg=result.document.previewSvg;layout.cadSchematic=result.schematic;layout.cadViewMode='raw';layout.canvas.height=650;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: CAD';
     pendingCadCandidates=result.candidates;pendingCadReview=result.review;layout.cadImportReview=result.review;
     layout.cadQuestions=reuseQuestionMemory(buildCadQuestions(result,file.name));
     applyQuestionCorrections(layout.cadQuestions,pendingCadCandidates);

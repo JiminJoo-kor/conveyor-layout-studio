@@ -89,9 +89,9 @@ export function confirmCadConnection(items,edge){
   return {...edge,reviewRequired:false,confirmed:true};
 }
 
-export function analyzeCadText(text,{unitOverride,patterns=[],onProgress=()=>{}}={}){
+export function analyzeCadText(text,{unitOverride,patterns=[],onProgress=()=>{},parsedDocument}={}){
   onProgress({stage:'CAD 구조·블록 전개',done:null});
-  const document=parseDxf(text);if(!document.entities.length)throw emptyDrawingError(text);
+  const document=parsedDocument||parseDxf(text);if(!document.entities.length)throw emptyDrawingError(text);
   const units=unitOverride||document.units,parts=new Map();for(const e of document.expandedEntities){if(!parts.has(e.rootIndex))parts.set(e.rootIndex,[]);parts.get(e.rootIndex).push(e);}
   const patternMap=new Map(patterns.map(p=>[p.key,p])),candidates=[],importId=`dxf-${Date.now()}`;
   for(let index=0;index<document.entities.length;index++){
@@ -114,5 +114,5 @@ export function analyzeCadText(text,{unitOverride,patterns=[],onProgress=()=>{}}
   const transform=createCanvasTransform(document,1200,650),canvasGeometry=transformDxfGeometry(document,transform,null,true,true);
   for(const item of candidates){const p=item.source.cadPosition;item.x=p.x*transform.scale+transform.offsetX;item.y=-p.y*transform.scale+transform.offsetY;}
   onProgress({stage:'검수 화면 준비',done:1,total:1});
-  return {document:{units,canvasHeight:650,canvasGeometry,toCanvasTransform:transform},candidates,schematic:{lanes:[],inboundBranches:[],edges:[]},review:{proposals,issues,unitConfirmed:Boolean(cadUnitScale[units]),warnings:[...(!cadUnitScale[units]?['도면 단위 불명: 단위를 확인한 뒤 다시 분석하세요.']:[]),...(document.expandedEntities.length>=100000?['블록 전개 한도 도달: 도면을 분할하여 확인하세요.']:[]),'접근한 끝점은 연결 후보일 뿐입니다. 방향·분기·누락은 승인 전에 확인하세요.']}};
+  return {document:{units,canvasHeight:650,canvasGeometry,toCanvasTransform:transform},candidates,schematic:{lanes:[],inboundBranches:[],edges:[]},review:{proposals,issues,unitConfirmed:Boolean(cadUnitScale[units]),warnings:[...(!cadUnitScale[units]?['도면 단위 불명: 단위를 확인한 뒤 다시 분석하세요.']:[]),...(document.expandedEntities.length>=100000?['설비 분석은 블록 전개 한도에 도달했습니다. CAD 전체 보기는 블록 참조를 유지합니다.']:[]),'접근한 끝점은 연결 후보일 뿐입니다. 방향·분기·누락은 승인 전에 확인하세요.']}};
 }

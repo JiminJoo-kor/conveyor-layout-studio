@@ -2,8 +2,9 @@ const number = value => Number.parseFloat(value) || 0;
 const pointFrom = data => ({ x:number(data[10]), y:number(data[20]), z:number(data[30]) });
 
 function pairs(text) {
-  const lines=text.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').split('\n'),result=[];
-  for(let i=0;i+1<lines.length;i+=2)result.push({code:Number(lines[i].trim()),value:lines[i+1].trim()});
+  const result=[];let offset=text.charCodeAt(0)===0xfeff?1:0,section='',sectionName=false;
+  const line=()=>{if(offset>=text.length)return null;const start=offset;while(offset<text.length&&text.charCodeAt(offset)!==10&&text.charCodeAt(offset)!==13)offset++;const value=text.slice(start,offset).trim();if(text.charCodeAt(offset)===13)offset++;if(text.charCodeAt(offset)===10)offset++;return value;};
+  while(offset<text.length){const codeText=line(),value=line();if(value===null)break;const code=Number(codeText);if(code===0&&value==='SECTION'){sectionName=true;continue;}if(sectionName){section=value;sectionName=false;if(['HEADER','BLOCKS','ENTITIES'].includes(section))result.push({code:0,value:'SECTION'},{code,value});continue;}if(['HEADER','BLOCKS','ENTITIES'].includes(section))result.push({code,value});if(code===0&&value==='ENDSEC')section='';}
   return result;
 }
 
@@ -90,7 +91,7 @@ export function parseDxf(text) {
   const drawable=expandedEntities.filter(e=>e.center||e.bounds),allPoints=drawable.flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
   const logisticsPoints=drawable.filter(isLogisticsDxfEntity).flatMap(e=>e.bounds?[{x:e.bounds.minX,y:e.bounds.minY},{x:e.bounds.maxX,y:e.bounds.maxY}]:[e.center]);
   const bounds=boundsOf(logisticsPoints)||boundsOf(allPoints),unitNames={0:'unitless',1:'inch',2:'foot',4:'mm',5:'cm',6:'m'};
-  return {format:'DXF',version:'ASCII',units:unitNames[unitsCode]||`code-${unitsCode}`,bounds,layers:[...layers],blocks:[...blocks.keys()],blockDefinitions:Object.fromEntries([...blocks].map(([name,block])=>[name,{base:block.base,entityCount:block.entities.length}])),entities,expandedEntities};
+  return {format:'DXF',version:'ASCII',drawingBlocks:Object.fromEntries(blocks),units:unitNames[unitsCode]||`code-${unitsCode}`,bounds,layers:[...layers],blocks:[...blocks.keys()],blockDefinitions:Object.fromEntries([...blocks].map(([name,block])=>[name,{base:block.base,entityCount:block.entities.length}])),entities,expandedEntities};
 }
 
 export function createCanvasTransform(document,width=1200,height=430,padding=40){const b=document.bounds;if(!b)return{scale:1,offsetX:0,offsetY:0};const sx=(width-padding*2)/Math.max(1,b.maxX-b.minX),sy=(height-padding*2)/Math.max(1,b.maxY-b.minY),scale=Math.min(sx,sy);return{scale,offsetX:padding-b.minX*scale,offsetY:padding+b.maxY*scale};}

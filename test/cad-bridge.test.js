@@ -24,10 +24,10 @@ test('paired bridge converts only uploaded bytes and keeps CORS on response',asy
  const handler=createBridgeHandler(code,{convert:async b=>{assert.equal(b.toString(),'AC1032-fixture');return Buffer.from('0\nSECTION\n');}}),r=response();await handler(request(),r);assert.equal(r.status,200);assert.equal(r.body.toString(),'0\nSECTION\n');assert.equal(r.headers['Access-Control-Allow-Origin'],WEB_ORIGIN);
 });
 test('client connects in memory, sends drawing only to loopback, and disconnects',async()=>{
- disconnectCadBridge();assert.equal(cadConversionTarget().url,'/api/cad/convert');
+ disconnectCadBridge();assert.equal(cadConversionTarget().url,null);
  await connectCadBridge(code,{fetchImpl:async(url,options)=>{assert.equal(url,'http://127.0.0.1:4179/api/cad/convert');assert.equal(options.headers['x-cad-token'],code);return Response.json({available:true});}});
- try{let posts=0;await prepareCadFile(new File(['AC1032-fixture'],'a.dwg'),{fetchImpl:async()=>{posts++;throw Error('No upload permitted');}});assert.equal(posts,0);}finally{disconnectCadBridge();}assert.equal(cadConversionTarget().url,'/api/cad/convert');
+ try{let posts=0;await prepareCadFile(new File(['AC1032-fixture'],'a.dwg'),{fetchImpl:async()=>{posts++;throw Error('No upload permitted');}});assert.equal(posts,0);}finally{disconnectCadBridge();}assert.equal(cadConversionTarget().url,null);
 });
 test('invalid pairing cannot enable connection',async()=>{
- disconnectCadBridge();await assert.rejects(connectCadBridge('bad'),/48/);await assert.rejects(connectCadBridge(code,{fetchImpl:async()=>Response.json({message:'wrong code'},{status:401})}),/wrong code/);assert.equal(cadConversionTarget().url,'/api/cad/convert');
+ disconnectCadBridge();await assert.rejects(connectCadBridge('bad'),/48/);await assert.rejects(connectCadBridge(code,{fetchImpl:async()=>Response.json({message:'wrong code'},{status:401})}),/wrong code/);assert.equal(cadConversionTarget().url,null);
 });

@@ -1,0 +1,5 @@
+import {connectCadBridge,disconnectCadBridge} from '../src/cad-bridge-client.js';
+import {prepareCadFile} from '../src/cad-import-client.js';
+import test from 'node:test';import assert from 'node:assert/strict';
+test('PC mode fails closed when disconnected and never calls a remote endpoint',async()=>{disconnectCadBridge();let calls=0;await assert.rejects(prepareCadFile(new File(['AC1032'],'a.dwg'),{useLocalBridge:true,fetchImpl:()=>calls++}),/연결/);assert.equal(calls,0);});
+test('PC mode sends bytes only to fixed loopback and blocks redirects',async()=>{await connectCadBridge('a'.repeat(48),{fetchImpl:async()=>Response.json({available:true})});try{const original=new File(['AC1032test'],'a.dwg');const converted=await prepareCadFile(original,{useLocalBridge:true,fetchImpl:async(url,o)=>{assert.equal(url,'http://127.0.0.1:4179/api/cad/convert');assert.equal(o.body,original);assert.equal(o.redirect,'error');return new Response('0\nEOF\n');}});assert.equal(converted.name,'a.dxf');assert.match(await converted.text(),/EOF/);}finally{disconnectCadBridge();}});

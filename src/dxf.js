@@ -8,7 +8,7 @@ function pairs(text) {
 }
 
 function collectEntity(type, data, vertices=[]) {
-  const common={entityType:type,handle:data[5],layer:data[8]||'0',color:data[62],lineType:data[6],rotation:number(data[50])};
+  const common={entityType:type,handle:data[5],layer:data[8]||'0',color:data[62],lineType:data[6],rotation:number(data[50]),hasBulge:['LWPOLYLINE','POLYLINE'].includes(type)&&([data[42]].flat().some(value=>Number(value)!==0&&Number.isFinite(Number(value)))||vertices.some(p=>p.bulge))};
   if(type==='INSERT')return {...common,blockName:data[2],center:pointFrom(data),scale:{x:number(data[41])||1,y:number(data[42])||1,z:number(data[43])||1},attributes:{}};
   if(type==='TEXT'||type==='MTEXT')return {...common,text:data[1]||data[3]||'',center:pointFrom(data),height:number(data[40])};
   if(type==='LINE'){const start=pointFrom(data),end={x:number(data[11]),y:number(data[21]),z:number(data[31])};return {...common,start,end,center:{x:(start.x+end.x)/2,y:(start.y+end.y)/2},bounds:boundsOf([start,end])};}
@@ -77,7 +77,7 @@ export function parseDxf(text) {
     if((section==='ENTITIES'||section==='BLOCKS')&&pair.code===0&&!['SECTION','ENDSEC','EOF','BLOCK','ENDBLK','SEQEND','VERTEX'].includes(pair.value)){
       const type=pair.value,data={},vertices=[];i++;
       while(i<input.length&&input[i].code!==0){addData(data,input[i].code,input[i].value);i++;}
-      if(type==='POLYLINE')while(input[i]?.value==='VERTEX'){const vd={};i++;while(i<input.length&&input[i].code!==0){addData(vd,input[i].code,input[i].value);i++;}vertices.push(pointFrom(vd));}
+      if(type==='POLYLINE')while(input[i]?.value==='VERTEX'){const vd={};i++;while(i<input.length&&input[i].code!==0){addData(vd,input[i].code,input[i].value);i++;}vertices.push({...pointFrom(vd),bulge:number(vd[42])});}
       const entity=collectEntity(type,data,vertices);layers.add(entity.layer);
       if(section==='ENTITIES')entities.push(entity);else if(currentBlock)currentBlock.entities.push(entity);
       continue;

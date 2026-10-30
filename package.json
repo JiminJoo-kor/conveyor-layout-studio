@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",
+    "dev:dwg": "node scripts/serve-dwg.mjs",
     "test": "node --test",
     "check": "node scripts/check-syntax.mjs",
     "verify": "npm test && npm run check",

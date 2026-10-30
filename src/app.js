@@ -1,3 +1,6 @@
+import {runCadImport,loadCadPatterns,saveCadPatterns} from './cad-import-client.js';
+import {rememberCadPattern,confirmCadConnection} from './cad-import.js';
+import {renderCadReviewCards,renderCadConnectionReview} from './cad-review-ui.js';
 import {installCargoDetail} from './cargo-detail.js';
 import {historyCount,historyNotice} from './history-memory.js';
 import {inputDisplayValue} from './distance-units.js';
@@ -347,19 +350,40 @@ $('editorToggle').addEventListener('click',()=>{const active=$('editorTools').hi
 $('viewFit').addEventListener('click',()=>editor.fitView());
 $('cadViewToggle').addEventListener('click',()=>{if(layout.displayMode!=='cad')return;const order=['hybrid','schematic','raw'],labels={hybrid:'보기: 혼합',schematic:'보기: 약식',raw:'보기: CAD'},next=order[(order.indexOf(layout.cadViewMode)+1)%order.length];layout.cadViewMode=next;for(const item of layout.equipment.filter(entry=>entry.source?.origin==='dxf')){const position=next==='schematic'?item.normalizedPosition:item.originalPosition;if(position){item.x=position.x;item.y=position.y;}}$('cadViewToggle').textContent=labels[next];positionAsrsStations(layout);renderer.setLayout(layout);editor.resetView();renderer.draw(engine.state);});
 $('drawingFile').addEventListener('change',async event=>{const file=event.target.files[0];if(!file)return;const dataUrl=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(file);});layout.background={name:file.name,dataUrl};await renderer.setBackground(dataUrl);renderer.draw(engine.state);event.target.value='';});
+const cadTools=document.createElement('div');cadTools.className='candidate-actions';
+$('cadFile').accept='.dwg,.dxf,application/dxf,application/acad';
+const cadFileLabel=$('cadFile').parentElement;for(const node of cadFileLabel.childNodes)if(node.nodeType===3&&node.textContent.includes('DXF'))node.textContent='CAD 불러오기';
+const cadUnit=document.createElement('select');cadUnit.setAttribute('aria-label','CAD 도면 단위');for(const [value,label] of [['','도면 단위 자동'],['mm','mm'],['cm','cm'],['m','m'],['inch','inch'],['foot','foot']])cadUnit.append(new Option(label,value));
+const cadProgress=document.createElement('progress');cadProgress.max=1;cadProgress.hidden=true;
+const cadCancel=document.createElement('button');cadCancel.textContent='분석 취소';cadCancel.disabled=true;
+const cadPatternClear=document.createElement('button');cadPatternClear.textContent='저장 패턴 목록';
+cadTools.append(cadUnit,cadProgress,cadCancel,cadPatternClear);$('cadStatus').prepend(cadTools);
+const cadReviewHost=document.createElement('div');$('cadStatus').append(cadReviewHost);
+let cadImportAbort=null,pendingCadReview=null;
+cadCancel.onclick=()=>cadImportAbort?.abort();
+cadPatternClear.onclick=()=>{cadReviewHost.replaceChildren();const patterns=loadCadPatterns();for(const p of patterns){const row=document.createElement('div'),remove=document.createElement('button');row.textContent=p.key+' → '+p.type+' ';remove.textContent='이 패턴 삭제';remove.onclick=()=>{try{saveCadPatterns(loadCadPatterns().filter(x=>x.key!==p.key));row.remove();}catch(error){$('cadStatusText').textContent=error.message;}};row.append(remove);cadReviewHost.append(row);}if(!patterns.length)cadReviewHost.textContent='저장된 패턴이 없습니다.';};
 $('cadFile').addEventListener('change',async event=>{
-  const file=event.target.files[0];if(!file)return;const panel=$('cadStatus');panel.hidden=false;$('cadStatusTitle').textContent='DXF 로컬 분석 중';$('cadStatusText').textContent=`${file.name}의 좌표, 레이어, 블록과 문자를 브라우저에서 읽고 있습니다.`;$('cadCandidates').innerHTML='';
+  const file=event.target.files[0];if(!file)return;cadImportAbort?.abort();const controller=new AbortController();cadImportAbort=controller;
+  const started=performance.now();$('cadStatus').hidden=false;cadProgress.hidden=false;cadProgress.removeAttribute('value');cadCancel.disabled=false;cadUnit.disabled=true;
+  $('cadStatusTitle').textContent='CAD 분석 시작';$('cadStatusText').textContent=file.name;
   try{
-    const result=await analyzeCadFile(file),candidates=result.candidates.filter(item=>item.type!=='unknown');
-    layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units||'unknown',importId:candidates[0]?.source?.importId};setProjectEmpty(false);
-    layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='schematic';layout.canvas.height=Math.max(result.document.canvasHeight,650);layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: 약식';
-    renderer.setLayout(layout);renderer.draw(engine.state);pendingCadCandidates=candidates;$('cadStatusTitle').textContent='DXF 분석 완료';$('cadStatusText').textContent=`원본 라인 ${layout.dxfGeometry.length}개와 설비 후보 ${candidates.length}개를 찾았습니다. 라인워크 위에 승인 설비가 배치됩니다.`;renderCadCandidates();renderCadEquipmentParameters();
-  }catch(error){$('cadStatusTitle').textContent='DXF 분석 실패';$('cadStatusText').textContent=error.message;}
-  finally{event.target.value='';}
+    const result=await runCadImport(file,{signal:controller.signal,unitOverride:cadUnit.value||undefined,patterns:loadCadPatterns(),onProgress:p=>{if(controller!==cadImportAbort)return;$('cadStatusTitle').textContent=p.stage;if(p.done==null)cadProgress.removeAttribute('value');else cadProgress.value=p.done/p.total;$('cadStatusText').textContent=file.name+' · '+(p.done==null?'처리 중':p.done.toLocaleString()+' / '+p.total.toLocaleString())+' · 경과 '+((performance.now()-started)/1000).toFixed(1)+'초';}});
+    if(controller!==cadImportAbort)return;
+    if(running){running=false;cancelAnimationFrame(frame);setRunState('paused');}
+    layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units,importId:result.candidates[0]?.source?.importId};
+    setProjectEmpty(false);layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='schematic';layout.canvas.height=650;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: 약식';
+    pendingCadCandidates=result.candidates;pendingCadReview=result.review;layout.cadImportReview=result.review;
+    resetEngine();renderer.setLayout(layout);renderer.draw(engine.state);cadProgress.value=1;$('cadStatusTitle').textContent='CAD 분석 완료 · 후보 검수';
+    $('cadStatusText').textContent='설비 후보 '+result.candidates.length+'개 · '+result.review.warnings.join(' ')+' 단위를 변경한 경우 같은 파일을 다시 불러오세요.';
+    renderCadCandidates();renderCadEquipmentParameters();
+  }catch(error){if(controller===cadImportAbort){$('cadStatusTitle').textContent=error.name==='AbortError'?'CAD 분석 취소':'CAD 분석 실패';$('cadStatusText').textContent=error.message;}}
+  finally{if(controller===cadImportAbort){cadCancel.disabled=true;cadUnit.disabled=false;cadProgress.hidden=true;event.target.value='';}}
 });
+function updateCadConnectionReview(){
+  renderCadConnectionReview(cadReviewHost,layout,pendingCadReview,edge=>{layout.cadSchematic.edges.push(confirmCadConnection(layout.equipment,edge));resetEngine();updateCadConnectionReview();},id=>selectEquipment(layout.equipment.find(e=>e.id===id)));
+}
 function renderCadCandidates(){
-  const host=$('cadCandidates');
-  host.innerHTML=pendingCadCandidates.length?`<div class="candidate-actions"><button data-cad-action="approve-all">모두 승인</button><button data-cad-action="discard-all">모두 제외</button></div>`+pendingCadCandidates.map(item=>`<div class="candidate-card"><span>${item.name}</span><small>${item.type} · 신뢰도 ${Math.round(item.confidence*100)}%</small><button data-cad-action="approve" data-id="${item.id}">승인</button><button data-cad-action="discard" data-id="${item.id}">제외</button></div>`).join(''):'<span>검수할 후보가 없습니다.</span>';
+  renderCadReviewCards($('cadCandidates'),pendingCadCandidates,renderCadCandidates);updateCadConnectionReview();
 }
 function detectedFlowNames(){return [...new Set([...(layout.cadSchematic?.lanes||[]).map(line=>line.name),...(layout.cadSchematic?.inboundBranches||[]).map(line=>line.name),...[...new Set(Object.values(engine.state?.warehouses||{legacy:engine.state?.asrs}).flatMap(warehouse=>Object.keys(warehouse?.zones||{})))]].filter(Boolean))];}
 function detectedCargoPatterns(){const equipmentById=new Map(layout.equipment.map(item=>[item.id,item])),patterns=new Map();for(const branch of layout.cadSchematic?.inboundBranches||[]){const source=(branch.nodeIds||[]).map(id=>equipmentById.get(id)).find(item=>item?.type==='source'||item?.parameters?.dockRole==='inbound'),cargoType=branch.cargoType||source?.parameters?.cargoType||branch.name;if(cargoType)patterns.set(cargoType,{key:cargoType,label:cargoType,line:branch.name});}for(const token of engine.state?.cadTokens||[]){const cargoType=token.cargoType||token.originFlowKey||token.flowKey;if(cargoType&&!patterns.has(cargoType))patterns.set(cargoType,{key:cargoType,label:cargoType,line:token.flowKey});}if(!patterns.size)for(const name of detectedFlowNames())patterns.set(name,{key:name,label:name,line:name});return[...patterns.values()];}
@@ -444,13 +468,13 @@ cadParameterSection.addEventListener('click',event=>{const button=event.target.c
 cadParameterSection.addEventListener('click',event=>{const button=event.target.closest('[data-fork-flow]');if(!button)return;const item=layout.equipment.find(entry=>entry.id===button.dataset.forkId);if(!item)return;const keys=detectedCargoPatterns().map(pattern=>pattern.key);item.parameters??={};const selected=new Set(Array.isArray(item.parameters.distributionFlowKeys)&&item.parameters.distributionFlowKeys.length?item.parameters.distributionFlowKeys:keys);selected.has(button.dataset.forkFlow)?selected.delete(button.dataset.forkFlow):selected.add(button.dataset.forkFlow);item.parameters.distributionFlowKeys=[...selected];resetEngine();renderCadEquipmentParameters(item.id);});
 $('cadCandidates').addEventListener('click',event=>{
   const button=event.target.closest('[data-cad-action]');if(!button)return;const action=button.dataset.cadAction,id=button.dataset.id;
-  const selected=action==='approve-all'?pendingCadCandidates:pendingCadCandidates.filter(item=>item.id===id);
+  const selected=(action==='approve-all'?pendingCadCandidates:pendingCadCandidates.filter(item=>item.id===id)).filter(item=>item.type!=='unknown'&&!(item.type==='conveyor'&&item.source.dimensionReviewRequired));
   if(action==='approve'||action==='approve-all'){
     const importId=selected[0]?.source?.importId;
     if(importId&&layout.cadActiveImportId!==importId){layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');layout.cadActiveImportId=importId;layout.displayMode='cad';}
-    for(const item of selected){item.reviewStatus='approved';layout.equipment.push(item);}
+    for(const item of selected){if(item.rememberPattern){try{saveCadPatterns(rememberCadPattern(loadCadPatterns(),item,item.type));}catch(error){$('cadStatusText').textContent='패턴 저장 실패: '+error.message;}}delete item.rememberPattern;item.reviewStatus='approved';layout.equipment.push(item);}
   }
-  if(action==='approve-all'||action==='discard-all')pendingCadCandidates=[];else pendingCadCandidates=pendingCadCandidates.filter(item=>item.id!==id);
+  if(action==='discard-all')pendingCadCandidates=[];else if(action==='approve-all')pendingCadCandidates=pendingCadCandidates.filter(item=>!selected.includes(item));else if(action==='discard'||selected.length)pendingCadCandidates=pendingCadCandidates.filter(item=>item.id!==id);
   renderer.setLayout(layout);if(action==='approve'||action==='approve-all')resetEngine();else renderer.draw(engine.state);renderCadCandidates();renderCadEquipmentParameters();
   if(action==='approve'||action==='approve-all'){$('cadStatusTitle').textContent='설비 반영 완료';$('cadStatusText').textContent=`${selected.length}개 설비를 레이아웃에 배치했습니다. 편집 모드에서 위치와 파라미터를 보정할 수 있습니다.`;}
   else if(action==='discard-all'){$('cadStatusTitle').textContent='후보 제외 완료';$('cadStatusText').textContent='분석 후보를 모두 제외했습니다.';}

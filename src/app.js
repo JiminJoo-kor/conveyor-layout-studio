@@ -371,7 +371,7 @@ const cadReviewHost=document.createElement('div');$('cadStatus').append(cadRevie
 let cadImportAbort=null,pendingCadReview=null;
 cadCancel.onclick=()=>cadImportAbort?.abort();
 cadPatternClear.onclick=()=>{cadReviewHost.replaceChildren();const patterns=loadCadPatterns();for(const p of patterns){const row=document.createElement('div'),remove=document.createElement('button');row.textContent=p.key+' → '+p.type+' ';remove.textContent='이 패턴 삭제';remove.onclick=()=>{try{saveCadPatterns(loadCadPatterns().filter(x=>x.key!==p.key));row.remove();}catch(error){$('cadStatusText').textContent=error.message;}};row.append(remove);cadReviewHost.append(row);}if(!patterns.length)cadReviewHost.textContent='저장된 패턴이 없습니다.';};
-async function importCadFile(file){
+async function importCadFile(file,{fromStart=false}={}){
   if(!file)return;cadImportAbort?.abort();const controller=new AbortController();cadImportAbort=controller;
   setProjectEmpty(false);
   const started=performance.now();$('cadStatus').hidden=false;cadProgress.hidden=false;cadProgress.removeAttribute('value');cadCancel.disabled=false;cadUnit.disabled=true;
@@ -381,6 +381,7 @@ async function importCadFile(file){
     let result;try{result=await analyze();}catch(error){if(error.code!=='CAD_CONNECTION_REQUIRED'||controller.signal.aborted)throw error;$('cadStatusTitle').textContent='DWG 연결 대기';await cadBridgeControl.requestConnection(file.name,controller.signal);result=await analyze();}
     if(controller!==cadImportAbort)return;
     if(running){running=false;cancelAnimationFrame(frame);setRunState('paused');}
+    if(fromStart){layout.name=file.name.replace(/\.(dwg|dxf)$/i,'');layout.id=`cad-${Date.now()}`;}
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units,importId:result.candidates[0]?.source?.importId};
     setProjectEmpty(false);layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='schematic';layout.canvas.height=650;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: 약식';
     pendingCadCandidates=result.candidates;pendingCadReview=result.review;layout.cadImportReview=result.review;
@@ -500,7 +501,7 @@ function openStartFile(file){
   if(!file)return;
   if(!/\.(json|dwg|dxf)$/i.test(file.name)){$('startImportStatus').textContent='JSON, DWG 또는 DXF 파일을 선택하세요.';return;}
   $('startImportStatus').textContent='';
-  if(/\.(dwg|dxf)$/i.test(file.name)){void importCadFile(file);return;}
+  if(/\.(dwg|dxf)$/i.test(file.name)){void importCadFile(file,{fromStart:true});return;}
   const transfer=new DataTransfer();transfer.items.add(file);$('layoutFile').files=transfer.files;$('layoutFile').dispatchEvent(new Event('change',{bubbles:true}));
 }
 startFile.addEventListener('change',()=>{const file=startFile.files[0];startFile.value='';openStartFile(file);});

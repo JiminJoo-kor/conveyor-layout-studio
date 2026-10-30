@@ -84,7 +84,7 @@ const emptyProjectState=document.createElement('div');emptyProjectState.id='empt
       </article>
       <article class="start-card start-card-open">
         <div class="start-illustration start-folder-illustration" aria-hidden="true"><svg viewBox="0 0 260 210" fill="none"><path d="M42 71h59l16 17h101v86H42z"/><path d="M42 71V49h64l17 20h65v19"/><path d="M130 151V98m0 0-23 24m23-24 23 24"/><path d="M101 174h58"/></svg><small>.JSON<br>.LAYOUT<br>.CLS</small></div>
-        <div class="start-card-copy"><span>OPEN PROJECT / CAD</span><h3>프로젝트 · CAD 불러오기</h3><p>JSON 프로젝트를 복원하거나 DWG·DXF 도면을 분석합니다.</p><button id="startOpenProject" class="start-secondary" type="button">▱ 파일 선택</button><div id="startDropzone" class="start-dropzone" tabindex="0" role="button"><b>JSON · DWG · DXF 파일을 여기에 놓으세요</b><small>DWG는 무료 PC 변환기 연결 후 분석합니다.</small></div><p id="startImportStatus" role="status"></p></div>
+        <div class="start-card-copy"><span>OPEN PROJECT / CAD</span><h3>프로젝트 · CAD 불러오기</h3><p>JSON 프로젝트를 복원하거나 DWG·DXF 도면을 분석합니다.</p><button id="startOpenProject" class="start-secondary" type="button">▱ 파일 선택</button><div id="startDropzone" class="start-dropzone" tabindex="0" role="button"><b>JSON · DWG · DXF 파일을 여기에 놓으세요</b><small>설치 없이 브라우저에서 자동 분석 · 도면 전송 없음</small></div><p id="startImportStatus" role="status"></p></div>
       </article>
     </div>
     <section class="start-recents" aria-labelledby="recentProjectsTitle"><header><h3 id="recentProjectsTitle">최근 프로젝트</h3><span>이 브라우저에서 최근 불러온 파일</span></header><div id="recentProjectList" class="recent-project-list"></div></section>
@@ -93,9 +93,9 @@ const emptyProjectState=document.createElement('div');emptyProjectState.id='empt
 const canvasScroll=$('layoutCanvas').closest('.canvas-scroll'),liveViewLayout=document.createElement('div'),splitLivePanel=document.createElement('section'),splitRackMonitor=document.createElement('div');liveViewLayout.className='live-view-layout';liveViewLayout.dataset.viewMode='2d';splitLivePanel.id='splitLivePanel';splitLivePanel.className='split-live-panel';splitLivePanel.hidden=true;splitLivePanel.innerHTML='<header><div><span class="eyebrow">SYNCHRONIZED VIEW</span><h2>3D LIVE</h2></div><small>동일 시뮬레이션 시간</small></header>';splitRackMonitor.className='rack-monitor split-rack-monitor';splitLivePanel.append(splitRackMonitor);canvasScroll.before(liveViewLayout);liveViewLayout.append(canvasScroll,splitLivePanel);
 const canvasOverlay=document.createElement('div');canvasOverlay.className='canvas-overlay-toolbar';canvasOverlay.innerHTML='<span>캔버스 표시</span><button type="button" data-canvas-overlay="minimal">간단</button><button type="button" class="active" data-canvas-overlay="operations">운전 정보</button><button type="button" data-canvas-overlay="engineering">Engineering</button><small>2D·3D 공통 상태·방향 / Engineering 상세</small>';liveViewLayout.prepend(canvasOverlay);canvasOverlay.addEventListener('click',event=>{const button=event.target.closest('[data-canvas-overlay]');if(!button)return;renderer.setOverlayMode(button.dataset.canvasOverlay);for(const target of canvasOverlay.querySelectorAll('[data-canvas-overlay]'))target.classList.toggle('active',target===button);renderer.draw(engine.state);renderRackMonitor();});
 const layoutImportStatus=document.createElement('p');layoutImportStatus.id='layoutImportStatus';layoutImportStatus.className='validation';layoutImportStatus.setAttribute('role','alert');layoutImportStatus.hidden=true;emptyProjectState.before(layoutImportStatus);
-import {mountCadBridgeControl} from './cad-bridge-client.js';
 const newLayoutButton=document.createElement('button');newLayoutButton.id='newLayoutProject';newLayoutButton.textContent='새 레이아웃 구성';$('cadFile').closest('.layout-actions').prepend(newLayoutButton);
-const cadBridgeControl=mountCadBridgeControl($('cadFile').closest('.layout-actions'));
+const cadPrivacy=document.createElement('p');cadPrivacy.textContent='DWG·DXF는 브라우저에서만 분석합니다. 도면 파일은 서버로 전송하지 않습니다.';emptyProjectState.append(cadPrivacy);
+const sourceLink=document.createElement('a');sourceLink.href='/open-source.html';sourceLink.textContent='GPL 라이선스 · 프로그램 소스';sourceLink.target='_blank';sourceLink.rel='noopener';sourceLink.style.color='#46dfff';emptyProjectState.append(sourceLink);
 mountAnalysisView($('operationsPanel'));
 const projectStatus=document.createElement('small');projectStatus.id='projectStatus';projectStatus.className='project-status';$('layoutName').after(projectStatus);
 const cargoConditionCard=document.createElement('section');cargoConditionCard.id='projectCargoConditions';cargoConditionCard.className='project-cargo-conditions';cargoConditionCard.hidden=true;
@@ -380,7 +380,7 @@ async function importCadFile(file,{fromStart=false}={}){
   $('cadStatusTitle').textContent='CAD 분석 시작';$('cadStatusText').textContent=file.name;
   try{
     const analyze=()=>runCadImport(file,{signal:controller.signal,unitOverride:cadUnit.value||undefined,patterns:loadCadPatterns(),onProgress:p=>{if(controller!==cadImportAbort)return;$('cadStatusTitle').textContent=p.stage;if(p.done==null)cadProgress.removeAttribute('value');else cadProgress.value=p.done/p.total;$('cadStatusText').textContent=file.name+' · '+(p.done==null?'처리 중':p.done.toLocaleString()+' / '+p.total.toLocaleString())+' · 경과 '+((performance.now()-started)/1000).toFixed(1)+'초';}});
-    let result;try{result=await analyze();}catch(error){if(error.code!=='CAD_CONNECTION_REQUIRED'||controller.signal.aborted)throw error;$('cadStatusTitle').textContent='DWG 연결 대기';await cadBridgeControl.requestConnection(file.name,controller.signal);result=await analyze();}
+    const result=await analyze();
     if(controller!==cadImportAbort)return;
     if(running){running=false;cancelAnimationFrame(frame);setRunState('paused');}
     if(fromStart){layout.name=file.name.replace(/\.(dwg|dxf)$/i,'');layout.id=`cad-${Date.now()}`;}

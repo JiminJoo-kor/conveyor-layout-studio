@@ -26,7 +26,7 @@ test('paired bridge converts only uploaded bytes and keeps CORS on response',asy
 test('client connects in memory, sends drawing only to loopback, and disconnects',async()=>{
  disconnectCadBridge();assert.equal(cadConversionTarget().url,'/api/cad/convert');
  await connectCadBridge(code,{fetchImpl:async(url,options)=>{assert.equal(url,'http://127.0.0.1:4179/api/cad/convert');assert.equal(options.headers['x-cad-token'],code);return Response.json({available:true});}});
- try{let posts=0;await prepareCadFile(new File(['AC1032-fixture'],'a.dwg'),{fetchImpl:async(url,options)=>{assert.equal(url,'http://127.0.0.1:4179/api/cad/convert');assert.equal(options.headers['x-cad-token'],code);if(!options.method)return Response.json({available:true});posts++;return new Response('0\nSECTION\n');}});assert.equal(posts,1);}finally{disconnectCadBridge();}assert.equal(cadConversionTarget().url,'/api/cad/convert');
+ try{let posts=0;await prepareCadFile(new File(['AC1032-fixture'],'a.dwg'),{fetchImpl:async()=>{posts++;throw Error('No upload permitted');}});assert.equal(posts,0);}finally{disconnectCadBridge();}assert.equal(cadConversionTarget().url,'/api/cad/convert');
 });
 test('invalid pairing cannot enable connection',async()=>{
  disconnectCadBridge();await assert.rejects(connectCadBridge('bad'),/48/);await assert.rejects(connectCadBridge(code,{fetchImpl:async()=>Response.json({message:'wrong code'},{status:401})}),/wrong code/);assert.equal(cadConversionTarget().url,'/api/cad/convert');

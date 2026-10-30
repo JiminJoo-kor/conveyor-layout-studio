@@ -2,6 +2,7 @@
   "name": "conveyor-layout-studio",
   "version": "0.2.0",
   "private": true,
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "node scripts/serve.mjs",

@@ -388,7 +388,7 @@ async function importCadFile(file,{fromStart=false}={}){
     if(running){running=false;cancelAnimationFrame(frame);setRunState('paused');}
     if(fromStart){layout.name=file.name.replace(/\.(dwg|dxf)$/i,'');layout.id=`cad-${Date.now()}`;}
     layout.cadSource={fileName:file.name,analyzedAt:new Date().toISOString(),units:result.document.units,importId:result.candidates[0]?.source?.importId};
-    setProjectEmpty(false);layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='schematic';layout.canvas.height=650;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: 약식';
+    setProjectEmpty(false);layout.dxfGeometry=result.document.canvasGeometry;layout.cadSchematic=result.schematic;layout.cadViewMode='raw';layout.canvas.height=650;layout.displayMode='cad';layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');$('cadViewToggle').textContent='보기: CAD';
     pendingCadCandidates=result.candidates;pendingCadReview=result.review;layout.cadImportReview=result.review;
     layout.cadQuestions=reuseQuestionMemory(buildCadQuestions(result,file.name));
     applyQuestionCorrections(layout.cadQuestions,pendingCadCandidates);

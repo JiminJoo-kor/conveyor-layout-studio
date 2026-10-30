@@ -111,7 +111,7 @@ export function analyzeCadText(text,{unitOverride,patterns=[],onProgress=()=>{}}
   const allBounds={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};
   for(const e of document.entities)for(const p of pointsOf(e)){allBounds.minX=Math.min(allBounds.minX,p.x);allBounds.minY=Math.min(allBounds.minY,p.y);allBounds.maxX=Math.max(allBounds.maxX,p.x);allBounds.maxY=Math.max(allBounds.maxY,p.y);}
   if(Number.isFinite(allBounds.minX))document.bounds=allBounds;
-  const transform=createCanvasTransform(document,1200,650),canvasGeometry=transformDxfGeometry(document,transform,null,true);
+  const transform=createCanvasTransform(document,1200,650),canvasGeometry=transformDxfGeometry(document,transform,null,true,true);
   for(const item of candidates){const p=item.source.cadPosition;item.x=p.x*transform.scale+transform.offsetX;item.y=-p.y*transform.scale+transform.offsetY;}
   onProgress({stage:'검수 화면 준비',done:1,total:1});
   return {document:{units,canvasHeight:650,canvasGeometry,toCanvasTransform:transform},candidates,schematic:{lanes:[],inboundBranches:[],edges:[]},review:{proposals,issues,unitConfirmed:Boolean(cadUnitScale[units]),warnings:[...(!cadUnitScale[units]?['도면 단위 불명: 단위를 확인한 뒤 다시 분석하세요.']:[]),...(document.expandedEntities.length>=100000?['블록 전개 한도 도달: 도면을 분할하여 확인하세요.']:[]),'접근한 끝점은 연결 후보일 뿐입니다. 방향·분기·누락은 승인 전에 확인하세요.']}};

@@ -113,16 +113,16 @@ export function isLogisticsDxfEntity(entity){
   return true;
 }
 
-export function transformDxfGeometry(document,transform,rootIndexes=null,includeProcessContext=false){
+export function transformDxfGeometry(document,transform,rootIndexes=null,includeProcessContext=false,includeAll=false){
   const point=p=>({x:p.x*transform.scale+transform.offsetX,y:-p.y*transform.scale+transform.offsetY});
   const allowed=rootIndexes?new Set(rootIndexes):null;
-  return (document.expandedEntities||document.entities||[]).filter(entity=>(isLogisticsDxfEntity(entity)||(includeProcessContext&&!isArchitecturalDxfEntity(entity)))&&(!allowed||allowed.has(entity.rootIndex))).flatMap(entity=>{
+  return (document.expandedEntities||document.entities||[]).filter(entity=>(includeAll||isLogisticsDxfEntity(entity)||(includeProcessContext&&!isArchitecturalDxfEntity(entity)))&&(!allowed||allowed.has(entity.rootIndex))).flatMap(entity=>{
     const common={type:entity.entityType,layer:entity.layer||'0',rootIndex:entity.rootIndex};
     if(entity.entityType==='LINE')return [{...common,start:point(entity.start),end:point(entity.end)}];
     if(['LWPOLYLINE','POLYLINE'].includes(entity.entityType)&&entity.vertices?.length)return [{...common,vertices:entity.vertices.map(point),closed:entity.closed}];
     if(entity.entityType==='CIRCLE')return [{...common,center:point(entity.center),radius:entity.radius*transform.scale}];
     if(entity.entityType==='ARC')return [{...common,center:point(entity.center),radius:entity.radius*transform.scale,startAngle:-(entity.endAngle||0)*Math.PI/180,endAngle:-(entity.startAngle||0)*Math.PI/180}];
-    if(['TEXT','MTEXT'].includes(entity.entityType)&&isProcessLabel(entity))return [{...common,center:point(entity.center),text:entity.text,height:Math.max(10,(entity.height||12)*transform.scale)}];
+    if(['TEXT','MTEXT'].includes(entity.entityType)&&(includeAll||isProcessLabel(entity)))return [{...common,center:point(entity.center),text:entity.text,height:Math.max(10,(entity.height||12)*transform.scale)}];
     return [];
   });
 }

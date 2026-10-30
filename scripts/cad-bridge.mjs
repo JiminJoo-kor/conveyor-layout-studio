@@ -4,17 +4,24 @@ import {pathToFileURL} from 'node:url';
 import {handleDwgConversion} from './dwg-converter.mjs';
 
 export const WEB_ORIGIN='https://conveyor-layout-studio.vercel.app';
-export function createBridgeHandler(token,{convert,port=4179}={}){
+export function createBridgeHandler(token,{convert,port=4179,pairUntil=Date.now()+300000}={}){
   return async(req,res)=>{
     const fail=(status,message)=>{res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify({message}));};
     if(req.headers.host!==`127.0.0.1:${port}`||req.headers.origin!==WEB_ORIGIN)return fail(403,'허용되지 않은 사이트입니다.');
     res.setHeader('Access-Control-Allow-Origin',WEB_ORIGIN);res.setHeader('Vary','Origin');res.setHeader('Cache-Control','no-store');
-    if(req.url!=='/api/cad/convert')return fail(404,'지원하지 않는 경로입니다.');
+    if(!['/api/cad/convert','/api/cad/pair'].includes(req.url))return fail(404,'지원하지 않는 경로입니다.');
     if(req.method==='OPTIONS'){
       const headers=(req.headers['access-control-request-headers']||'').toLowerCase().split(',').map(h=>h.trim()).filter(Boolean);
-      if(!['GET','POST'].includes(req.headers['access-control-request-method'])||headers.some(h=>!['content-type','x-cad-convert','x-cad-token'].includes(h)))return fail(403,'지원하지 않는 요청입니다.');
-      res.setHeader('Access-Control-Allow-Methods','GET, POST');res.setHeader('Access-Control-Allow-Headers','content-type, x-cad-convert, x-cad-token');
+      if(!['GET','POST'].includes(req.headers['access-control-request-method'])||headers.some(h=>!['content-type','x-cad-convert','x-cad-token','x-cad-pair'].includes(h)))return fail(403,'지원하지 않는 요청입니다.');
+      res.setHeader('Access-Control-Allow-Methods','GET, POST');res.setHeader('Access-Control-Allow-Headers','content-type, x-cad-convert, x-cad-token, x-cad-pair');
       res.setHeader('Access-Control-Allow-Private-Network','true');res.writeHead(204);res.end();return;
+    }
+    // Pairing is available only briefly after the user starts this helper,
+    // only to our exact web origin, and requires a preflighted custom header.
+    if(req.url==='/api/cad/pair'){
+      if(req.method!=='POST'||req.headers['x-cad-pair']!=='1')return fail(403,'지원하지 않는 연결 요청입니다.');
+      if(Date.now()>pairUntil)return fail(403,'자동 연결 시간이 지났습니다. 도우미를 다시 실행하세요.');
+      res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({token}));return;
     }
     const supplied=Buffer.from(req.headers['x-cad-token']||''),expected=Buffer.from(token);
     if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected))return fail(401,'연결 코드가 다릅니다. PC 연결 도우미의 코드를 다시 입력하세요.');
@@ -27,6 +34,6 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const server=createServer(createBridgeHandler(token));
   server.on('error',e=>{console.error(e.code==='EADDRINUSE'?'CAD helper is already running on port 4179. Close it before restarting.':e.message);process.exitCode=1;});
   server.listen(4179,'127.0.0.1',()=>{
-    console.log(`Free CAD helper ready. Keep this window open.\nOpen ${WEB_ORIGIN}\nClick PC DWG connection and paste this code:\n\n${token}\n\nClose this window to disconnect. Drawings stay on this PC.`);
+    console.log(`Free CAD helper ready. Keep this window open.\nOpen ${WEB_ORIGIN}\nThe site can connect automatically for the next 5 minutes. No code is needed.\nClose this window to disconnect. Drawings stay on this PC.`);
   });
 }

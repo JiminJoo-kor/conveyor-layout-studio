@@ -4,6 +4,12 @@ import {createBridgeHandler,WEB_ORIGIN} from '../scripts/cad-bridge.mjs';
 import {connectCadBridge,disconnectCadBridge,cadConversionTarget} from '../src/cad-bridge-client.js';
 import {prepareCadFile} from '../src/cad-import-client.js';
 const code='a'.repeat(48);
+test('automatic pairing rejects foreign origin, missing header and expired startup window',async()=>{
+ const handler=createBridgeHandler(code);
+ for(const headers of [{origin:'https://other.example','x-cad-pair':'1'},{'x-cad-pair':undefined}]){const q=request(headers);q.url='/api/cad/pair';const r=response();await handler(q,r);assert.equal(r.status,403);}
+ const q=request({'x-cad-pair':'1'});q.url='/api/cad/pair';let r=response();await handler(q,r);assert.equal(JSON.parse(r.body).token,code);
+ r=response();await createBridgeHandler(code,{pairUntil:0})(q,r);assert.equal(r.status,403);
+});
 function response(){return {headers:{},setHeader(k,v){this.headers[k]=v;},writeHead(s,h){this.status=s;Object.assign(this.headers,h);},end(b){this.body=b;},on(){}};}
 function request(headers={},method='POST'){return {url:'/api/cad/convert',method,headers:{host:'127.0.0.1:4179',origin:WEB_ORIGIN,'x-cad-token':code,...headers},async *[Symbol.asyncIterator](){yield Buffer.from('AC1032-fixture');}};}
 test('bridge blocks foreign origin, DNS rebinding and wrong token before reading a drawing',async()=>{

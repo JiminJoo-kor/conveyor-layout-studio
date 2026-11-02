@@ -107,7 +107,7 @@ export function analyzeCadText(text,{unitOverride,patterns=[],onProgress=()=>{},
     if(index%250===0||index===document.entities.length-1)onProgress({stage:'치수·설비 후보 분석',done:index+1,total:document.entities.length});
   }
   onProgress({stage:'연결점 검증',done:null});const proposals=proposeCadConnections(candidates),issues=validateCadConnections(candidates);
-  if(document.expandedEntities.length>=100000)for(const item of candidates){item.source.measurement.review=true;item.source.dimensionReviewRequired=true;}
+  if(document.expandedEntities.length>=100000){const lastRoot=document.expandedEntities.at(-1)?.rootIndex??0;for(const item of candidates){if(item.source.entityType==='INSERT'&&item.source.rootIndex>=lastRoot){item.source.measurement.review=true;item.source.dimensionReviewRequired=true;}}}
   const allBounds={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};
   for(const e of document.entities)for(const p of pointsOf(e)){allBounds.minX=Math.min(allBounds.minX,p.x);allBounds.minY=Math.min(allBounds.minY,p.y);allBounds.maxX=Math.max(allBounds.maxX,p.x);allBounds.maxY=Math.max(allBounds.maxY,p.y);}
   if(Number.isFinite(allBounds.minX))document.bounds=allBounds;

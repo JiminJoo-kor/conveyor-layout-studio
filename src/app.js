@@ -1,3 +1,4 @@
+import {autoPlaceCad,cadExecutionBlockers} from './cad-auto-layout.js';
 import {mountCadBridgeControl,isCadBridgeConnected,autoConnectCadBridge} from './cad-bridge-client.js';
 import {reuseQuestionMemory,applyQuestionCorrections} from './cad-question-memory.js';
 import {auditLayout,workspaceRoles} from './layout-audit.js';
@@ -338,6 +339,7 @@ function loop(now) {
   frame=requestAnimationFrame(loop);
 }
 function toggleRun() {
+  if(!running){const blockers=cadExecutionBlockers(layout);if(blockers.length){$('validation').textContent=blockers.join(' · ');$('cadStatusText').textContent=blockers.join(' · ');return;}}
   if(!running&&layout.displayMode==='cad'&&!validateFlowGraph(layout).valid){resetEngine();return;}
   if(!running&&engine.state.t>=engine.params.simDuration&&!resetEngine())return;
   if(engine.state.t===0&&!resetEngine()) return;
@@ -371,9 +373,10 @@ const cadUnit=document.createElement('select');cadUnit.setAttribute('aria-label'
 const cadProgress=document.createElement('progress');cadProgress.max=1;cadProgress.hidden=true;
 const cadCancel=document.createElement('button');cadCancel.textContent='분석 취소';cadCancel.disabled=true;
 const cadPatternClear=document.createElement('button');cadPatternClear.textContent='저장 패턴 목록';
-const cadQuestionButton=document.createElement('button');cadQuestionButton.textContent='도면 질문 · 상세 진단';cadQuestionButton.onclick=()=>{if(layout.cadQuestions)openCadQuestions(layout.cadQuestions,layout.dxfGeometry||[],{onApply:s=>{const count=applyQuestionCorrections(s,pendingCadCandidates);renderCadCandidates();return count;}});else $('cadStatusText').textContent='도면을 먼저 분석해 주세요.';};
+const cadQuestionButton=document.createElement('button');cadQuestionButton.textContent='도면 질문 · 상세 진단';cadQuestionButton.onclick=()=>{if(layout.cadQuestions)openCadQuestions(layout.cadQuestions,layout.dxfGeometry||[],{onApply:s=>{if(running){$('cadStatusText').textContent='시뮬레이션을 정지한 뒤 적용하세요.';return 0;}const count=applyQuestionCorrections(s,[...pendingCadCandidates,...layout.equipment]);applyAutomaticCadPlacement();renderCadCandidates();return count;}});else $('cadStatusText').textContent='도면을 먼저 분석해 주세요.';};
 const cadBridgeControl=mountCadBridgeControl(cadTools,{onDisconnect:()=>cadImportAbort?.abort()});
-cadTools.append(cadUnit,cadProgress,cadCancel,cadPatternClear,cadQuestionButton);$('cadStatus').prepend(cadTools);
+const cadAutoButton=document.createElement('button');cadAutoButton.textContent='확정값으로 자동 배치·연결';cadAutoButton.onclick=()=>{if(running){$('cadStatusText').textContent='시뮬레이션을 정지한 뒤 적용하세요.';return;}const result=applyAutomaticCadPlacement();renderCadCandidates();$('cadStatusText').textContent=`추가 배치 ${result.placed.length}개 · 추가 연결 ${result.connected}개 · 확인 대기 ${result.pending.length}개`;};
+cadTools.append(cadUnit,cadProgress,cadCancel,cadPatternClear,cadQuestionButton);cadTools.append(cadAutoButton);$('cadStatus').prepend(cadTools);
 const cadReviewHost=document.createElement('div'),cadReviewDetails=document.createElement('details'),cadReviewSummary=document.createElement('summary');cadReviewSummary.textContent='설비 후보 · 연결점 검수 열기';cadReviewDetails.append(cadReviewSummary,$('cadCandidates'),cadReviewHost);$('cadStatus').append(cadReviewDetails);
 let cadImportAbort=null,pendingCadReview=null;
 cadCancel.onclick=()=>cadImportAbort?.abort();
@@ -395,8 +398,9 @@ async function importCadFile(file,{fromStart=false}={}){
     pendingCadCandidates=result.candidates;pendingCadReview=result.review;layout.cadImportReview=result.review;
     layout.cadQuestions=reuseQuestionMemory(buildCadQuestions(result,file.name));
     applyQuestionCorrections(layout.cadQuestions,pendingCadCandidates);
+    applyAutomaticCadPlacement();
     resetEngine();renderer.setLayout(layout);renderer.draw(engine.state);cadProgress.value=1;$('cadStatusTitle').textContent='CAD 분석 완료 · 후보 검수';
-    $('cadStatusText').textContent='설비 후보 '+result.candidates.length+'개 · '+result.review.warnings.join(' ')+' 단위를 변경한 경우 같은 파일을 다시 불러오세요.';
+    $('cadStatusText').textContent='자동 배치 '+layout.cadPlacementReview.placed+'개 · 확인 대기 '+pendingCadCandidates.length+'개 · '+result.review.warnings.join(' ')+' 단위를 변경한 경우 같은 파일을 다시 불러오세요.';
     renderCadCandidates();renderCadEquipmentParameters();
     cadReviewDetails.open=false;cadQuestionButton.textContent='도면 질문 · '+layout.cadQuestions.questions.length+'개';editor.resetView();renderer.draw(engine.state);
   }catch(error){if(controller===cadImportAbort){$('cadStatusTitle').textContent=error.name==='AbortError'?'CAD 분석 취소':'CAD 분석 실패';$('cadStatusText').textContent=error.message;if(error.name!=='AbortError'){layout.cadQuestions=buildCadQuestions({candidates:[],document:{},review:{warnings:['변환·분석 실패: '+error.message]}},file.name);layout.cadQuestions.noGeometry=true;layout.cadQuestions.diagnostic=error.diagnostic;layout.cadQuestions.questions[0].prompt='이 파일이 어떤 도면인지, CAD 버전·외부 참조 여부와 분석하려는 설비 구간을 설명하고 원본 캡처를 첨부해 주세요.';openCadQuestions(layout.cadQuestions,[]);}}}
@@ -404,9 +408,13 @@ async function importCadFile(file,{fromStart=false}={}){
 }
 $('cadFile').addEventListener('change',event=>{const file=event.target.files[0];event.target.value='';void importCadFile(file);});
 function updateCadConnectionReview(){
-  renderCadConnectionReview(cadReviewHost,layout,pendingCadReview,edge=>{layout.cadSchematic.edges.push(confirmCadConnection(layout.equipment,edge));resetEngine();updateCadConnectionReview();},id=>selectEquipment(layout.equipment.find(e=>e.id===id)));
+  renderCadConnectionReview(cadReviewHost,layout,pendingCadReview,edge=>{layout.cadSchematic.edges.push(confirmCadConnection(layout.equipment,edge));for(const id of [edge.from,edge.to]){const item=layout.equipment.find(e=>e.id===id);if(item?.source)item.source.flowConfirmed=true;}resetEngine();updateCadConnectionReview();},id=>selectEquipment(layout.equipment.find(e=>e.id===id)));
+}
+function applyAutomaticCadPlacement(){
+ const result=autoPlaceCad(layout,pendingCadCandidates);pendingCadCandidates=result.pending;layout.cadActiveImportId=layout.cadSource?.importId;layout.cadViewMode='hybrid';$('cadViewToggle').textContent='보기: 도면 + 설비';renderer.setLayout(layout);resetEngine();renderCadEquipmentParameters();return result;
 }
 function renderCadCandidates(){
+  layout.cadPendingCandidates=pendingCadCandidates;
   renderCadReviewCards($('cadCandidates'),pendingCadCandidates,renderCadCandidates);updateCadConnectionReview();
 }
 function detectedFlowNames(){return [...new Set([...(layout.cadSchematic?.lanes||[]).map(line=>line.name),...(layout.cadSchematic?.inboundBranches||[]).map(line=>line.name),...[...new Set(Object.values(engine.state?.warehouses||{legacy:engine.state?.asrs}).flatMap(warehouse=>Object.keys(warehouse?.zones||{})))]].filter(Boolean))];}
@@ -496,10 +504,10 @@ $('cadCandidates').addEventListener('click',event=>{
   if(action==='approve'||action==='approve-all'){
     const importId=selected[0]?.source?.importId;
     if(importId&&layout.cadActiveImportId!==importId){layout.equipment=layout.equipment.filter(item=>item.source?.origin!=='dxf');layout.cadActiveImportId=importId;layout.displayMode='cad';}
-    for(const item of selected){if(item.rememberPattern){try{saveCadPatterns(rememberCadPattern(loadCadPatterns(),item,item.type));}catch(error){$('cadStatusText').textContent='패턴 저장 실패: '+error.message;}}delete item.rememberPattern;item.reviewStatus='approved';layout.equipment.push(item);}
+    for(const item of selected){if(item.rememberPattern){try{saveCadPatterns(rememberCadPattern(loadCadPatterns(),item,item.type));}catch(error){$('cadStatusText').textContent='패턴 저장 실패: '+error.message;}}delete item.rememberPattern;item.reviewStatus='approved';item.source.typeConfirmed=true;layout.equipment.push(item);}
   }
   if(action==='discard-all')pendingCadCandidates=[];else if(action==='approve-all')pendingCadCandidates=pendingCadCandidates.filter(item=>!selected.includes(item));else if(action==='discard'||selected.length)pendingCadCandidates=pendingCadCandidates.filter(item=>item.id!==id);
-  renderer.setLayout(layout);if(action==='approve'||action==='approve-all')resetEngine();else renderer.draw(engine.state);renderCadCandidates();renderCadEquipmentParameters();
+  if(action==='approve'||action==='approve-all')applyAutomaticCadPlacement();renderer.setLayout(layout);if(action==='approve'||action==='approve-all')resetEngine();else renderer.draw(engine.state);renderCadCandidates();renderCadEquipmentParameters();
   if(action==='approve'||action==='approve-all'){$('cadStatusTitle').textContent='설비 반영 완료';$('cadStatusText').textContent=`${selected.length}개 설비를 레이아웃에 배치했습니다. 편집 모드에서 위치와 파라미터를 보정할 수 있습니다.`;}
   else if(action==='discard-all'){$('cadStatusTitle').textContent='후보 제외 완료';$('cadStatusText').textContent='분석 후보를 모두 제외했습니다.';}
 });
@@ -538,7 +546,7 @@ $('recentProjectList').addEventListener('click',event=>{const card=event.target.
 $('restoreRecentProject').addEventListener('click',()=>reopenRecentProject(0));
 $('layoutFile').addEventListener('change',async event=>{
   const file=event.target.files[0]; if(!file)return;
-  try {const candidate=JSON.parse((await file.text()).replace(/^\uFEFF/,'')), check=validateLayout(candidate,{forExecution:false});if(!check.valid)throw new Error(check.errors.join(' '));const removedDemo=removeUnreferencedLegacyDemoEquipment(candidate);running=false;cancelAnimationFrame(frame);last=0;layout=candidate;measuredMotionRuns={baseline:null,engineering:null};motionApprovalStatus='';ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);const ready=resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();rememberRecentProject(candidate,file.name);layoutImportStatus.hidden=false;layoutImportStatus.textContent=ready?`${file.name} 불러오기 완료${removedDemo.length?` · 이전 데모 설비 ${removedDemo.length}대 정리`:''}`:`${file.name} 불러오기 완료 · 실행 전 수정 필요: ${$('validation').textContent}`;}
+  try {const candidate=JSON.parse((await file.text()).replace(/^\uFEFF/,'')), check=validateLayout(candidate,{forExecution:false});if(!check.valid)throw new Error(check.errors.join(' '));const removedDemo=removeUnreferencedLegacyDemoEquipment(candidate);running=false;cancelAnimationFrame(frame);last=0;layout=candidate;pendingCadCandidates=layout.cadPendingCandidates||[];pendingCadReview=layout.cadImportReview;measuredMotionRuns={baseline:null,engineering:null};motionApprovalStatus='';ensureCargoSpecMm(layout);writeParams(candidate.simulationParams);renderer.setLayout(layout);await renderer.setBackground(layout.background?.dataUrl||null);setProjectEmpty(false);const ready=resetEngine();renderCadEquipmentParameters();$('layoutName').textContent=layout.name;selectEquipment(null);editor.fitView();rememberRecentProject(candidate,file.name);layoutImportStatus.hidden=false;layoutImportStatus.textContent=ready?`${file.name} 불러오기 완료${removedDemo.length?` · 이전 데모 설비 ${removedDemo.length}대 정리`:''}`:`${file.name} 불러오기 완료 · 실행 전 수정 필요: ${$('validation').textContent}`;}
   catch(error){layoutImportStatus.hidden=false;layoutImportStatus.textContent='레이아웃 불러오기 실패: '+error.message;$('validation').textContent=layoutImportStatus.textContent;setRunState('error',error.message);} finally{event.target.value='';}
 });
 writeParams(defaultParams);renderRecentProjects();setProjectEmpty(true);syncFlowView();renderer.draw({t:0,cadTokens:[],source:[],product:[],locks:{},robot:{phase:'idle'}});renderEvents();

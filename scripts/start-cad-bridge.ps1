@@ -1,3 +1,14 @@
+﻿function Expand-CadArchive($archive, $destination) {
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $root=[IO.Path]::GetFullPath($destination)
+  $zip=[IO.Compression.ZipFile]::OpenRead($archive)
+  try { foreach($entry in $zip.Entries) {
+    $target=[IO.Path]::GetFullPath((Join-Path $root $entry.FullName))
+    if (!$target.StartsWith(($root+[IO.Path]::DirectorySeparatorChar),[StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid archive path' }
+    if (!$entry.Name) { [IO.Directory]::CreateDirectory($target) | Out-Null }
+    else { [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null; [IO.Compression.ZipFileExtensions]::ExtractToFile($entry,$target,$true) }
+  }} finally { $zip.Dispose() }
+}
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 if (![Environment]::Is64BitOperatingSystem) { throw 'This helper requires 64-bit Windows.' }
@@ -23,7 +34,7 @@ if ($nodeCommand) { $nodePath = $nodeCommand.Source } else {
     $expectedHash = '6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba'
     Invoke-WebRequest "https://nodejs.org/dist/$version/$archiveName" -OutFile $archivePath -UseBasicParsing
     if ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -ne $expectedHash) { throw 'Node.js checksum mismatch' }
-    Expand-Archive -LiteralPath $archivePath -DestinationPath $toolsRoot -Force
+    Expand-CadArchive $archivePath $toolsRoot
   }
 }
 Write-Host '[3/3] Free CAD ready. On the website click Auto connect. Keep this window open.'

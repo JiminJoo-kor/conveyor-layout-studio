@@ -17,14 +17,15 @@ export function disconnectCadBridge(){connectionCode='';}
 export function mountCadBridgeControl(container,{onDisconnect=()=>{}}={}){
   let pending=null;
   const button=document.createElement('button');button.type='button';button.textContent='PC DWG 연결';container.append(button);
-  const dialog=document.createElement('dialog');dialog.style.cssText='max-width:520px;width:90%;background:#102330;color:#d9f5ff;border:1px solid #24bbd5;border-radius:12px;padding:24px;';
-  const title=document.createElement('h3');title.textContent='무료 DWG · 내 PC 변환기 연결';
-  const info=document.createElement('p');info.textContent='처음 한 번만 도우미를 내려받아 압축을 풀고 Start-CAD-Bridge.cmd를 실행하세요. 필요한 무료 구성요소를 자동으로 준비합니다. 실행 후 아래 자동 연결을 누르면 선택한 도면으로 이어집니다. 브라우저가 로컬 네트워크 접근을 물으면 허용해 주세요.';
-  const download=document.createElement('a');download.href='/downloads/cad-bridge.zip';download.download='cad-bridge.zip';download.textContent='PC 연결 도우미 다운로드';download.style.color='#46dfff';
+  const dialog=document.createElement('dialog');dialog.style.cssText='max-width:520px;width:90%;background:#102330;color:#d9f5ff;border:1px solid #24bbd5;border-radius:12px;padding:20px;font:13px/1.6 sans-serif;';
+  const title=document.createElement('h3');title.textContent='DWG 자동 설치 · 연결';
+  const info=document.createElement('p');info.textContent='① 자동 설치 파일을 받으세요. ② 다운로드한 Install-CAD-Helper.cmd를 한 번 실행하세요. 압축 해제와 무료 변환기·실행 환경 설치는 자동으로 진행됩니다. 이 창을 열어두면 연결 후 선택한 도면 분석을 이어갑니다. 최초 실행과 브라우저의 로컬 네트워크 허용은 사용자가 진행해야 합니다.';
+  const download=document.createElement('a');download.href='/downloads/Install-CAD-Helper.cmd';download.download='Install-CAD-Helper.cmd';download.textContent='무료 도우미 자동 설치 파일 받기';download.style.cssText='display:block;padding:12px 16px;border-radius:6px;background:#03bddb;color:#03202c;text-align:center;font:600 14px sans-serif;text-decoration:none';
+  download.addEventListener('click',()=>{status.textContent='다운로드한 파일을 실행해 주세요. 설치와 연결을 기다리고 있습니다…';startPolling();});
   const input=document.createElement('input');input.type='password';input.autocomplete='off';input.placeholder='PC 도우미 연결 코드';input.setAttribute('aria-label','PC 도우미 연결 코드');input.style.cssText='display:block;width:100%;box-sizing:border-box;margin:16px 0;';
   const status=document.createElement('p');status.setAttribute('role','status');status.textContent='도면은 이 PC에서 처리합니다. 긴 연결 코드를 입력할 필요가 없습니다.';
-  const automatic=document.createElement('button');automatic.textContent='자동 연결';
-  automatic.onclick=async()=>{automatic.disabled=true;status.textContent='이 PC의 도우미를 확인하고 있습니다…';try{const data=await autoConnectCadBridge();status.textContent=data.message;button.textContent='PC DWG 연결됨';if(pending){const done=pending;pending=null;done.resolve();dialog.close();}}catch(error){status.textContent='도우미를 실행한 뒤 다시 눌러주세요. '+(error.name==='TypeError'?'브라우저의 로컬 네트워크 접근 허용도 확인하세요.':error.message);}finally{automatic.disabled=false;}};
+  const automatic=document.createElement('button');automatic.textContent='설치 완료 · 연결 다시 확인';
+  automatic.onclick=async()=>{automatic.disabled=true;status.textContent='이 PC의 도우미를 확인하고 있습니다…';try{const data=await autoConnectCadBridge();status.textContent=data.message;button.textContent='PC DWG 연결됨';if(pending){const done=pending;pending=null;done.resolve();dialog.close();}}catch(error){status.textContent='설치 파일 실행 후 자동으로 연결됩니다. '+(error.name==='TypeError'?'브라우저의 로컬 네트워크 접근 허용도 확인하세요.':error.message);}finally{automatic.disabled=false;}};
   const connect=document.createElement('button');connect.textContent='연결 확인';connect.onclick=async()=>{connect.disabled=true;status.textContent='PC 변환기 확인 중…';try{const data=await connectCadBridge(input.value);status.textContent=data.message;button.textContent='PC DWG 연결됨';input.value='';if(pending){const done=pending;pending=null;done.resolve();dialog.close();}}catch(error){status.textContent=error.message;}finally{connect.disabled=false;}};
   input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();connect.click();}});
   const disconnect=document.createElement('button');disconnect.textContent='연결 해제';disconnect.onclick=()=>{disconnectCadBridge();onDisconnect();button.textContent='PC DWG 연결';status.textContent='연결을 해제했습니다.';input.value='';};

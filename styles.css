@@ -117,3 +117,6 @@ button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visi
 /* Icon bounds must also apply below the desktop control-room breakpoint. */
 .brand-mark{width:25px;height:25px;flex:none;vertical-align:middle;margin-right:8px}.rail-equipment-icon{width:28px;height:28px;flex:0 0 28px}.kpi-icon{width:25px;height:25px;flex:none}.project-tree-icon,.project-tree-child-icon{width:18px;height:18px;flex:0 0 18px}
 
+
+.drawing-viewer{width:96vw;max-width:1800px;max-height:95vh;padding:16px;border:1px solid #2a6c86;border-radius:10px;background:#081923;color:#cbe9f5}.drawing-viewer::backdrop{background:#000a}.drawing-viewer header,.drawing-viewer nav{display:flex;align-items:center;gap:8px}.drawing-viewer header{justify-content:space-between;font-size:16px}.drawing-viewer p{font:12px/1.5 sans-serif;overflow-wrap:anywhere}.drawing-viewer canvas{display:block;width:100%;height:auto;background:#061019;cursor:grab;margin-top:8px}.drawing-viewer canvas:active{cursor:grabbing}.drawing-viewer output{font-size:12px}
+

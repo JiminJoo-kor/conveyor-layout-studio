@@ -212,6 +212,7 @@ export class LayoutRenderer {
     for (let x = 0; x < width; x += grid) { c.beginPath(); c.moveTo(x,0); c.lineTo(x,height); c.stroke(); }
     for (let y = 0; y < height; y += grid) { c.beginPath(); c.moveTo(0,y); c.lineTo(width,y); c.stroke(); }
     if(['raw','hybrid'].includes(this.layout.cadViewMode))this.drawDxfGeometry();
+    if(this.layout.displayMode==='cad'&&this.layout.cadViewMode==='raw'){c.restore();this.onDraw?.(state);return;}
     if(this.layout.displayMode==='cad'&&this.layout.cadViewMode!=='raw'){this.drawCadSchematic(state);this.drawSelectedEdgeEndpoints();}
     const lines = this.layout.equipment.filter(item=>isNodeConveyor(item)&&this.isVisible(item));
     lines.forEach(line => this.drawLine(line, line.trayKinds.includes('C') ? state.product : state.source));
